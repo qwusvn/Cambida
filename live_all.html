@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Xem trực tiếp · {{ site.name }}</title>
+  <style>
+    :root { --bg: {{ site.theme.background }}; --surface: {{ site.theme.surface }}; --primary: {{ site.theme.primary }}; --accent: {{ site.theme.accent }}; --text: {{ site.theme.text }}; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; color:var(--text); font-family:Arial,sans-serif; background:var(--bg); }
+    header { position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; padding:14px 20px; background:color-mix(in srgb,var(--bg) 92%,black); border-bottom:1px solid color-mix(in srgb,var(--text) 20%,transparent); }
+    h1 { margin:0; font-size:1.12rem; color:var(--accent); } .actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    a, button, select { font:inherit; } .back { color:var(--text); text-decoration:none; opacity:.88; }
+    button, select { border:1px solid color-mix(in srgb,var(--accent) 60%,transparent); border-radius:8px; padding:7px 10px; color:var(--text); background:var(--surface); cursor:pointer; }
+    button:hover { filter:brightness(1.15); } .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; padding:14px; }
+    .camera { min-width:0; overflow:hidden; border:1px solid color-mix(in srgb,var(--accent) 42%,transparent); border-radius:12px; background:#101010; box-shadow:0 8px 22px rgba(0,0,0,.24); }
+    .camera.fullscreen { width:100%; height:100%; border:0; border-radius:0; display:flex; flex-direction:column; background:#000; }
+    .camera.fullscreen .frame { flex:1; min-height:0; } .camera.fullscreen img { max-height:none; height:100%; object-fit:contain; }
+    .bar { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; background:var(--surface); }
+    .bar strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .bar-controls { display:flex; gap:6px; align-items:center; } .bar button, .bar select { padding:5px 7px; font-size:.82rem; }
+    .frame { position:relative; aspect-ratio:16/9; background:#050505; } .frame img { display:block; width:100%; height:100%; object-fit:contain; }
+    .off { display:flex; align-items:center; justify-content:center; height:100%; color:#bbb; background:#171717; } .hidden { display:none !important; }
+    @media (max-width:600px) { header { padding:11px 12px; } .grid { grid-template-columns:1fr; padding:10px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>📺 Xem trực tiếp · {{ site.name }}</h1></div>
+    <div class="actions"><button id="openAll" type="button">Mở tất cả</button><button id="closeAll" type="button">Đóng tất cả</button><a class="back" href="/">← Danh sách camera</a></div>
+  </header>
+  <main class="grid" id="cameraGrid">
+    {% for camera in cameras %}
+    <section class="camera" data-camera-id="{{ camera.id }}">
+      <div class="bar"><strong>{{ camera.name }}</strong><div class="bar-controls"><select class="stream" aria-label="Chọn luồng {{ camera.name }}"><option value="sub" selected>Luồng phụ</option><option value="main">Luồng chính</option></select><button class="toggle" type="button">Đóng</button><button class="fullscreen" type="button" title="Toàn màn hình">⛶</button></div></div>
+      <div class="frame"><img alt="{{ camera.name }}" class="feed"><div class="off hidden">Camera đang tắt</div></div>
+    </section>
+    {% endfor %}
+  </main>
+  <script>
+    const feedUrl = (card) => `/cam${card.dataset.cameraId}?stream=${card.querySelector('.stream').value}&_=${Date.now()}`;
+    function openCamera(card) { const image=card.querySelector('.feed'), off=card.querySelector('.off'), toggle=card.querySelector('.toggle'); image.src=feedUrl(card); image.classList.remove('hidden'); off.classList.add('hidden'); toggle.textContent='Đóng'; card.dataset.open='yes'; }
+    function closeCamera(card) { const image=card.querySelector('.feed'), off=card.querySelector('.off'), toggle=card.querySelector('.toggle'); image.removeAttribute('src'); image.classList.add('hidden'); off.classList.remove('hidden'); toggle.textContent='Mở'; card.dataset.open='no'; }
+    document.querySelectorAll('.camera').forEach(card => {
+      card.querySelector('.toggle').addEventListener('click', () => card.dataset.open === 'yes' ? closeCamera(card) : openCamera(card));
+      card.querySelector('.stream').addEventListener('change', () => { if (card.dataset.open === 'yes') openCamera(card); });
+      card.querySelector('.fullscreen').addEventListener('click', () => {
+        if (document.fullscreenElement) { document.exitFullscreen(); return; }
+        // Luồng chính cho độ phân giải đầy đủ khi xem toàn màn hình.
+        card.querySelector('.stream').value = 'main';
+        openCamera(card);
+        card.requestFullscreen?.();
+      });
+      card.addEventListener('fullscreenchange', () => card.classList.toggle('fullscreen', document.fullscreenElement === card));
+      openCamera(card);
+    });
+    document.getElementById('openAll').addEventListener('click', () => document.querySelectorAll('.camera').forEach(openCamera));
+    document.getElementById('closeAll').addEventListener('click', () => document.querySelectorAll('.camera').forEach(closeCamera));
+  </script>
+</body>
+</html>

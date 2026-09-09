@@ -1,0 +1,28 @@
+# Runtime / generated data
+__pycache__/
+*.py[cod]
+*.log
+*.db
+logs/
+cctv_videos/
+test_data/
+backup/
+release/
+
+# Local secrets / machine-specific config
+config.json
+device_id.key
+nvr/nvr_config.json
+nvr/playback_cache/
+nvr/playback_hls/
+
+# Large binaries / release artifacts
+*.exe
+*.zip
+ffmpeg.exe
+
+# Retired Drive control-plane artifacts
+.project-sync.legacy-*/
+SYNC_STATE*.json
+.tmp.drivedownload/
+.tmp.driveupload/

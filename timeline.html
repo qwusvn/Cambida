@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Timeline đa camera · {{ site.name }}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #0b1120;
+      --surface: #111827;
+      --surface-raised: #172033;
+      --surface-soft: #1e293b;
+      --line: #334155;
+      --text: #e5edf8;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --complete: #16a34a;
+      --locked: #d97706;
+      --error: #dc2626;
+      --label-width: 180px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      min-width: 320px;
+      background: radial-gradient(circle at top right, #16243d 0, var(--page) 44rem);
+      color: var(--text);
+    }
+    .page-shell { max-width: 1800px; }
+    .topbar, .panel {
+      background: rgba(17, 24, 39, .92);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, .18);
+    }
+    .topbar { padding: 1rem 1.25rem; }
+    .panel { overflow: hidden; }
+    .muted, .form-text { color: var(--muted) !important; }
+    .form-control, .form-select {
+      background-color: #0f172a;
+      border-color: #475569;
+      color: var(--text);
+    }
+    .form-control:focus, .form-select:focus {
+      background-color: #0f172a;
+      border-color: var(--accent);
+      color: var(--text);
+      box-shadow: 0 0 0 .2rem rgba(56, 189, 248, .18);
+    }
+    .form-control::-webkit-calendar-picker-indicator { filter: invert(1); }
+    .toolbar { padding: 1rem; }
+    .preset-buttons .btn { min-width: 3.5rem; }
+    .status-box { margin: 0 1rem 1rem; }
+
+    .timeline-scroll {
+      max-height: min(66vh, 760px);
+      overflow: auto;
+      overscroll-behavior: contain;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: #0f172a;
+    }
+    .timeline-content {
+      --track-width: 720px;
+      position: relative;
+      min-width: calc(var(--label-width) + var(--track-width));
+      width: calc(var(--label-width) + var(--track-width));
+    }
+    .ruler-row, .lane-row {
+      display: grid;
+      grid-template-columns: var(--label-width) var(--track-width);
+      width: 100%;
+    }
+    .sticky-label {
+      position: sticky;
+      left: 0;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: .2rem;
+      min-width: 0;
+      padding: .7rem .85rem;
+      background: #172033;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      overflow: hidden;
+    }
+    .sticky-label strong, .sticky-label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ruler-track, .lane-track {
+      position: relative;
+      width: var(--track-width);
+    }
+    .ruler-track {
+      height: 58px;
+      background-color: #18243a;
+      background-image: linear-gradient(to bottom, transparent 50%, rgba(148, 163, 184, .12) 50%);
+      background-size: 100% 29px;
+      border-bottom: 1px solid var(--line);
+    }
+    .ruler-tick {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgba(148, 163, 184, .28);
+      pointer-events: none;
+    }
+    .ruler-tick::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      height: 10px;
+      border-left: 1px solid rgba(148, 163, 184, .45);
+    }
+    .ruler-tick.major { background: rgba(226, 232, 240, .55); }
+    .ruler-tick.major::after { height: 16px; border-color: rgba(226, 232, 240, .75); }
+    .ruler-tick span {
+      position: absolute;
+      top: 7px;
+      left: 5px;
+      color: #cbd5e1;
+      font-size: .73rem;
+      white-space: nowrap;
+    }
+    .lane-row { min-height: 82px; }
+    .lane-track {
+      min-height: 82px;
+      background-color: #101a2b;
+      background-image: repeating-linear-gradient(to right, rgba(148, 163, 184, .10) 0, rgba(148, 163, 184, .10) 1px, transparent 1px, transparent 30px);
+      border-bottom: 1px solid var(--line);
+      cursor: crosshair;
+    }
+    .lane-row:last-child .lane-track, .lane-row:last-child .sticky-label { border-bottom: 0; }
+    .lane-empty {
+      position: absolute;
+      top: 50%;
+      left: .8rem;
+      transform: translateY(-50%);
+      color: #64748b;
+      font-size: .8rem;
+      pointer-events: none;
+    }
+    .gap-block {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      z-index: 1;
+      min-width: 1px;
+      border-left: 1px dashed rgba(148, 163, 184, .24);
+      border-right: 1px dashed rgba(148, 163, 184, .24);
+      background: repeating-linear-gradient(135deg, rgba(100, 116, 139, .08) 0, rgba(100, 116, 139, .08) 5px, transparent 5px, transparent 10px);
+      pointer-events: none;
+    }
+    .clip {
+      position: absolute;
+      top: 13px;
+      z-index: 2;
+      display: block;
+      min-width: 6px;
+      height: 55px;
+      padding: .45rem .55rem;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .16);
+      border-left: 4px solid var(--complete);
+      border-radius: 8px;
+      background: #166534;
+      color: #f0fdf4;
+      text-align: left;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      transition: filter .15s ease, transform .15s ease;
+    }
+    .clip:hover, .clip:focus-visible { z-index: 3; filter: brightness(1.18); transform: translateY(-1px); outline: 0; }
+    .clip.complete { background: linear-gradient(135deg, #15803d, #166534); }
+    .clip.incomplete { border-left-color: #facc15; background: linear-gradient(135deg, #a16207, #854d0e); border-style: dashed; }
+    .clip.recording, .clip.pending { border-left-color: #38bdf8; background: linear-gradient(135deg, #075985, #164e63); }
+    .clip.locked { border-left-color: var(--locked); background: linear-gradient(135deg, #92400e, #78350f); }
+    .clip.error, .clip.failed, .clip.missing, .clip.bad { border-left-color: var(--error); background: linear-gradient(135deg, #991b1b, #7f1d1d); }
+    .clip-time { display: block; font-weight: 700; font-size: .76rem; }
+    .clip-meta { display: block; margin-top: .2rem; color: rgba(240, 253, 244, .78); font-size: .7rem; }
+    .playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      z-index: 8;
+      width: 2px;
+      background: #f43f5e;
+      box-shadow: 0 0 0 1px rgba(244, 63, 94, .18), 0 0 14px rgba(244, 63, 94, .75);
+      pointer-events: none;
+    }
+    .playhead-label {
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      padding: .15rem .35rem;
+      border-radius: 4px;
+      background: #be123c;
+      color: #fff;
+      font-size: .68rem;
+      white-space: nowrap;
+    }
+    .event-marker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      z-index: 4;
+      width: 13px;
+      margin-left: -6px;
+      padding: 0;
+      border: 0;
+      border-left: 2px dashed #c084fc;
+      background: transparent;
+      cursor: pointer;
+    }
+    .event-marker::before {
+      content: "";
+      position: absolute;
+      top: 4px;
+      left: 50%;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #c084fc;
+      transform: translateX(-50%);
+      box-shadow: 0 0 10px rgba(192, 132, 252, .75);
+    }
+    .events-panel { padding: 1rem; }
+    .event-card {
+      min-width: 190px;
+      padding: .65rem .8rem;
+      border: 1px solid #6d28d9;
+      border-radius: 10px;
+      background: rgba(76, 29, 149, .3);
+      color: var(--text);
+      cursor: pointer;
+      text-align: left;
+    }
+    .event-card:hover, .event-card:focus-visible { border-color: #c084fc; outline: 0; }
+    .empty-state { padding: 1.4rem; color: var(--muted); text-align: center; }
+    .legend { color: var(--muted); font-size: .78rem; }
+    .legend-dot { display: inline-block; width: .7rem; height: .7rem; margin-right: .25rem; border-radius: 50%; vertical-align: -1px; }
+    .legend-dot.complete { background: var(--complete); }
+    .legend-dot.incomplete { background: #facc15; }
+    .legend-dot.locked { background: var(--locked); }
+    .legend-dot.error { background: var(--error); }
+    .modal-content { border: 1px solid var(--line); background: #111827; color: var(--text); }
+    .modal-header, .modal-footer { border-color: var(--line); }
+    .player-video { width: 100%; max-height: 62vh; background: #020617; border-radius: 10px; }
+    .meta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; margin-top: 1rem; }
+    .meta-item { padding: .65rem .75rem; border: 1px solid var(--line); border-radius: 8px; background: #0f172a; }
+    .meta-item small { display: block; color: var(--muted); }
+    .meta-item strong { display: block; margin-top: .2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    @media (max-width: 720px) {
+      :root { --label-width: 125px; }
+      .topbar { padding: .85rem; }
+      .timeline-scroll { max-height: 60vh; }
+      .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .clip { padding-left: .35rem; padding-right: .35rem; }
+    }
+    @media (max-width: 480px) {
+      .meta-grid { grid-template-columns: 1fr; }
+      .ruler-tick span { font-size: .67rem; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container-fluid page-shell py-3 py-lg-4">
+    <header class="topbar d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+      <div>
+        <h1 class="h3 mb-1">Timeline đa camera</h1>
+        <p class="mb-0 muted">Một trục thời gian chung cho toàn bộ camera</p>
+      </div>
+      <nav class="d-flex gap-2">
+        <a href="/" class="btn btn-outline-light btn-sm">Trang chủ</a>
+        <a href="/admin" class="btn btn-warning btn-sm">Admin</a>
+      </nav>
+    </header>
+
+    <section class="panel mb-3">
+      <div class="toolbar">
+        <div class="row g-2 align-items-end">
+          <div class="col-12 col-md-3">
+            <label for="start" class="form-label small mb-1">Từ</label>
+            <input id="start" type="datetime-local" class="form-control form-control-sm">
+          </div>
+          <div class="col-12 col-md-3">
+            <label for="end" class="form-label small mb-1">Đến</label>
+            <input id="end" type="datetime-local" class="form-control form-control-sm">
+          </div>
+          <div class="col-12 col-md-3">
+            <span class="form-label small d-block mb-1">Khoảng nhanh</span>
+            <div class="preset-buttons btn-group btn-group-sm" role="group" aria-label="Khoảng thời gian">
+              <button type="button" class="btn btn-outline-info" data-hours="1">1 giờ</button>
+              <button type="button" class="btn btn-outline-info" data-hours="3">3 giờ</button>
+              <button type="button" class="btn btn-outline-info" data-hours="6">6 giờ</button>
+              <button type="button" class="btn btn-outline-info" data-hours="24">24 giờ</button>
+            </div>
+          </div>
+          <div class="col-12 col-md-3 d-flex gap-2">
+            <button id="previous" type="button" class="btn btn-outline-light btn-sm flex-fill">Trước</button>
+            <button id="now" type="button" class="btn btn-outline-light btn-sm flex-fill">Hiện tại</button>
+            <button id="reload" type="button" class="btn btn-primary btn-sm flex-fill">Tải lại</button>
+          </div>
+        </div>
+        <div class="row g-2 align-items-center mt-2">
+          <div class="col-12 col-md-auto">
+            <label for="zoom" class="form-label small mb-0 me-2">Zoom</label>
+            <select id="zoom" class="form-select form-select-sm d-inline-block w-auto" aria-label="Mức zoom">
+              <option value="0.5">0,5 px/phút</option>
+              <option value="1">1 px/phút</option>
+              <option value="2">2 px/phút</option>
+              <option value="4" selected>4 px/phút</option>
+              <option value="8">8 px/phút</option>
+              <option value="16">16 px/phút</option>
+            </select>
+          </div>
+          <div class="col-12 col-md text-md-end legend">
+            <span class="legend-dot complete"></span>Hoàn tất
+            <span class="legend-dot incomplete ms-2"></span>Thiếu đoạn
+            <span class="legend-dot locked ms-2"></span>Đã khóa
+            <span class="legend-dot error ms-2"></span>Lỗi
+          </div>
+        </div>
+      </div>
+      <div id="timelineStatus" class="status-box alert alert-secondary py-2 mb-0" role="status" aria-live="polite">Đang chuẩn bị timeline…</div>
+    </section>
+
+    <section class="panel mb-3">
+      <div id="timelineScroll" class="timeline-scroll" aria-label="Canvas timeline dùng chung">
+        <div id="timelineContent" class="timeline-content">
+          <div id="rulerRow" class="ruler-row"></div>
+          <div id="lanes"></div>
+          <div id="playhead" class="playhead" aria-hidden="true"><span id="playheadLabel" class="playhead-label"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel events-panel">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <h2 class="h5 mb-0">Sự kiện</h2>
+        <span class="muted small">Marker sự kiện sẽ nằm đúng vị trí trên ruler khi API có dữ liệu</span>
+      </div>
+      <div id="events" class="d-flex flex-wrap gap-2"></div>
+    </section>
+  </main>
+
+  <div class="modal fade" id="playerModal" tabindex="-1" aria-labelledby="playerModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="playerModalTitle" class="modal-title fs-5">Phát lại video</h2>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+        </div>
+        <div class="modal-body">
+          <video id="playerVideo" class="player-video" controls preload="metadata"></video>
+          <div id="playerError" class="alert alert-danger d-none mt-3 mb-0">Không thể phát tệp video này.</div>
+          <div class="meta-grid">
+            <div class="meta-item"><small>Camera</small><strong id="playerCamera">—</strong></div>
+            <div class="meta-item"><small>Thời gian</small><strong id="playerTime">—</strong></div>
+            <div class="meta-item"><small>Thời lượng</small><strong id="playerDuration">—</strong></div>
+            <div class="meta-item"><small>Trạng thái</small><strong id="playerStatus">—</strong></div>
+            <div class="meta-item"><small>Đã khóa</small><strong id="playerLocked">—</strong></div>
+            <div class="meta-item"><small>Ghi chú</small><strong id="playerNote">—</strong></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const cameras = {{ cameras|tojson }};
+    const state = {
+      start: null,
+      end: null,
+      playhead: null,
+      segments: [],
+      events: [],
+      pixelsPerMinute: 4,
+      requestId: 0,
+      windowHours: 1,
+    };
+
+    const $ = id => document.getElementById(id);
+    const startInput = $('start');
+    const endInput = $('end');
+    const timelineContent = $('timelineContent');
+    const timelineScroll = $('timelineScroll');
+    const playhead = $('playhead');
+    const playheadLabel = $('playheadLabel');
+    const statusBox = $('timelineStatus');
+    const pad = value => String(value).padStart(2, '0');
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[char]));
+
+    function toInputValue(date) {
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    function fromInputValue(value) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function parseApiDate(value) {
+      if (!value) return null;
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function formatDateTime(date) {
+      if (!date || Number.isNaN(date.getTime())) return '—';
+      return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'medium' }).format(date);
+    }
+
+    function formatClock(date) {
+      if (!date || Number.isNaN(date.getTime())) return '—';
+      return new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' }).format(date);
+    }
+
+    function formatDuration(seconds) {
+      const total = Math.max(0, Math.round(Number(seconds) || 0));
+      const hours = Math.floor(total / 3600);
+      const minutes = Math.floor((total % 3600) / 60);
+      const secs = total % 60;
+      if (hours) return `${hours} giờ ${pad(minutes)} phút`;
+      if (minutes) return `${minutes} phút ${pad(secs)} giây`;
+      return `${secs} giây`;
+    }
+
+    function setStatus(kind, message) {
+      statusBox.className = `status-box alert py-2 mb-0 alert-${kind}`;
+      statusBox.textContent = message;
+    }
+
+    function setPreset(hours, load = true) {
+      const end = new Date();
+      const start = new Date(end.getTime() - hours * 60 * 60 * 1000);
+      state.windowHours = hours;
+      startInput.value = toInputValue(start);
+      endInput.value = toInputValue(end);
+      if (load) loadTimeline();
+    }
+
+    function getWindow() {
+      const start = fromInputValue(startInput.value);
+      const end = fromInputValue(endInput.value);
+      if (!start || !end) throw new Error('Hãy nhập đầy đủ thời điểm bắt đầu và kết thúc.');
+      if (end <= start) throw new Error('Thời điểm kết thúc phải lớn hơn bắt đầu.');
+      if (end - start > 24 * 60 * 60 * 1000) throw new Error('Khoảng thời gian tối đa là 24 giờ.');
+      return { start, end };
+    }
+
+    function shiftWindow(direction) {
+      try {
+        const current = getWindow();
+        const duration = current.end.getTime() - current.start.getTime();
+        startInput.value = toInputValue(new Date(current.start.getTime() + direction * duration));
+        endInput.value = toInputValue(new Date(current.end.getTime() + direction * duration));
+        loadTimeline();
+      } catch (error) {
+        setStatus('danger', error.message);
+      }
+    }
+
+    function eventDate(event) {
+      return parseApiDate(event?.event_time || event?.started_at || event?.timestamp || event?.time);
+    }
+
+    function eventLabel(event) {
+      return event?.label || event?.name || event?.type || event?.event_type || 'Sự kiện';
+    }
+
+    const statusLabels = {
+      complete: 'Hoàn tất',
+      incomplete: 'Thiếu đoạn',
+      recording: 'Đang ghi',
+      pending: 'Đang chờ',
+      missing: 'Thiếu tệp',
+      failed: 'Thất bại',
+      error: 'Lỗi',
+      locked: 'Đã khóa',
+    };
+
+    function statusLabel(status) {
+      const value = String(status || '').toLowerCase();
+      return statusLabels[value] || (value || '—');
+    }
+
+    function renderRuler(totalMinutes) {
+      const step = totalMinutes <= 180 ? 15 : totalMinutes <= 720 ? 30 : 60;
+      const ticks = [];
+      for (let offset = 0; offset <= totalMinutes + .001; offset += step) {
+        const tickDate = new Date(state.start.getTime() + offset * 60 * 1000);
+        const major = tickDate.getMinutes() === 0 || offset === 0;
+        ticks.push(`<div class="ruler-tick ${major ? 'major' : ''}" style="left:${offset * state.pixelsPerMinute}px"><span>${formatClock(tickDate)}</span></div>`);
+      }
+      const markers = state.events.map((event, index) => {
+        const date = eventDate(event);
+        if (!date) return '';
+        const offset = (date - state.start) / 60000;
+        if (offset < 0 || offset > totalMinutes) return '';
+        return `<button type="button" class="event-marker" data-event-index="${index}" style="left:${offset * state.pixelsPerMinute}px" title="${escapeHtml(eventLabel(event))} · ${escapeHtml(formatDateTime(date))}"><span class="visually-hidden">${escapeHtml(eventLabel(event))}</span></button>`;
+      }).join('');
+      $('rulerRow').innerHTML = `<div class="sticky-label"><strong>Thời gian</strong><span class="small muted">${escapeHtml(formatDateTime(state.start))} → ${escapeHtml(formatDateTime(state.end))}</span></div><div id="rulerTrack" class="ruler-track">${ticks.join('')}${markers}</div>`;
+    }
+
+    function segmentClass(segment) {
+      const allowed = ['complete', 'incomplete', 'error', 'recording', 'pending', 'missing', 'failed'];
+      const status = String(segment.status || 'complete').toLowerCase();
+      const classes = [allowed.includes(status) ? status : 'error'];
+      if (segment.locked || status === 'locked') classes.push('locked');
+      return classes.join(' ');
+    }
+
+    function renderLanes(totalMinutes) {
+      if (!cameras.length) {
+        $('lanes').innerHTML = '<div class="empty-state">Chưa cấu hình camera để hiển thị timeline.</div>';
+        return;
+      }
+      $('lanes').innerHTML = cameras.map(camera => {
+        const segments = state.segments
+          .filter(segment => Number(segment.cam_id) === Number(camera.id))
+          .sort((a, b) => (parseApiDate(a.started_at)?.getTime() || 0) - (parseApiDate(b.started_at)?.getTime() || 0));
+        const visible = [];
+        const clips = segments.map(segment => {
+          const segmentStart = parseApiDate(segment.started_at);
+          const segmentEnd = parseApiDate(segment.end_at);
+          if (!segmentStart || !segmentEnd) return '';
+          const visibleStart = Math.max(0, (segmentStart - state.start) / 60000);
+          const visibleEnd = Math.min(totalMinutes, (segmentEnd - state.start) / 60000);
+          if (visibleEnd <= visibleStart) return '';
+          visible.push({ start: visibleStart, end: visibleEnd });
+          const left = visibleStart * state.pixelsPerMinute;
+          const width = Math.max(6, (visibleEnd - visibleStart) * state.pixelsPerMinute);
+          return `<button type="button" class="clip ${segmentClass(segment)}" data-segment-index="${state.segments.indexOf(segment)}" style="left:${left}px;width:${width}px" title="${escapeHtml(segment.filename || '')}"><span class="clip-time">${escapeHtml(formatClock(segmentStart))} · ${escapeHtml(formatDuration(segment.duration_sec))}</span><span class="clip-meta">${escapeHtml(statusLabel(segment.status))}${segment.note ? ` · ${escapeHtml(segment.note)}` : ''}</span></button>`;
+        }).join('');
+        const gaps = [];
+        let cursor = 0;
+        visible.sort((a, b) => a.start - b.start).forEach(interval => {
+          if (interval.start > cursor) {
+            gaps.push(`<span class="gap-block" style="left:${cursor * state.pixelsPerMinute}px;width:${(interval.start - cursor) * state.pixelsPerMinute}px" title="Khoảng không ghi nhận"></span>`);
+          }
+          cursor = Math.max(cursor, interval.end);
+        });
+        if (cursor < totalMinutes) {
+          gaps.push(`<span class="gap-block" style="left:${cursor * state.pixelsPerMinute}px;width:${(totalMinutes - cursor) * state.pixelsPerMinute}px" title="Khoảng không ghi nhận"></span>`);
+        }
+        const gapMarkup = gaps.join('');
+        return `<div class="lane-row"><div class="sticky-label"><strong>${escapeHtml(camera.name || `Camera ${camera.id}`)}</strong><span class="small muted">Camera ${escapeHtml(camera.id)}</span></div><div class="lane-track" data-camera-id="${escapeHtml(camera.id)}">${gapMarkup}${clips || '<span class="lane-empty">Khoảng trống · chưa có video</span>'}</div></div>`;
+      }).join('');
+    }
+
+    function renderEvents() {
+      if (!state.events.length) {
+        $('events').innerHTML = '<div class="empty-state w-100">Chưa có sự kiện trong khoảng thời gian này.</div>';
+        return;
+      }
+      $('events').innerHTML = state.events.map((event, index) => {
+        const date = eventDate(event);
+        const camera = cameras.find(item => Number(item.id) === Number(event.cam_id));
+        const context = camera ? ` · ${camera.name}` : '';
+        return `<button type="button" class="event-card" data-event-index="${index}"><strong>${escapeHtml(eventLabel(event))}</strong><span class="d-block small muted mt-1">${escapeHtml(formatDateTime(date))}${escapeHtml(context)}</span>${event.note ? `<span class="d-block small mt-1">${escapeHtml(event.note)}</span>` : ''}</button>`;
+      }).join('');
+    }
+
+    function renderTimeline() {
+      if (!state.start || !state.end) return;
+      const totalMinutes = Math.max(1, (state.end - state.start) / 60000);
+      const trackWidth = Math.max(720, Math.ceil(totalMinutes * state.pixelsPerMinute));
+      timelineContent.style.setProperty('--track-width', `${trackWidth}px`);
+      timelineContent.style.width = `calc(var(--label-width) + ${trackWidth}px)`;
+      renderRuler(totalMinutes);
+      renderLanes(totalMinutes);
+      renderEvents();
+      setPlayhead(state.playhead || state.start);
+    }
+
+    function setPlayhead(date) {
+      if (!state.start || !state.end) return;
+      const clamped = new Date(Math.min(state.end.getTime(), Math.max(state.start.getTime(), date.getTime())));
+      state.playhead = clamped;
+      const offset = ((clamped - state.start) / 60000) * state.pixelsPerMinute;
+      playhead.style.left = `calc(var(--label-width) + ${offset}px)`;
+      playheadLabel.textContent = formatDateTime(clamped);
+    }
+
+    function dateFromTrackClick(track, event) {
+      const rect = track.getBoundingClientRect();
+      const x = Math.max(0, Math.min(track.clientWidth, event.clientX - rect.left));
+      return new Date(state.start.getTime() + (x / state.pixelsPerMinute) * 60 * 1000);
+    }
+
+    function openSegment(segment) {
+      if (!segment) return;
+      const start = parseApiDate(segment.started_at);
+      setPlayhead(start || state.start);
+      $('playerCamera').textContent = cameras.find(camera => Number(camera.id) === Number(segment.cam_id))?.name || `Camera ${segment.cam_id}`;
+      $('playerTime').textContent = `${formatDateTime(start)} → ${formatDateTime(parseApiDate(segment.end_at))}`;
+      $('playerDuration').textContent = formatDuration(segment.duration_sec);
+      $('playerStatus').textContent = statusLabel(segment.status);
+      $('playerLocked').textContent = segment.locked || segment.status === 'locked' ? 'Có' : 'Không';
+      $('playerNote').textContent = segment.note || '—';
+      $('playerError').classList.add('d-none');
+      $('playerVideo').src = `/video/${encodeURIComponent(segment.filename || '')}`;
+      $('playerVideo').load();
+      bootstrap.Modal.getOrCreateInstance($('playerModal')).show();
+    }
+
+    async function loadTimeline() {
+      const requestId = ++state.requestId;
+      let window;
+      try {
+        window = getWindow();
+      } catch (error) {
+        setStatus('danger', error.message);
+        return;
+      }
+      setStatus('info', 'Đang tải timeline…');
+      $('lanes').innerHTML = '<div class="empty-state">Đang đọc các clip trong khoảng thời gian đã chọn…</div>';
+      try {
+        const response = await fetch(`/api/timeline?start=${encodeURIComponent(startInput.value)}&end=${encodeURIComponent(endInput.value)}`, { headers: { Accept: 'application/json' } });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Không thể tải timeline.');
+        if (requestId !== state.requestId) return;
+        state.start = parseApiDate(data.start) || window.start;
+        state.end = parseApiDate(data.end) || window.end;
+        state.segments = Array.isArray(data.segments) ? data.segments : [];
+        state.events = Array.isArray(data.events) ? data.events : [];
+        state.playhead = state.start;
+        renderTimeline();
+        setStatus('success', state.segments.length ? `Đã tải ${state.segments.length} clip.` : 'Đã tải xong. Khoảng thời gian này chưa có clip.');
+      } catch (error) {
+        if (requestId !== state.requestId) return;
+        state.start = window.start;
+        state.end = window.end;
+        state.segments = [];
+        state.events = [];
+        renderTimeline();
+        setStatus('danger', error.message || 'Không thể tải timeline.');
+        $('lanes').innerHTML = `<div class="empty-state text-danger">${escapeHtml(error.message || 'Không thể tải timeline.')}</div>`;
+        $('events').innerHTML = '<div class="empty-state w-100">Không tải được danh sách sự kiện.</div>';
+      }
+    }
+
+    timelineContent.addEventListener('click', event => {
+      const clip = event.target.closest('.clip');
+      if (clip) {
+        openSegment(state.segments[Number(clip.dataset.segmentIndex)]);
+        return;
+      }
+      const marker = event.target.closest('.event-marker');
+      if (marker) {
+        const date = eventDate(state.events[Number(marker.dataset.eventIndex)]);
+        if (date) setPlayhead(date);
+        return;
+      }
+      const track = event.target.closest('.lane-track, .ruler-track');
+      if (track) setPlayhead(dateFromTrackClick(track, event));
+    });
+
+    $('events').addEventListener('click', event => {
+      const card = event.target.closest('.event-card');
+      if (!card) return;
+      const date = eventDate(state.events[Number(card.dataset.eventIndex)]);
+      if (date) setPlayhead(date);
+    });
+
+    document.querySelectorAll('[data-hours]').forEach(button => {
+      button.addEventListener('click', () => setPreset(Number(button.dataset.hours)));
+    });
+    $('previous').addEventListener('click', () => shiftWindow(-1));
+    $('now').addEventListener('click', () => setPreset(state.windowHours || 1));
+    $('reload').addEventListener('click', loadTimeline);
+    $('zoom').addEventListener('change', event => {
+      state.pixelsPerMinute = Number(event.target.value) || 4;
+      renderTimeline();
+    });
+    $('playerModal').addEventListener('hidden.bs.modal', () => {
+      $('playerVideo').pause();
+      $('playerVideo').removeAttribute('src');
+      $('playerVideo').load();
+    });
+    $('playerVideo').addEventListener('error', () => $('playerError').classList.remove('d-none'));
+
+    setPreset(1, false);
+    loadTimeline();
+  </script>
+</body>
+</html>

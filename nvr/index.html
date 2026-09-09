@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ camera_name }} · {{ site.name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+	:root { --bg: {{ site.theme.background }}; --surface: {{ site.theme.surface }}; --primary: {{ site.theme.primary }}; --accent: {{ site.theme.accent }}; --text: {{ site.theme.text }}; }
+	.btn-gradient {
+	  background: linear-gradient(90deg, var(--primary), var(--accent));
+	  border: none;
+	  color: white;
+	  font-weight: 600;
+	  border-radius: 50px;
+	  padding: 12px 28px;
+	  transition: transform 0.2s;
+	}
+	.btn-gradient:hover {
+	  transform: scale(1.05);
+	  color: white;
+	}
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    .background {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      overflow: hidden;
+      z-index: 0;
+      top: 0;
+      left: 0;
+    }
+    .background span {
+      position: absolute;
+      display: block;
+      width: 20px;
+      height: 20px;
+      background: color-mix(in srgb, var(--primary) 18%, transparent);
+      animation: animate 25s linear infinite;
+      bottom: -150px;
+    }
+    .background span:nth-child(1) { left: 10%; width: 80px; height: 80px; animation-duration: 22s; }
+    .background span:nth-child(2) { left: 20%; width: 20px; height: 20px; animation-duration: 18s; }
+    .background span:nth-child(3) { left: 25%; width: 50px; height: 50px; animation-duration: 28s; }
+    .background span:nth-child(4) { left: 40%; width: 30px; height: 30px; animation-duration: 32s; }
+    .background span:nth-child(5) { left: 70%; width: 90px; height: 90px; animation-duration: 24s; }
+    .background span:nth-child(6) { left: 80%; width: 15px; height: 15px; animation-duration: 30s; }
+    .background span:nth-child(7) { left: 65%; width: 25px; height: 25px; animation-duration: 20s; }
+    .background span:nth-child(8) { left: 35%; width: 40px; height: 40px; animation-duration: 26s; }
+    .background span:nth-child(9) { left: 50%; width: 10px; height: 10px; animation-duration: 22s; }
+    .background span:nth-child(10) { left: 90%; width: 60px; height: 60px; animation-duration: 34s; }
+    @keyframes animate {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(-1000px) rotate(720deg); opacity: 0; }
+    }
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 700px;
+      margin: 30px auto;
+      padding-bottom: 100px;
+    }
+    video {
+      width: 100%;
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+    .btn-lg {
+      font-size: 1.25rem;
+      padding: 15px;
+    }
+    select, input[type="date"], input[type="time"] {
+      background-color: var(--surface);
+      color: var(--text);
+    }
+    .btn-primary {
+      background-color: var(--primary);
+      border-color: var(--primary);
+    }
+    img.stream {
+      width: 100%;
+      border-radius: 12px;
+      max-height: 400px;
+      object-fit: cover;
+    }
+    .highlighted-title {
+      font-size: 2rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 12px var(--primary);
+    }
+    .merge-date-picker-wrap {
+      position: relative;
+      display: inline-block;
+      min-width: 190px;
+    }
+    .merge-date-picker {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="background">
+    <span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+
+  <div class="container">
+    <div class="mb-4 text-center">
+      <h4 id="cameraName">{{ camera_name }}</h4>
+      <img id="streamView" class="stream" src="/cam{{ cam_id }}">
+    </div>
+
+    <h2 class="highlighted-title text-center mb-4">{{ site.name }}</h2>
+
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <label for="filterDate" class="form-label">📅 Chọn ngày:</label>
+      <input type="date" id="filterDate" class="form-control">
+    </div>
+    <div class="col-md-6">
+      <label for="filterTime" class="form-label">🕑 Chọn giờ bắt đầu:</label>
+      <input type="time" id="filterTime" class="form-control" step="60">
+    </div>
+  </div>
+
+    <div class="mb-3">
+      <label for="videoList" class="form-label">🎬 Chọn video:</label>
+      <select id="videoList" class="form-select"><option selected disabled>Danh sách video sẽ hiển thị ở đây.</option></select>
+    </div>
+	<div>
+	  <video id="videoPlayer" controls playsinline muted class="rounded shadow w-100 mb-2"></video>
+	  <div class="d-grid">
+		<a id="downloadOriginalBtn" class="btn btn-warning btn-lg disabled" href="#" role="button" aria-disabled="true">
+		   Tải đoạn này về máy
+		</a>
+	  </div>
+	</div>
+
+    <hr class="my-4">
+
+    <h5 class="text-center">🔗 Ghép Video (Tối đa {{ max_merge_minutes }} phút)</h5>
+    <div class="alert alert-info text-center" style="font-size: 0.9rem;">
+      Chọn video nằm trong khoảng thời gian.
+    </div>
+
+    <div class="row mb-3 align-items-end">
+      <div class="col-md-12 text-center mb-2">
+         <span class="badge bg-secondary merge-date-picker-wrap">
+           Ngày: <span id="mergeDateDisplay" class="text-warning">Đang tải...</span>
+           <input type="date" id="mergeDate" class="merge-date-picker" aria-label="Chọn ngày ghép" required>
+         </span>
+      </div>
+      <div class="col-6">
+        <label class="form-label">⏱ Bắt đầu:</label>
+        <input type="time" id="mergeStart" class="form-control" required>
+      </div>
+      <div class="col-6">
+        <label class="form-label">🏁 Kết thúc:</label>
+        <input type="time" id="mergeEnd" class="form-control" required>
+      </div>
+    </div>
+
+    <div class="d-grid mb-2">
+      <button class="btn btn-gradient btn-lg" onclick="mergeVideo()">Bắt đầu Ghép</button>
+    </div>
+
+    <div id="mergeProgressWrap" class="mb-3" style="display:none;">
+      <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+        <div id="mergeProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-warning" style="width: 0%">0%</div>
+      </div>
+      <p class="text-center text-white mt-1" id="mergeStatusText">Đang xử lý...</p>
+    </div>
+
+    <div id="mergeResult" class="text-center"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+  <script>
+    let allVideos = [];
+    let recentWindowMode = true;
+
+    function getVideoRange(video) {
+      const legacy = video.name.match(/cam\d+_(\d{2})-(\d{2})-(\d{2})_to_\d{2}-\d{2}-\d{2}_\((\d{2})-(\d{2})-(\d{4})\)\.mp4$/);
+      if (!legacy) return null;
+      const full = video.name.match(/cam\d+_(\d{2})-(\d{2})-(\d{2})_to_(\d{2})-(\d{2})-(\d{2})_\((\d{2})-(\d{2})-(\d{4})\)\.mp4$/);
+      if (!full) return null;
+      const [, sh, sm, ss, eh, em, es, day, month, year] = full;
+      const start = new Date(Number(year), Number(month) - 1, Number(day), Number(sh), Number(sm), Number(ss));
+      const end = new Date(Number(year), Number(month) - 1, Number(day), Number(eh), Number(em), Number(es));
+      if (end <= start) end.setDate(end.getDate() + 1);
+      return { start, end };
+    }
+
+    function updateVideoList() {
+      const list = document.getElementById("videoList");
+      const dlBtn = document.getElementById("downloadOriginalBtn");
+      const selectedDate = document.getElementById("filterDate").value;
+      const selectedTime = (document.getElementById("filterTime")?.value || "").trim();
+      list.innerHTML = '<option selected disabled>Danh sách video sẽ hiển thị ở đây...</option>';
+
+      const filtered = allVideos.filter(video => {
+        const videoRange = getVideoRange(video);
+        if (!videoRange || Number.isNaN(videoRange.start.getTime())) return false;
+
+        if (recentWindowMode) {
+          const now = new Date();
+          const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+          // So sánh thời điểm đầy đủ, không so sánh riêng ngày/giờ: khi qua
+          // nửa đêm, các video cuối ngày hôm trước vẫn nằm trong một giờ gần nhất.
+          return videoRange.end > oneHourAgo && videoRange.start <= now;
+        }
+
+        if (!selectedDate) return true;
+        const rangeStart = new Date(`${selectedDate}T${selectedTime || "00:00"}`);
+        const rangeEnd = new Date(`${selectedDate}T00:00`);
+        rangeEnd.setDate(rangeEnd.getDate() + 1);
+        return videoRange.end > rangeStart && videoRange.start < rangeEnd;
+      });
+
+      if (filtered.length === 0) {
+        const opt = document.createElement("option");
+        opt.text = "Không có video cho ngày/giờ đã chọn.";
+        opt.disabled = true;
+        list.appendChild(opt);
+        if (dlBtn) {
+          dlBtn.classList.add("disabled");
+          dlBtn.removeAttribute("href");
+        }
+        return;
+      }
+
+      filtered.forEach((video, videoIndex) => {
+        const option = document.createElement("option");
+        const match = video.name.match(/cam\d+_(\d{2})-(\d{2})-(\d{2})_to_(\d{2})-(\d{2})-(\d{2})_\((\d{2})-(\d{2})-(\d{4})\)/);
+        if (match) {
+          const [, sh, sm, ss, eh, em, es, d, m, y] = match;
+          option.text = `${sh}:${sm}:${ss} (${d}/${m}/${y})`;
+        } else {
+          option.text = video.name;
+        }
+        option.value = video.name;
+        option.dataset.timelineIndex = videoIndex;
+        // Lưu thời điểm thật của đoạn ghi. Danh sách có thể hiển thị mới nhất
+        // trước, nên không được dùng vị trí option để xác định video kế tiếp.
+        if (match) {
+          const [, sh, sm, ss, , , , d, m, y] = match;
+          option.dataset.startAt = `${y}-${m}-${d}T${sh}:${sm}:${ss}`;
+        }
+        list.appendChild(option);
+      });
+
+      list.onchange = () => selectVideo(list.selectedIndex - 1);
+      if (filtered.length) selectVideo(0);
+    }
+
+    function selectVideo(index) {
+      const list = document.getElementById("videoList");
+      const option = list?.querySelector(`option[data-timeline-index="${index}"]`);
+      if (!option) return;
+      list.value = option.value;
+      const filename = option.value;
+      const player = document.getElementById("videoPlayer");
+      const dlBtn = document.getElementById("downloadOriginalBtn");
+      player.src = "/video/" + encodeURIComponent(filename);
+      if (dlBtn) {
+        dlBtn.href = "/download/" + encodeURIComponent(filename);
+        dlBtn.classList.remove("disabled");
+        dlBtn.setAttribute("download", filename);
+      }
+    }
+
+    function mergeVideo() {
+      const dateVal = document.getElementById("mergeDate").value;
+      const timeStart = document.getElementById("mergeStart").value;
+      const timeEnd = document.getElementById("mergeEnd").value;
+      const camId = "{{ cam_id }}";
+
+      if (!dateVal || !timeStart || !timeEnd) {
+        alert("Vui lòng chọn ngày và giờ đầy đủ.");
+        return;
+      }
+
+      const startFull = `${dateVal}T${timeStart}`;
+      const endFull = `${dateVal}T${timeEnd}`;
+      const startTime = new Date(startFull);
+      const endTime = new Date(endFull);
+      const diffMins = (endTime - startTime) / 1000 / 60;
+
+      if (diffMins <= 0) { alert("Thời gian kết thúc phải lớn hơn bắt đầu."); return; }
+      if (diffMins > {{ max_merge_minutes|int }}) { alert("Chỉ được ghép tối đa {{ max_merge_minutes }} phút."); return; }
+
+      document.getElementById("mergeProgressWrap").style.display = "block";
+      document.getElementById("mergeResult").innerHTML = "";
+      document.getElementById("mergeProgressBar").style.width = "0%";
+      document.getElementById("mergeStatusText").innerText = "Đang xử lý...";
+
+      const url = `/merge?cam_id=${camId}&start=${encodeURIComponent(startFull)}&end=${encodeURIComponent(endFull)}`;
+      const evtSource = new EventSource(url);
+
+      evtSource.onmessage = function(event) {
+        const data = event.data;
+        if (data.startsWith("error:")) {
+            document.getElementById("mergeResult").innerHTML = `<p class="text-danger">❌ ${data.split(":")[1]}</p>`;
+            document.getElementById("mergeProgressWrap").style.display = "none";
+            evtSource.close();
+        } else if (data.startsWith("done:")) {
+            const outputFile = data.split(":")[1];
+            document.getElementById("mergeProgressBar").style.width = "100%";
+            document.getElementById("mergeProgressBar").innerText = "Hoàn tất!";
+            document.getElementById("mergeResult").innerHTML = `
+              <p class="text-success fw-bold">✅ Ghép thành công!</p>
+              <video src="/video/${outputFile}" controls class="mt-2 shadow" style="width:100%;border-radius:12px;"></video>
+              <a class="btn btn-success mt-3" href="/download/${outputFile}" download>Tải về máy</a>
+            `;
+            evtSource.close();
+        } else {
+            const percent = parseInt(data);
+            if (!isNaN(percent)) {
+                document.getElementById("mergeProgressBar").style.width = percent + "%";
+                document.getElementById("mergeProgressBar").innerText = percent + "%";
+            }
+        }
+      };
+      evtSource.onerror = function() { evtSource.close(); };
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const dateInput = document.getElementById("filterDate");
+      const timeInput = document.getElementById("filterTime");
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      // Mặc định xem lại từ một giờ trước; dùng chính mốc này cho ngày để
+      // hoạt động đúng cả khi mở trang ngay sau nửa đêm.
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const defaultDate = `${oneHourAgo.getFullYear()}-${pad(oneHourAgo.getMonth() + 1)}-${pad(oneHourAgo.getDate())}`;
+      const defaultTime = `${pad(oneHourAgo.getHours())}:${pad(oneHourAgo.getMinutes())}`;
+      
+
+      document.getElementById("videoPlayer").addEventListener("ended", () => {
+        const list = document.getElementById("videoList");
+        const current = list.selectedOptions[0];
+        const currentStart = current?.dataset.startAt;
+        if (!currentStart) return;
+        // Chọn đoạn có mốc bắt đầu nhỏ nhất nhưng vẫn sau đoạn đang phát.
+        // Không phụ thuộc thứ tự dropdown (mới → cũ hoặc cũ → mới).
+        const nextOption = [...list.querySelectorAll('option[data-start-at]')]
+          .filter(option => option.dataset.startAt > currentStart)
+          .sort((a, b) => a.dataset.startAt.localeCompare(b.dataset.startAt))[0];
+        if (!nextOption) return;
+        selectVideo(Number(nextOption.dataset.timelineIndex));
+        setTimeout(() => document.getElementById("videoPlayer").play().catch(() => {}), 0);
+      });
+
+      if (dateInput) {
+        dateInput.value = defaultDate;
+        dateInput.addEventListener("change", () => {
+          recentWindowMode = false;
+          updateVideoList();
+        });
+      }
+
+      const mergeDateInput = document.getElementById("mergeDate");
+      const mergeDateDisplay = document.getElementById("mergeDateDisplay");
+      const updateMergeDateDisplay = () => {
+        if (!mergeDateInput || !mergeDateDisplay || !mergeDateInput.value) return;
+        const [year, month, day] = mergeDateInput.value.split("-");
+        mergeDateDisplay.innerText = `${day}/${month}/${year}`;
+      };
+      if (mergeDateInput) {
+        mergeDateInput.value = defaultDate;
+        updateMergeDateDisplay();
+        mergeDateInput.addEventListener("change", updateMergeDateDisplay);
+      }
+
+      if (timeInput) {
+        timeInput.value = defaultTime;
+        timeInput.addEventListener("change", () => {
+          recentWindowMode = false;
+          updateVideoList();
+        });
+      }
+
+      fetch('/list/cam{{ cam_id }}')
+        .then(res => res.json())
+        .then(data => {
+          allVideos = data;
+          updateVideoList();
+        });
+    });
+  </script>
+  <script>
+    // NVR mode keeps the original page design but replaces local-MP4 listing
+    // and merging with an ISAPI archive search and direct NVR playback.
+    (() => {
+      const camId = "{{ cam_id }}";
+      const pad = n => String(n).padStart(2, "0");
+      const localInput = date => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      const displayTime = value => new Date(value).toLocaleString("vi-VN", { hour12: false });
+      let recordings = [];
+
+      // The original local-file callback must not overwrite NVR search results.
+      window.updateVideoList = () => {};
+
+      async function setPlayer(record) {
+        const player = document.getElementById("videoPlayer");
+        let status = document.getElementById("nvrPlaybackStatus");
+        if (!status) {
+          status = document.createElement("p");
+          status.id = "nvrPlaybackStatus";
+          status.className = "text-center text-warning";
+          player.parentNode.insertBefore(status, player);
+        }
+        status.textContent = "Đang chuẩn bị video từ NVR...";
+        const result = await fetch(`/api/nvr/hls/${camId}?start=${encodeURIComponent(record.start)}&end=${encodeURIComponent(record.end)}`);
+        const data = await result.json();
+        if (!result.ok) throw new Error(data.error || "Không thể mở bản ghi.");
+        player.onloadeddata = () => { status.textContent = "Đang phát trực tiếp từ NVR."; };
+        player.onerror = () => { status.textContent = "Không thể phát đoạn này. Hãy chọn lại hoặc thử khoảng thời gian ngắn hơn."; };
+        if (window.currentNvrHls) window.currentNvrHls.destroy();
+        if (window.Hls && Hls.isSupported()) {
+          window.currentNvrHls = new Hls({ enableWorker: true, manifestLoadingMaxRetry: 8, levelLoadingMaxRetry: 8 });
+          window.currentNvrHls.loadSource(data.playlist);
+          window.currentNvrHls.attachMedia(player);
+          window.currentNvrHls.on(Hls.Events.MANIFEST_PARSED, () => player.play().catch(() => {}));
+        } else {
+          player.src = data.playlist;
+          player.load();
+          player.play().catch(() => {});
+        }
+      }
+
+      function renderList() {
+        const list = document.getElementById("videoList");
+        list.innerHTML = "";
+        if (!recordings.length) {
+          list.innerHTML = '<option disabled selected>Không có bản ghi cho thời gian đã chọn.</option>';
+          return;
+        }
+        recordings.forEach((record, index) => {
+          const option = document.createElement("option");
+          option.value = String(index);
+          option.text = `${displayTime(record.start)} – ${displayTime(record.end)} (${record.type || "recording"})`;
+          list.appendChild(option);
+        });
+        list.onchange = () => setPlayer(recordings[Number(list.value)]).catch(error => alert(error.message));
+        list.value = "0";
+        setPlayer(recordings[0]);
+      }
+
+      async function findRecordings(start, end) {
+        const list = document.getElementById("videoList");
+        list.innerHTML = '<option disabled selected>Đang tìm bản ghi từ NVR...</option>';
+        const response = await fetch(`/api/nvr/recordings/${camId}?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Không thể tìm bản ghi trên NVR.");
+        recordings = data;
+        renderList();
+      }
+
+      async function findFromFilter() {
+        const date = document.getElementById("filterDate").value;
+        const time = document.getElementById("filterTime").value || "00:00";
+        if (!date) return;
+        const start = `${date}T${time}`;
+        const endDate = new Date(`${date}T00:00`);
+        endDate.setDate(endDate.getDate() + 1);
+        await findRecordings(start, localInput(endDate));
+      }
+
+      window.mergeVideo = () => {
+        const date = document.getElementById("mergeDate").value;
+        const start = document.getElementById("mergeStart").value;
+        const end = document.getElementById("mergeEnd").value;
+        if (!date || !start || !end || end <= start) {
+          alert("Vui lòng chọn thời gian bắt đầu và kết thúc hợp lệ.");
+          return;
+        }
+        setPlayer({ start: `${date}T${start}`, end: `${date}T${end}` }).catch(error => alert(error.message));
+      };
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        document.getElementById("downloadOriginalBtn").style.display = "none";
+        document.querySelector("h5.text-center").textContent = "▶ Phát khoảng thời gian trực tiếp từ NVR";
+        document.querySelector(".alert-info").textContent = "Chọn thời gian rồi phát trực tiếp từ kho lưu trữ NVR (không tạo file MP4 cục bộ).";
+        document.querySelector("button.btn-gradient").textContent = "Phát khoảng thời gian này";
+
+        const now = new Date();
+        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+        document.getElementById("filterDate").value = localInput(oneHourAgo).slice(0, 10);
+        document.getElementById("filterTime").value = localInput(oneHourAgo).slice(11, 16);
+        document.getElementById("mergeDate").value = localInput(oneHourAgo).slice(0, 10);
+        document.getElementById("mergeStart").value = localInput(oneHourAgo).slice(11, 16);
+        document.getElementById("mergeEnd").value = localInput(now).slice(11, 16);
+        document.getElementById("mergeDateDisplay").textContent = localInput(oneHourAgo).slice(8, 10) + "/" + localInput(oneHourAgo).slice(5, 7) + "/" + localInput(oneHourAgo).slice(0, 4);
+        document.getElementById("filterDate").onchange = () => findFromFilter().catch(error => alert(error.message));
+        document.getElementById("filterTime").onchange = () => findFromFilter().catch(error => alert(error.message));
+        document.getElementById("mergeDate").onchange = event => {
+          const [year, month, day] = event.target.value.split("-");
+          document.getElementById("mergeDateDisplay").textContent = `${day}/${month}/${year}`;
+        };
+
+        try {
+          const channels = await fetch("/api/nvr/channels").then(response => response.json());
+          const channel = channels.find(item => item.id === Number(camId));
+          if (channel) document.getElementById("cameraName").textContent = channel.name;
+          await findRecordings(localInput(oneHourAgo), localInput(now));
+        } catch (error) {
+          document.getElementById("videoList").innerHTML = `<option disabled selected>${error.message}</option>`;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

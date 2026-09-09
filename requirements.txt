@@ -1,0 +1,8 @@
+Flask==3.0.3
+opencv-python
+Pillow
+pystray
+qrcode[pil]
+requests
+chardet<6
+waitress
