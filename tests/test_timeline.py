@@ -18,7 +18,10 @@ class TimelineApiTests(unittest.TestCase):
         self.old_camera_list = APP.CAMERA_LIST
         APP.VIDEO_DIR = self.temp.name
         APP.DB_PATH = os.path.join(self.temp.name, "analytics.db")
-        APP.CAMERA_LIST = [{"name": "Bàn test 1"}, {"name": "Bàn test 2"}]
+        APP.CAMERA_LIST = [
+            {"name": "Bàn test 1", "playback_source": "local"},
+            {"name": "Bàn test 2", "playback_source": "local"},
+        ]
         APP.init_db()
         self.client = APP.app.test_client()
 

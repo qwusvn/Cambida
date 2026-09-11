@@ -1,0 +1,61 @@
+# -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all
+
+# Các file giao diện và ffmpeg.exe được phát hành cạnh EXE để dễ thay thế.
+# Chỉ giữ config mặc định bên trong _internal làm bản seed nếu config.json cạnh EXE bị thiếu.
+datas = [
+    (r'D:\1\cambida\config.json', '.'),
+]
+
+binaries = []
+hiddenimports = []
+
+tmp_ret = collect_all('qrcode')
+datas += tmp_ret[0]
+binaries += tmp_ret[1]
+hiddenimports += tmp_ret[2]
+
+a = Analysis(
+    [r'D:\1\cambida\1.py'],
+    pathex=[r'D:\1\cambida'],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=True,
+    optimize=0,
+)
+
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name='CCTV_2.0.0',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    version=r'D:\1\cambida\version_info_2_0_0.txt',
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='CCTV_2.0.0',
+)

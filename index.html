@@ -138,12 +138,35 @@
   </div>
 
   <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <a href="/" class="btn btn-outline-light btn-sm">‹ Trang chủ</a>
+      <a href="/timeline?cam={{ cam_id }}" class="btn btn-outline-light btn-sm">🕒 Timeline</a>
+    </div>
+
     <div class="mb-4 text-center">
       <h4>{{ camera_name }}</h4>
       <img id="streamView" class="stream" src="/cam{{ cam_id }}">
     </div>
 
     <h2 class="highlighted-title text-center mb-4">{{ site.name }}</h2>
+
+    {% if camera_mode == 'nvr' and backup_local %}
+    <div class="card bg-dark border-secondary p-3 mb-3 text-center">
+      <label class="form-label fw-bold text-warning mb-2">📡 Nguồn phát lại:</label>
+      <div class="btn-group w-100" role="group" aria-label="Nguồn phát lại">
+        <input type="radio" class="btn-check" name="replaySource" id="srcServer1" value="server1" checked autocomplete="off">
+        <label class="btn btn-outline-warning fw-semibold" for="srcServer1">🗄️ Server 1 - NVR</label>
+
+        <input type="radio" class="btn-check" name="replaySource" id="srcServer2" value="server2" autocomplete="off">
+        <label class="btn btn-outline-warning fw-semibold" for="srcServer2">💾 Server 2 - Local</label>
+      </div>
+      <small id="sourceHelp" class="text-white-50 mt-2 d-block">Đang phát từ Server 1: Bản ghi lưu trên đầu ghi NVR</small>
+    </div>
+    {% elif camera_mode == 'nvr' %}
+    <div class="text-center mb-3">
+      <span class="badge bg-secondary px-3 py-2">Nguồn phát lại: Server 1 - NVR</span>
+    </div>
+    {% endif %}
 
   <div class="row mb-3">
     <div class="col-md-6">
@@ -211,10 +234,31 @@
   </div>
 
   <script>
+    const CAMERA_MODE = "{{ camera_mode }}";
+    const BACKUP_LOCAL = {{ 'true' if backup_local else 'false' }};
     let allVideos = [];
     let recentWindowMode = true;
 
+    function getSelectedSource() {
+      if (CAMERA_MODE !== "nvr") return "local";
+      if (!BACKUP_LOCAL) return "nvr";
+      const selected = document.querySelector('input[name="replaySource"]:checked');
+      return selected ? selected.value : "server1";
+    }
+
+    function isNvrSource() {
+      const src = getSelectedSource();
+      return src === "nvr" || src === "server1";
+    }
+
     function getVideoRange(video) {
+      if (video.started_at && video.end_at) {
+        const start = new Date(video.started_at);
+        const end = new Date(video.end_at);
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+          return { start, end };
+        }
+      }
       const legacy = video.name.match(/cam\d+_(\d{2})-(\d{2})-(\d{2})_to_\d{2}-\d{2}-\d{2}_\((\d{2})-(\d{2})-(\d{4})\)\.mp4$/);
       if (!legacy) return null;
       const full = video.name.match(/cam\d+_(\d{2})-(\d{2})-(\d{2})_to_(\d{2})-(\d{2})-(\d{2})_\((\d{2})-(\d{2})-(\d{4})\)\.mp4$/);
@@ -235,13 +279,13 @@
 
       const filtered = allVideos.filter(video => {
         const videoRange = getVideoRange(video);
-        if (!videoRange || Number.isNaN(videoRange.start.getTime())) return false;
+        if (!videoRange || Number.isNaN(videoRange.start.getTime())) {
+          return isNvrSource();
+        }
 
-        if (recentWindowMode) {
+        if (recentWindowMode && !isNvrSource()) {
           const now = new Date();
           const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-          // So sánh thời điểm đầy đủ, không so sánh riêng ngày/giờ: khi qua
-          // nửa đêm, các video cuối ngày hôm trước vẫn nằm trong một giờ gần nhất.
           return videoRange.end > oneHourAgo && videoRange.start <= now;
         }
 
@@ -254,7 +298,7 @@
 
       if (filtered.length === 0) {
         const opt = document.createElement("option");
-        opt.text = "Không có video cho ngày/giờ đã chọn.";
+        opt.text = isNvrSource() ? "Không tìm thấy bản ghi NVR cho ngày đã chọn." : "Không có video cho ngày/giờ đã chọn.";
         opt.disabled = true;
         list.appendChild(opt);
         if (dlBtn) {
@@ -264,23 +308,24 @@
         return;
       }
 
+      const pad = n => String(n).padStart(2, "0");
       filtered.forEach((video, videoIndex) => {
         const option = document.createElement("option");
         const match = video.name.match(/cam\d+_(\d{2})-(\d{2})-(\d{2})_to_(\d{2})-(\d{2})-(\d{2})_\((\d{2})-(\d{2})-(\d{4})\)/);
+        const vRange = getVideoRange(video);
         if (match) {
           const [, sh, sm, ss, eh, em, es, d, m, y] = match;
-          option.text = `${sh}:${sm}:${ss} (${d}/${m}/${y})`;
+          option.text = `${sh}:${sm}:${ss} - ${eh}:${em}:${es} (${d}/${m}/${y})`;
+          option.dataset.startAt = `${y}-${m}-${d}T${sh}:${sm}:${ss}`;
+        } else if (vRange) {
+          const s = vRange.start, e = vRange.end;
+          option.text = `${pad(s.getHours())}:${pad(s.getMinutes())}:${pad(s.getSeconds())} - ${pad(e.getHours())}:${pad(e.getMinutes())}:${pad(e.getSeconds())} (${pad(s.getDate())}/${pad(s.getMonth()+1)}/${s.getFullYear()})`;
+          option.dataset.startAt = s.toISOString();
         } else {
           option.text = video.name;
         }
         option.value = video.name;
         option.dataset.timelineIndex = videoIndex;
-        // Lưu thời điểm thật của đoạn ghi. Danh sách có thể hiển thị mới nhất
-        // trước, nên không được dùng vị trí option để xác định video kế tiếp.
-        if (match) {
-          const [, sh, sm, ss, , , , d, m, y] = match;
-          option.dataset.startAt = `${y}-${m}-${d}T${sh}:${sm}:${ss}`;
-        }
         list.appendChild(option);
       });
 
@@ -294,25 +339,62 @@
       if (!option) return;
       list.value = option.value;
       const filename = option.value;
+      const video = allVideos.find(v => v.name === filename) || allVideos[index];
       const player = document.getElementById("videoPlayer");
       const dlBtn = document.getElementById("downloadOriginalBtn");
       const codecWarning = document.getElementById("codecWarning");
-      player.src = "/video/" + encodeURIComponent(filename);
+
+      const playUrl = video?.url || ("/video/" + encodeURIComponent(filename));
+      const dlUrl = video?.download_url || ("/download/" + encodeURIComponent(filename));
+      player.src = playUrl;
       player.dataset.filename = filename;
       if (codecWarning) codecWarning.style.display = "none";
       if (dlBtn) {
-        dlBtn.href = "/download/" + encodeURIComponent(filename);
+        dlBtn.href = dlUrl;
         dlBtn.classList.remove("disabled");
         dlBtn.setAttribute("download", filename);
       }
-      fetch("/api/video-codec/" + encodeURIComponent(filename))
-        .then(res => res.ok ? res.json() : null)
-        .then(info => {
-          if (!info?.is_h265 || player.dataset.filename !== filename || !codecWarning) return;
-          codecWarning.innerText = "⚠️ Video này dùng H.265/HEVC. Nhiều trình duyệt không phát được; hãy tải về xem bằng phần mềm hỗ trợ hoặc đổi camera sang H.264.";
-          codecWarning.style.display = "block";
+      if (!playUrl.startsWith("/nvr/") && video?.source !== "nvr") {
+        fetch("/api/video-codec/" + encodeURIComponent(filename))
+          .then(res => res.ok ? res.json() : null)
+          .then(info => {
+            if (!info?.is_h265 || player.dataset.filename !== filename || !codecWarning) return;
+            codecWarning.innerText = "⚠️ Video này dùng H.265/HEVC. Nhiều trình duyệt không phát được; hãy tải về xem bằng phần mềm hỗ trợ hoặc đổi camera sang H.264.";
+            codecWarning.style.display = "block";
+          })
+          .catch(() => {});
+      }
+    }
+
+    function fetchVideos() {
+      const src = getSelectedSource();
+      const dateVal = document.getElementById("filterDate")?.value || "";
+      let url = `/list/cam{{ cam_id }}?source=${encodeURIComponent(src)}`;
+      if (dateVal && isNvrSource()) {
+        url += `&date=${encodeURIComponent(dateVal)}`;
+      }
+      const list = document.getElementById("videoList");
+      if (list) list.innerHTML = '<option selected disabled>Đang tải danh sách video...</option>';
+      const dlBtn = document.getElementById("downloadOriginalBtn");
+      if (dlBtn) {
+        dlBtn.classList.add("disabled");
+        dlBtn.removeAttribute("href");
+      }
+
+      fetch(url)
+        .then(res => {
+          if (!res.ok) throw new Error(`Không tải được danh sách video (${res.status}).`);
+          return res.json();
         })
-        .catch(() => {});
+        .then(data => {
+          allVideos = Array.isArray(data) ? data : [];
+          updateVideoList();
+        })
+        .catch(error => {
+          allVideos = [];
+          if (list) list.innerHTML = '<option selected disabled>Không tải được danh sách video hoặc camera offline.</option>';
+          console.error("[Replay]", error);
+        });
     }
 
     function mergeVideo() {
@@ -330,8 +412,6 @@
       const endFull = `${dateVal}T${timeEnd}`;
       const startTime = new Date(startFull);
       const endTime = new Date(endFull);
-      // Nếu giờ kết thúc nhỏ hơn hoặc bằng giờ bắt đầu, hiểu là ngày hôm sau.
-      // Nhờ đó có thể ghép 23:00 → 00:30 mà vẫn dùng một ô chọn ngày.
       if (endTime <= startTime) endTime.setDate(endTime.getDate() + 1);
       const diffMins = (endTime - startTime) / 1000 / 60;
 
@@ -389,20 +469,15 @@
       const timeInput = document.getElementById("filterTime");
       const now = new Date();
       const pad = (n) => String(n).padStart(2, "0");
-      // Mặc định xem lại từ một giờ trước; dùng chính mốc này cho ngày để
-      // hoạt động đúng cả khi mở trang ngay sau nửa đêm.
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
       const defaultDate = `${oneHourAgo.getFullYear()}-${pad(oneHourAgo.getMonth() + 1)}-${pad(oneHourAgo.getDate())}`;
       const defaultTime = `${pad(oneHourAgo.getHours())}:${pad(oneHourAgo.getMinutes())}`;
-      
 
       document.getElementById("videoPlayer").addEventListener("ended", () => {
         const list = document.getElementById("videoList");
         const current = list.selectedOptions[0];
         const currentStart = current?.dataset.startAt;
         if (!currentStart) return;
-        // Chọn đoạn có mốc bắt đầu nhỏ nhất nhưng vẫn sau đoạn đang phát.
-        // Không phụ thuộc thứ tự dropdown (mới → cũ hoặc cũ → mới).
         const nextOption = [...list.querySelectorAll('option[data-start-at]')]
           .filter(option => option.dataset.startAt > currentStart)
           .sort((a, b) => a.dataset.startAt.localeCompare(b.dataset.startAt))[0];
@@ -415,7 +490,11 @@
         dateInput.value = defaultDate;
         dateInput.addEventListener("change", () => {
           recentWindowMode = false;
-          updateVideoList();
+          if (isNvrSource()) {
+            fetchVideos();
+          } else {
+            updateVideoList();
+          }
         });
       }
 
@@ -449,25 +528,20 @@
         });
       }
 
-      fetch('/list/cam{{ cam_id }}')
-        .then(res => {
-          if (!res.ok) throw new Error(`Không tải được danh sách video (${res.status}).`);
-          return res.json();
-        })
-        .then(data => {
-          allVideos = data;
-          updateVideoList();
-        })
-        .catch(error => {
-          allVideos = [];
-          document.getElementById("videoList").innerHTML = '<option selected disabled>Không tải được danh sách video. Hãy tải lại trang.</option>';
-          const dlBtn = document.getElementById("downloadOriginalBtn");
-          if (dlBtn) {
-            dlBtn.classList.add("disabled");
-            dlBtn.removeAttribute("href");
+      document.querySelectorAll('input[name="replaySource"]').forEach(radio => {
+        radio.addEventListener("change", () => {
+          const help = document.getElementById("sourceHelp");
+          if (help) {
+            help.textContent = radio.value === "server1"
+              ? "Đang phát từ Server 1: Bản ghi lưu trên đầu ghi NVR"
+              : "Đang phát từ Server 2: Bản ghi dự phòng lưu trên máy tính";
           }
-          console.error("[Replay]", error);
+          recentWindowMode = false;
+          fetchVideos();
         });
+      });
+
+      fetchVideos();
     });
   </script>
 </body>

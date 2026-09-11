@@ -15,6 +15,7 @@ import logging
 import math
 import os
 import re
+import shutil
 import sqlite3
 import stat
 import subprocess
@@ -24,16 +25,19 @@ import threading
 import time
 import uuid
 import winreg
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from io import BytesIO
 from logging.handlers import RotatingFileHandler
 from urllib.parse import quote, unquote
+from xml.etree import ElementTree as ET
 
 import cv2
 import pystray
 import requests
+from requests.auth import HTTPDigestAuth
 from flask import (
     Flask,
     Response,
@@ -58,8 +62,10 @@ except ImportError:
 
 if getattr(sys, "frozen", False):
     BASE_DIR = os.path.dirname(sys.executable)
+    BUNDLE_DIR = getattr(sys, "_MEIPASS", BASE_DIR)
 else:
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+    BUNDLE_DIR = BASE_DIR
 
 def _show_error_box(title, message):
     try:
@@ -68,7 +74,11 @@ def _show_error_box(title, message):
         pass
 
 
-FFMPEG_PATH = os.path.join(BASE_DIR, "ffmpeg.exe")
+FFMPEG_PATH = (
+    os.path.join(BASE_DIR, "ffmpeg.exe")
+    if os.path.isfile(os.path.join(BASE_DIR, "ffmpeg.exe"))
+    else os.path.join(BUNDLE_DIR, "ffmpeg.exe")
+)
 INSTANCE_MUTEX_NAME = "Local\\CambiDa_CCTV_Recorder_SingleInstance"
 # Lưu trên ổ D: nếu có, hoặc thư mục Temp của máy để bản mở sau biết PID
 INSTANCE_STATE_FILE = (
@@ -78,14 +88,158 @@ INSTANCE_STATE_FILE = (
 )
 INSTANCE_MUTEX_HANDLE = None
 
+CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
+EMBEDDED_CONFIG_FILE = os.path.join(BUNDLE_DIR, "config.json")
+
+def _ensure_first_run_files():
+    if not os.path.exists(CONFIG_FILE) and os.path.isfile(EMBEDDED_CONFIG_FILE):
+        try:
+            shutil.copyfile(EMBEDDED_CONFIG_FILE, CONFIG_FILE)
+        except OSError as exc:
+            _show_error_box(
+                "L?i kh?i t?o CCTV",
+                f"Kh?ng th? t? t?o file config.json trong th? m?c:\n{BASE_DIR}\n\n{exc}",
+            )
+            sys.exit(1)
+
+_ensure_first_run_files()
+
+
+def migrate_config_data(raw_config):
+    if not isinstance(raw_config, dict):
+        return raw_config
+    cfg = dict(raw_config)
+    global_ps = cfg.get("playback_source")
+    global_nvr = global_ps.get("nvr", {}) if isinstance(global_ps, dict) else {}
+    global_channel_map = global_nvr.get("channel_map", {}) if isinstance(global_nvr, dict) else {}
+    global_mode = str(global_ps.get("mode", "")).strip().lower() if isinstance(global_ps, dict) else ""
+
+    cameras = cfg.get("cameras", [])
+    if isinstance(cameras, list):
+        migrated_cameras = []
+        for index, cam in enumerate(cameras, start=1):
+            if not isinstance(cam, dict):
+                migrated_cameras.append(cam)
+                continue
+            cam_entry = dict(cam)
+            explicit_mode = str(cam_entry.get("playback_source", "")).strip().lower()
+
+            if explicit_mode == "hybrid":
+                cam_entry["playback_source"] = "nvr"
+                cam_entry["backup_local"] = True
+            elif explicit_mode in {"local", "nvr"}:
+                cam_entry["playback_source"] = explicit_mode
+            elif global_mode == "nvr":
+                cam_entry["playback_source"] = "nvr"
+            elif global_mode == "hybrid":
+                if str(index) in global_channel_map or cam_entry.get("nvr_channel"):
+                    cam_entry["playback_source"] = "nvr"
+                    cam_entry["backup_local"] = True
+                else:
+                    cam_entry["playback_source"] = "local"
+            else:
+                cam_entry["playback_source"] = "local"
+
+            if cam_entry["playback_source"] == "nvr":
+                if not cam_entry.get("nvr_channel"):
+                    cam_entry["nvr_channel"] = global_channel_map.get(str(index), index)
+                try:
+                    cam_entry["nvr_channel"] = int(cam_entry["nvr_channel"])
+                except (TypeError, ValueError):
+                    cam_entry["nvr_channel"] = index
+
+                legacy_shared_nvr = bool(global_nvr.get("host")) and not str(cam.get("host") or "").strip()
+                if not cam_entry.get("host") and global_nvr.get("host"):
+                    cam_entry["host"] = global_nvr.get("host")
+                if legacy_shared_nvr and global_nvr.get("username") is not None:
+                    cam_entry["user"] = global_nvr.get("username")
+                elif not cam_entry.get("user") and not cam_entry.get("username") and global_nvr.get("username"):
+                    cam_entry["user"] = global_nvr.get("username")
+                elif global_nvr.get("username") and cam_entry.get("user") == "admin":
+                    cam_entry["user"] = global_nvr.get("username")
+                if legacy_shared_nvr and global_nvr.get("password") is not None:
+                    cam_entry["pass"] = global_nvr.get("password")
+                elif not cam_entry.get("pass") and not cam_entry.get("password") and global_nvr.get("password"):
+                    cam_entry["pass"] = global_nvr.get("password")
+                if not cam_entry.get("vendor") and global_nvr.get("vendor"):
+                    cam_entry["vendor"] = global_nvr.get("vendor")
+                if not cam_entry.get("http_port") and global_nvr.get("http_port"):
+                    cam_entry["http_port"] = global_nvr.get("http_port")
+                if not cam_entry.get("rtsp_port") and global_nvr.get("rtsp_port"):
+                    cam_entry["rtsp_port"] = global_nvr.get("rtsp_port")
+                elif not cam_entry.get("rtsp_port") and cam_entry.get("port"):
+                    cam_entry["rtsp_port"] = cam_entry.get("port")
+                if not cam_entry.get("stream") and global_nvr.get("stream"):
+                    cam_entry["stream"] = global_nvr.get("stream")
+                if "backup_local" not in cam_entry:
+                    cam_entry["backup_local"] = False
+                cam_entry.pop("ip", None)
+                cam_entry.pop("port", None)
+            migrated_cameras.append(cam_entry)
+        cfg["cameras"] = migrated_cameras
+    cfg.pop("playback_source", None)
+    return cfg
+
+
+def clean_config_for_saving(candidate):
+    cfg = dict(candidate)
+    cfg.pop("retention_days", None)
+    cfg.pop("playback_source", None)
+
+    cameras = cfg.get("cameras", [])
+    clean_cameras = []
+    for index, cam in enumerate(cameras, start=1):
+        if not isinstance(cam, dict):
+            continue
+        c = dict(cam)
+        source = str(c.get("playback_source", "local")).strip().lower()
+        if source not in {"local", "nvr"}:
+            source = "local"
+        c["playback_source"] = source
+        if source == "local":
+            for k in (
+                "backup_local", "nvr_channel", "http_port", "rtsp_port", "host", "vendor",
+                "timezone_offset_minutes", "connect_timeout_sec", "read_timeout_sec",
+                "playback_chunk_sec", "use_https", "verify_tls", "stream",
+            ):
+                c.pop(k, None)
+            c["port"] = int(c.get("port", 554) or 554)
+            c["record_path"] = c.get("record_path", "h264/ch1/main/av_stream")
+            c["preview_path"] = c.get("preview_path", "h264/ch1/sub/av_stream")
+        else:
+            c["backup_local"] = bool(c.get("backup_local", False))
+            vendor = str(c.get("vendor", "hikvision")).strip().lower()
+            c["vendor"] = vendor if vendor in {"hikvision", "dahua"} else "hikvision"
+            c["host"] = str(c.get("host") or c.get("ip") or "").strip()
+            c["http_port"] = int(c.get("http_port", 80 if c["vendor"] == "hikvision" else 81) or 80)
+            c["rtsp_port"] = int(c.get("rtsp_port") or c.get("port", 554) or 554)
+            c["user"] = str(c.get("user") or c.get("username") or "admin").strip()
+            c["pass"] = str(c.get("pass") if c.get("pass") is not None else c.get("password", ""))
+            try:
+                c["nvr_channel"] = int(c.get("nvr_channel") or index)
+            except (TypeError, ValueError):
+                c["nvr_channel"] = index
+            c["stream"] = str(c.get("stream", "main")).strip().lower() or "main"
+            # NVR cards are self-contained. Local camera RTSP fields must never
+            # leak into NVR backup recording; backup is built from this NVR card.
+            for k in ("record_path", "preview_path", "record_rtsp_url", "preview_rtsp_url"):
+                c.pop(k, None)
+            c.pop("username", None)
+            c.pop("password", None)
+            c.pop("ip", None)
+            c.pop("port", None)
+        clean_cameras.append(c)
+    cfg["cameras"] = clean_cameras
+    return cfg
+
+
 try:
-    with open(os.path.join(BASE_DIR, "config.json"), "r", encoding="utf-8-sig") as f:
-        CONFIG = json.load(f)
+    with open(CONFIG_FILE, "r", encoding="utf-8-sig") as f:
+        CONFIG = migrate_config_data(json.load(f))
 except FileNotFoundError:
     _show_error_box(
         "Lỗi khởi động CCTV",
-        f"Không tìm thấy file 'config.json' trong thư mục:\n{BASE_DIR}\n\n"
-        "LƯU Ý: Nếu bạn đang mở trực tiếp từ file ZIP, vui lòng 'Giải nén toàn bộ' (Extract All) ra một thư mục trước khi chạy.",
+        f"Không tìm thấy file 'config.json' và không có cấu hình mặc định trong EXE:\n{BASE_DIR}",
     )
     sys.exit(1)
 except json.JSONDecodeError as e:
@@ -95,13 +249,14 @@ except json.JSONDecodeError as e:
     )
     sys.exit(1)
 
+
 if not os.path.exists(FFMPEG_PATH):
     _show_error_box(
-        "Thiếu file ffmpeg.exe",
-        f"Không tìm thấy file 'ffmpeg.exe' trong thư mục:\n{BASE_DIR}\n\n"
-        "Vui lòng đảm bảo file ffmpeg.exe nằm cùng thư mục với file chạy ứng dụng.",
+        "Thiếu FFmpeg",
+        "Không tìm thấy file ffmpeg.exe cạnh ứng dụng hoặc trong gói chạy. Hãy đặt lại file ffmpeg.exe.",
     )
     sys.exit(1)
+
 
 
 DEFAULT_SITE = {
@@ -256,6 +411,13 @@ CAM_WORKERS = {}
 CAM_PROCESSES = {}
 CAMERA_LOCK = threading.RLock()
 VIDEO_VALIDITY_CACHE = {}
+NVR_REFERENCE_CACHE = {}
+NVR_REFERENCE_LOCK = threading.RLock()
+NVR_MEDIA_LOCK = threading.RLock()
+NVR_REFERENCE_TTL_SEC = 30 * 60
+NVR_MEDIA_CACHE_MAX_AGE_SEC = 6 * 60 * 60
+NVR_CACHE_DIR = os.path.join(BASE_DIR, "nvr_cache")
+os.makedirs(NVR_CACHE_DIR, exist_ok=True)
 
 TIMELINE_MAX_SECONDS = 24 * 60 * 60
 TIMELINE_STATUS_VALUES = {
@@ -284,7 +446,11 @@ console_handler.setFormatter(
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
-TEMPLATE_DIR = getattr(sys, "_MEIPASS", BASE_DIR) if getattr(sys, "frozen", False) else BASE_DIR
+TEMPLATE_DIR = (
+    BASE_DIR
+    if os.path.isfile(os.path.join(BASE_DIR, "index.html"))
+    else BUNDLE_DIR
+)
 app = Flask(__name__, template_folder=TEMPLATE_DIR)
 app.secret_key = CONFIG.get("admin_session_secret") or hashlib.sha256(
     (BASE_DIR + str(CONFIG.get("admin_auth", {}).get("password", ""))).encode()
@@ -323,6 +489,868 @@ def site_prefix():
     return f"🏪 {get_site_config()['name']}\n"
 
 
+
+def get_camera_recorder_config(camera_or_id):
+    if isinstance(camera_or_id, int):
+        cam = CAMERA_LIST[camera_or_id - 1] if 1 <= camera_or_id <= len(CAMERA_LIST) else {}
+    elif isinstance(camera_or_id, dict):
+        cam = camera_or_id
+    else:
+        cam = {}
+
+    nested = cam.get("nvr") if isinstance(cam.get("nvr"), dict) else {}
+    vendor = str(cam.get("vendor") or cam.get("nvr_vendor") or nested.get("vendor") or "hikvision").strip().lower()
+    if vendor not in {"hikvision", "dahua"}:
+        vendor = "hikvision"
+
+    host = str(cam.get("host") or cam.get("ip") or nested.get("host") or "").strip()
+    http_port = int(cam.get("http_port") or nested.get("http_port") or (80 if vendor == "hikvision" else 81))
+    rtsp_port = int(cam.get("rtsp_port") or cam.get("port") or nested.get("rtsp_port") or 554)
+    username = str(cam.get("user") or cam.get("username") or nested.get("username") or "").strip()
+    password = str(cam.get("pass") if cam.get("pass") is not None else cam.get("password", nested.get("password", "")))
+    stream = str(cam.get("stream") or nested.get("stream") or "main").strip().lower()
+
+    channel_raw = cam.get("nvr_channel") or cam.get("channel") or nested.get("channel") or (camera_or_id if isinstance(camera_or_id, int) else 1)
+    try:
+        channel = int(channel_raw)
+    except (TypeError, ValueError):
+        channel = 1
+    if channel < 1:
+        channel = 1
+
+    return {
+        "vendor": vendor,
+        "host": host,
+        "http_port": http_port,
+        "rtsp_port": rtsp_port,
+        "username": username,
+        "password": password,
+        "stream": stream,
+        "nvr_channel": channel,
+        "channel_map": {"1": channel},
+        "use_https": bool(cam.get("use_https", nested.get("use_https", False))),
+        "verify_tls": bool(cam.get("verify_tls", nested.get("verify_tls", False))),
+        "timezone_offset_minutes": int(cam.get("timezone_offset_minutes", nested.get("timezone_offset_minutes", 420)) or 420),
+        "connect_timeout_sec": max(1, int(cam.get("connect_timeout_sec", nested.get("connect_timeout_sec", 5)) or 5)),
+        "read_timeout_sec": max(5, int(cam.get("read_timeout_sec", nested.get("read_timeout_sec", 30)) or 30)),
+        "max_search_pages": max(1, min(50, int(cam.get("max_search_pages", nested.get("max_search_pages", 12)) or 12))),
+        "playback_chunk_sec": max(30, min(3600, int(cam.get("playback_chunk_sec", nested.get("playback_chunk_sec", 300)) or 300))),
+        "backup_local": bool(cam.get("backup_local", False)),
+    }
+
+
+def get_playback_source_config(source=None):
+    root = source if isinstance(source, dict) else CONFIG
+    configured = root.get("playback_source", {}) if isinstance(root, dict) else {}
+    if isinstance(configured, dict) and configured.get("nvr"):
+        return configured
+    # Fallback to first NVR camera if available
+    for idx, cam in enumerate(root.get("cameras", []), start=1):
+        if str(cam.get("playback_source", "")).strip().lower() == "nvr":
+            rec = get_camera_recorder_config(cam)
+            return {"mode": "nvr", "nvr": rec}
+    return {
+        "mode": "local",
+        "nvr": {
+            "vendor": "hikvision",
+            "host": "",
+            "http_port": 80,
+            "rtsp_port": 554,
+            "username": "admin",
+            "password": "",
+            "stream": "main",
+            "timezone_offset_minutes": 420,
+            "connect_timeout_sec": 5,
+            "read_timeout_sec": 30,
+            "max_search_pages": 12,
+            "playback_chunk_sec": 300,
+            "channel_map": {},
+        },
+    }
+
+
+def _camera_playback_mode(cam_id, playback=None):
+    if isinstance(cam_id, int) and 1 <= cam_id <= len(CAMERA_LIST):
+        camera = CAMERA_LIST[cam_id - 1]
+        if isinstance(camera, dict):
+            mode = str(camera.get("playback_source", "")).strip().lower()
+            if mode in {"local", "nvr"}:
+                return mode
+            if mode == "hybrid":
+                return "nvr"
+    return "local"
+
+
+def should_record_locally(camera):
+    if not isinstance(camera, dict):
+        return False
+    mode = str(camera.get("playback_source", "local")).strip().lower()
+    if mode == "nvr":
+        return bool(camera.get("backup_local", False))
+    return True
+
+
+def _nvr_base_url(nvr):
+    scheme = "https" if nvr.get("use_https") else "http"
+    return f"{scheme}://{nvr['host']}:{int(nvr.get('http_port', 80))}"
+
+
+def _nvr_auth(nvr):
+    return HTTPDigestAuth(nvr.get("username", ""), nvr.get("password", ""))
+
+
+def _nvr_request_timeout(nvr, media=False):
+    connect = max(1, int(nvr.get("connect_timeout_sec", 5)))
+    read = max(5, int(nvr.get("read_timeout_sec", 30)))
+    if media:
+        read = max(read, 180)
+    return (connect, read)
+
+
+def _nvr_channel_number(cam_id, nvr):
+    if isinstance(nvr, dict) and "nvr_channel" in nvr:
+        try:
+            return int(nvr["nvr_channel"])
+        except (TypeError, ValueError):
+            pass
+    raw_channel = nvr.get("channel_map", {}).get(str(cam_id)) if isinstance(nvr, dict) else None
+    if raw_channel in (None, "") and 1 <= cam_id <= len(CAMERA_LIST):
+        camera = CAMERA_LIST[cam_id - 1]
+        if isinstance(camera, dict):
+            raw_channel = camera.get("nvr_channel")
+    if raw_channel in (None, ""):
+        raw_channel = cam_id
+    try:
+        channel = int(raw_channel)
+    except (TypeError, ValueError, OverflowError):
+        channel = cam_id
+    return channel if channel >= 1 else cam_id
+
+
+def _nvr_track_id(cam_id, nvr):
+    channel = _nvr_channel_number(cam_id, nvr)
+    stream_number = 2 if str(nvr.get("stream", "main")).lower() == "sub" else 1
+    return channel * 100 + stream_number
+
+
+def _xml_local_name(tag):
+    return str(tag).rsplit("}", 1)[-1]
+
+
+def _xml_descendant_text(node, name):
+    wanted = str(name).lower()
+    for child in node.iter():
+        if _xml_local_name(child.tag).lower() == wanted and child.text:
+            return child.text.strip()
+    return ""
+
+
+def _local_to_nvr_utc(value, nvr):
+    offset = timezone(timedelta(minutes=int(nvr.get("timezone_offset_minutes", 420))))
+    return value.replace(tzinfo=offset).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _nvr_time_to_local(value, nvr):
+    raw = str(value or "").strip()
+    if not raw:
+        raise ValueError("NVR không trả về thời gian bản ghi.")
+    normalized = raw[:-1] + "+00:00" if raw.endswith("Z") else raw
+    parsed = datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        return parsed
+    local_zone = timezone(timedelta(minutes=int(nvr.get("timezone_offset_minutes", 420))))
+    return parsed.astimezone(local_zone).replace(tzinfo=None)
+
+
+def _remember_nvr_reference(reference):
+    now = time.time()
+    token = uuid.uuid4().hex
+    with NVR_REFERENCE_LOCK:
+        for key, item in list(NVR_REFERENCE_CACHE.items()):
+            if item.get("expires_at", 0) <= now:
+                NVR_REFERENCE_CACHE.pop(key, None)
+        NVR_REFERENCE_CACHE[token] = {**reference, "expires_at": now + NVR_REFERENCE_TTL_SEC}
+    return token
+
+
+def _get_nvr_reference(token):
+    if not isinstance(token, str) or not re.fullmatch(r"[0-9a-f]{32}", token):
+        return None
+    now = time.time()
+    with NVR_REFERENCE_LOCK:
+        item = NVR_REFERENCE_CACHE.get(token)
+        if not item or item.get("expires_at", 0) <= now:
+            NVR_REFERENCE_CACHE.pop(token, None)
+            return None
+        return dict(item)
+
+
+def _hikvision_search_body(track_id, start_utc, end_utc, position, max_results=40, search_id=None):
+    search_id = search_id or uuid.uuid4().hex
+    return (
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<CMSearchDescription>"
+        f"<searchID>{search_id}</searchID>"
+        f"<trackIDList><trackID>{int(track_id)}</trackID></trackIDList>"
+        "<timeSpanList><timeSpan>"
+        f"<startTime>{start_utc}</startTime><endTime>{end_utc}</endTime>"
+        "</timeSpan></timeSpanList>"
+        f"<maxResults>{int(max_results)}</maxResults>"
+        f"<searchResultPostion>{int(position)}</searchResultPostion>"
+        "<metadataList><metadataDescriptor>//recordType.meta.std-cgi.com</metadataDescriptor></metadataList>"
+        "</CMSearchDescription>"
+    )
+
+
+def _search_hikvision_camera(cam_id, window_start, window_end, nvr):
+    track_id = _nvr_track_id(cam_id, nvr)
+    endpoint = _nvr_base_url(nvr) + "/ISAPI/ContentMgmt/search"
+    start_utc = _local_to_nvr_utc(window_start, nvr)
+    end_utc = _local_to_nvr_utc(window_end, nvr)
+    results = []
+    max_results = 40
+    search_id = uuid.uuid4().hex
+    for page in range(int(nvr.get("max_search_pages", 12))):
+        response = requests.post(
+            endpoint,
+            data=_hikvision_search_body(track_id, start_utc, end_utc, page * max_results, max_results, search_id),
+            headers={"Content-Type": "application/xml", "Accept": "application/xml"},
+            auth=_nvr_auth(nvr),
+            timeout=_nvr_request_timeout(nvr),
+            verify=bool(nvr.get("verify_tls", False)),
+        )
+        response.raise_for_status()
+        try:
+            xml_root = ET.fromstring(response.content)
+        except ET.ParseError as exc:
+            raise RuntimeError("NVR trả về XML tìm kiếm không hợp lệ.") from exc
+        matches = [node for node in xml_root.iter() if _xml_local_name(node.tag) == "searchMatchItem"]
+        for item in matches:
+            playback_uri = _xml_descendant_text(item, "playbackURI")
+            start_value = _xml_descendant_text(item, "startTime")
+            end_value = _xml_descendant_text(item, "endTime")
+            if not playback_uri or not start_value or not end_value:
+                continue
+            try:
+                started_at = _nvr_time_to_local(start_value, nvr)
+                ended_at = _nvr_time_to_local(end_value, nvr)
+            except (TypeError, ValueError):
+                continue
+            if ended_at <= started_at or started_at >= window_end or ended_at <= window_start:
+                continue
+            token = _remember_nvr_reference({
+                "vendor": "hikvision",
+                "cam_id": cam_id,
+                "track_id": track_id,
+                "playback_uri": playback_uri,
+                "started_at": started_at.isoformat(timespec="seconds"),
+                "ended_at": ended_at.isoformat(timespec="seconds"),
+            })
+            filename = (
+                f"nvr_hik_cam{cam_id}_{started_at.strftime('%H-%M-%S')}_to_"
+                f"{ended_at.strftime('%H-%M-%S')}_({started_at.strftime('%d-%m-%Y')}).mp4"
+            )
+            results.append({
+                "filename": filename,
+                "cam_id": cam_id,
+                "started_at": started_at.isoformat(timespec="seconds"),
+                "end_at": ended_at.isoformat(timespec="seconds"),
+                "duration_sec": round((ended_at - started_at).total_seconds(), 3),
+                "status": "complete",
+                "locked": False,
+                "note": "",
+                "source": "nvr",
+                "nvr_vendor": "hikvision",
+                "play_url": f"/nvr/video/{token}",
+                "download_url": f"/nvr/download/{token}",
+                "nvr_track_id": track_id,
+            })
+        if len(matches) < max_results:
+            break
+    return results
+
+
+def _parse_dahua_key_values(text):
+    values = {}
+    for raw in str(text or "").replace("\r\r", "\r").splitlines():
+        line = raw.strip()
+        if not line or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip()
+    return values
+
+
+def _parse_dahua_items(text):
+    items = {}
+    for raw in str(text or "").replace("\r\r", "\r").splitlines():
+        line = raw.strip()
+        match = re.match(r"items\[(\d+)\]\.([^=]+)=(.*)", line)
+        if not match:
+            continue
+        index = int(match.group(1))
+        items.setdefault(index, {})[match.group(2).strip()] = match.group(3).strip()
+    return [items[index] for index in sorted(items)]
+
+
+def _dahua_quote(value):
+    return quote(str(value), safe=":-_/[]@")
+
+
+def _dahua_get(nvr, path, media=False, stream=False):
+    response = requests.get(
+        _nvr_base_url(nvr) + path,
+        auth=_nvr_auth(nvr),
+        timeout=_nvr_request_timeout(nvr, media=media),
+        verify=bool(nvr.get("verify_tls", False)),
+        stream=stream,
+    )
+    return response
+
+
+def _search_dahua_camera(cam_id, window_start, window_end, nvr):
+    channel = _nvr_channel_number(cam_id, nvr)
+    create = _dahua_get(nvr, "/cgi-bin/mediaFileFind.cgi?action=factory.create")
+    create.raise_for_status()
+    object_match = re.search(r"result=(\S+)", create.text)
+    if not object_match:
+        raise RuntimeError("Dahua không tạo được mediaFileFind object.")
+    object_id = object_match.group(1)
+    results = []
+    expected_stream = "Extra1" if str(nvr.get("stream", "main")).lower() == "sub" else "Main"
+    try:
+        find_path = (
+            "/cgi-bin/mediaFileFind.cgi?action=findFile"
+            f"&object={_dahua_quote(object_id)}"
+            f"&condition.Channel={channel}"
+            f"&condition.StartTime={_dahua_quote(window_start.strftime('%Y-%m-%d %H:%M:%S'))}"
+            f"&condition.EndTime={_dahua_quote(window_end.strftime('%Y-%m-%d %H:%M:%S'))}"
+            "&condition.Types[0]=dav"
+        )
+        started = _dahua_get(nvr, find_path)
+        if started.status_code != 200 or not started.text.strip().upper().startswith("OK"):
+            detail = started.text.strip().replace("\r", " ").replace("\n", " ")[:120]
+            raise RuntimeError(f"Dahua từ chối tìm bản ghi kênh {channel}: HTTP {started.status_code} {detail}")
+
+        count = 100
+        for _page in range(int(nvr.get("max_search_pages", 12))):
+            response = _dahua_get(
+                nvr,
+                f"/cgi-bin/mediaFileFind.cgi?action=findNextFile&object={_dahua_quote(object_id)}&count={count}",
+            )
+            response.raise_for_status()
+            page_items = _parse_dahua_items(response.text)
+            for item in page_items:
+                video_stream = str(item.get("VideoStream", "")).strip()
+                if video_stream and video_stream.lower() != expected_stream.lower():
+                    continue
+                try:
+                    started_at = datetime.strptime(item.get("StartTime", ""), "%Y-%m-%d %H:%M:%S")
+                    ended_at = datetime.strptime(item.get("EndTime", ""), "%Y-%m-%d %H:%M:%S")
+                except (TypeError, ValueError):
+                    continue
+                if ended_at <= started_at or started_at >= window_end or ended_at <= window_start:
+                    continue
+                file_path = str(item.get("FilePath", "")).strip()
+                if not file_path:
+                    continue
+                token = _remember_nvr_reference({
+                    "vendor": "dahua",
+                    "cam_id": cam_id,
+                    "nvr_channel": channel,
+                    "file_path": file_path,
+                    "video_stream": video_stream or expected_stream,
+                    "started_at": started_at.isoformat(timespec="seconds"),
+                    "ended_at": ended_at.isoformat(timespec="seconds"),
+                })
+                filename = (
+                    f"nvr_dahua_cam{cam_id}_{started_at.strftime('%H-%M-%S')}_to_"
+                    f"{ended_at.strftime('%H-%M-%S')}_({started_at.strftime('%d-%m-%Y')}).mp4"
+                )
+                try:
+                    length = int(item.get("Length", 0) or 0)
+                except (TypeError, ValueError):
+                    length = 0
+                results.append({
+                    "filename": filename,
+                    "cam_id": cam_id,
+                    "started_at": started_at.isoformat(timespec="seconds"),
+                    "end_at": ended_at.isoformat(timespec="seconds"),
+                    "duration_sec": round((ended_at - started_at).total_seconds(), 3),
+                    "status": "complete",
+                    "locked": False,
+                    "note": "",
+                    "source": "nvr",
+                    "nvr_vendor": "dahua",
+                    "play_url": f"/nvr/video/{token}",
+                    "download_url": f"/nvr/download/{token}",
+                    "nvr_channel": channel,
+                    "size_bytes": length,
+                    "video_stream": video_stream or expected_stream,
+                })
+            found_match = re.search(r"(?:^|[\r\n])found=(\d+)", response.text)
+            found = int(found_match.group(1)) if found_match else len(page_items)
+            if found < count:
+                break
+    finally:
+        try:
+            close = _dahua_get(
+                nvr,
+                f"/cgi-bin/mediaFileFind.cgi?action=close&object={_dahua_quote(object_id)}",
+            )
+            close.close()
+        except requests.RequestException:
+            pass
+    return results
+
+
+def _nvr_camera_ids(requested_ids=None):
+    if requested_ids is not None:
+        return sorted({
+            cam_id for cam_id in requested_ids
+            if isinstance(cam_id, int) and 1 <= cam_id <= len(CAMERA_LIST)
+            and _camera_playback_mode(cam_id) == "nvr"
+        })
+    return [
+        cam_id for cam_id in range(1, len(CAMERA_LIST) + 1)
+        if _camera_playback_mode(cam_id) == "nvr"
+    ]
+
+
+def search_nvr_timeline(window_start, window_end, camera_ids=None):
+    camera_ids = _nvr_camera_ids(camera_ids)
+    if not camera_ids:
+        return [], []
+
+    def _search_cam(cid):
+        rec = get_camera_recorder_config(cid)
+        vendor = rec.get("vendor", "hikvision")
+        if vendor not in {"hikvision", "dahua"}:
+            raise RuntimeError(f"Hãng NVR của camera {cid} không được hỗ trợ.")
+        if not rec.get("host") or not rec.get("username"):
+            raise RuntimeError(f"Chưa cấu hình IP/host và tài khoản NVR cho camera {cid}.")
+        searcher = _search_dahua_camera if vendor == "dahua" else _search_hikvision_camera
+        return searcher(cid, window_start, window_end, rec)
+
+    segments, warnings = [], []
+    with ThreadPoolExecutor(max_workers=min(6, len(camera_ids)), thread_name_prefix="NvrSearch") as executor:
+        futures = {
+            executor.submit(_search_cam, cam_id): cam_id
+            for cam_id in camera_ids
+        }
+        for future in as_completed(futures):
+            cam_id = futures[future]
+            try:
+                segments.extend(future.result())
+            except Exception as exc:
+                logger.warning("[NVR] Tìm bản ghi camera %s thất bại: %s", cam_id, exc)
+                warnings.append(f"Camera {cam_id}: {exc}")
+    segments.sort(key=lambda item: (item["started_at"], item["cam_id"]))
+    if not segments and len(warnings) == len(camera_ids):
+        raise RuntimeError("Không thể đọc bản ghi từ NVR: " + warnings[0])
+    return segments, warnings
+
+
+def test_nvr_connection(nvr=None):
+    config = nvr or get_playback_source_config()["nvr"]
+    vendor = config.get("vendor")
+    if vendor not in {"hikvision", "dahua"}:
+        return {"ok": False, "message": "Hãng NVR không được hỗ trợ."}
+    if not config.get("host") or not config.get("username"):
+        return {"ok": False, "message": "Cần nhập IP/host và tài khoản NVR."}
+    if vendor == "dahua":
+        try:
+            response = _dahua_get(config, "/cgi-bin/magicBox.cgi?action=getSystemInfo")
+            response.raise_for_status()
+            info = _parse_dahua_key_values(response.text)
+            cap = _dahua_get(config, "/cap.js")
+            model_match = re.search(r"devType=['\"]([^'\"]+)", cap.text) if cap.status_code == 200 else None
+            model = model_match.group(1) if model_match else info.get("updateSerial", "Dahua")
+            titles = _dahua_get(config, "/cgi-bin/configManager.cgi?action=getConfig&name=ChannelTitle")
+            channel_count = len(re.findall(r"table\.ChannelTitle\[\d+\]\.Name=", titles.text)) if titles.status_code == 200 else 0
+            return {
+                "ok": True,
+                "message": f"Kết nối Dahua thành công: {model}" + (f" · {channel_count} kênh" if channel_count else ""),
+                "model": model,
+                "name": info.get("updateSerial", ""),
+                "channels": channel_count,
+            }
+        except requests.RequestException as exc:
+            return {"ok": False, "message": f"Không kết nối được Dahua NVR: {exc}"}
+
+    try:
+        response = requests.get(
+            _nvr_base_url(config) + "/ISAPI/System/deviceInfo",
+            headers={"Accept": "application/xml"},
+            auth=_nvr_auth(config),
+            timeout=_nvr_request_timeout(config),
+            verify=bool(config.get("verify_tls", False)),
+        )
+        response.raise_for_status()
+        xml_root = ET.fromstring(response.content)
+        model = _xml_descendant_text(xml_root, "model") or "Hikvision"
+        name = _xml_descendant_text(xml_root, "deviceName")
+        label = f"{model} · {name}" if name else model
+        return {"ok": True, "message": f"Kết nối Hikvision thành công: {label}", "model": model, "name": name}
+    except requests.RequestException as exc:
+        return {"ok": False, "message": f"Không kết nối được Hikvision NVR: {exc}"}
+    except ET.ParseError:
+        return {"ok": False, "message": "NVR có phản hồi nhưng XML deviceInfo không hợp lệ."}
+
+
+def _clean_nvr_media_cache():
+    cutoff = time.time() - NVR_MEDIA_CACHE_MAX_AGE_SEC
+    try:
+        entries = list(os.scandir(NVR_CACHE_DIR))
+    except OSError:
+        return
+    for entry in entries:
+        if not entry.is_file(follow_symlinks=False):
+            continue
+        try:
+            if entry.stat().st_mtime < cutoff:
+                os.remove(entry.path)
+        except OSError:
+            continue
+
+
+def _resolve_dahua_bounds(reference, nvr, at_value=None, chunk_limit=True):
+    try:
+        clip_start = datetime.fromisoformat(str(reference["started_at"]))
+        clip_end = datetime.fromisoformat(str(reference["ended_at"]))
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError("Metadata thời gian Dahua không hợp lệ.") from exc
+    if clip_end <= clip_start:
+        raise RuntimeError("Khoảng playback Dahua không hợp lệ.")
+    requested_start = clip_start
+    if at_value:
+        try:
+            candidate = datetime.fromisoformat(str(at_value).strip())
+            if candidate.tzinfo is not None:
+                candidate = candidate.replace(tzinfo=None)
+            requested_start = max(clip_start, min(candidate, clip_end - timedelta(seconds=1)))
+        except (TypeError, ValueError):
+            raise ValueError("Thời điểm playback Dahua không hợp lệ.")
+    requested_end = clip_end
+    if chunk_limit:
+        requested_end = min(
+            clip_end,
+            requested_start + timedelta(seconds=int(nvr.get("playback_chunk_sec", 300))),
+        )
+    if requested_end <= requested_start:
+        requested_end = min(clip_end, requested_start + timedelta(seconds=1))
+    return requested_start, requested_end
+
+
+def _dahua_loadfile_path(reference, nvr, start_dt, end_dt):
+    channel = int(reference.get("nvr_channel") or _nvr_channel_number(reference.get("cam_id", 1), nvr))
+    subtype = 1 if str(nvr.get("stream", "main")).lower() == "sub" else 0
+    return (
+        "/cgi-bin/loadfile.cgi?action=startLoad"
+        f"&channel={channel}"
+        f"&startTime={_dahua_quote(start_dt.strftime('%Y-%m-%d %H:%M:%S'))}"
+        f"&endTime={_dahua_quote(end_dt.strftime('%Y-%m-%d %H:%M:%S'))}"
+        f"&subtype={subtype}&Types=dav"
+    )
+
+
+def _dahua_rtsp_url(reference, nvr, start_dt, end_dt):
+    channel = int(reference.get("nvr_channel") or _nvr_channel_number(reference.get("cam_id", 1), nvr))
+    subtype = 1 if str(nvr.get("stream", "main")).lower() == "sub" else 0
+    username = quote(str(nvr.get("username", "")), safe="")
+    password = quote(str(nvr.get("password", "")), safe="")
+    start_value = start_dt.strftime("%Y_%m_%d_%H_%M_%S")
+    end_value = end_dt.strftime("%Y_%m_%d_%H_%M_%S")
+    return (
+        f"rtsp://{username}:{password}@{nvr['host']}:{int(nvr.get('rtsp_port', 554))}"
+        f"/cam/playback?channel={channel}&subtype={subtype}"
+        f"&starttime={start_value}&endtime={end_value}"
+    )
+
+
+def _terminate_media_process(proc):
+    if not proc or proc.poll() is not None:
+        return
+    try:
+        proc.terminate()
+        proc.wait(timeout=3)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
+def _stream_dahua_via_rtsp(reference, nvr, start_dt, end_dt):
+    rtsp_url = _dahua_rtsp_url(reference, nvr, start_dt, end_dt)
+    duration = max(1, int((end_dt - start_dt).total_seconds()))
+    cmd = [
+        FFMPEG_PATH, "-hide_banner", "-loglevel", "error",
+        "-rw_timeout", "10000000", "-rtsp_transport", "tcp", "-i", rtsp_url,
+        "-t", str(duration), "-map", "0:v:0", "-c:v", "copy", "-an",
+        "-movflags", "frag_keyframe+empty_moov+default_base_moof", "-f", "mp4", "pipe:1",
+    ]
+    proc = subprocess.Popen(
+        cmd,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        bufsize=0,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+
+    def generate():
+        try:
+            while True:
+                chunk = proc.stdout.read(64 * 1024)
+                if not chunk:
+                    break
+                yield chunk
+        except GeneratorExit:
+            return
+        finally:
+            _terminate_media_process(proc)
+            try:
+                proc.stdout.close()
+            except Exception:
+                pass
+            try:
+                stderr = (proc.stderr.read() or b"").decode("utf-8", "replace").strip()
+                if stderr:
+                    logger.warning("[NVR:dahua] RTSP playback FFmpeg: %s", stderr[-500:])
+            except Exception:
+                pass
+
+    response = Response(stream_with_context(generate()), mimetype="video/mp4")
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-NVR-Transport"] = "dahua-rtsp"
+    return response
+
+
+def _stream_dahua_video(reference, nvr, at_value=None):
+    start_dt, end_dt = _resolve_dahua_bounds(reference, nvr, at_value=at_value, chunk_limit=True)
+    load_path = _dahua_loadfile_path(reference, nvr, start_dt, end_dt)
+    try:
+        upstream = _dahua_get(nvr, load_path, media=True, stream=True)
+        upstream.raise_for_status()
+    except requests.RequestException as exc:
+        logger.warning("[NVR:dahua] loadfile.cgi lỗi, chuyển sang RTSP playback: %s", exc)
+        try:
+            if 'upstream' in locals():
+                upstream.close()
+        except Exception:
+            pass
+        return _stream_dahua_via_rtsp(reference, nvr, start_dt, end_dt)
+
+    proc = subprocess.Popen(
+        [
+            FFMPEG_PATH, "-hide_banner", "-loglevel", "error",
+            "-i", "pipe:0", "-map", "0:v:0", "-c:v", "copy", "-an",
+            "-movflags", "frag_keyframe+empty_moov+default_base_moof", "-f", "mp4", "pipe:1",
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        bufsize=0,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    stop_event = threading.Event()
+
+    def feed_upstream():
+        try:
+            for chunk in upstream.iter_content(chunk_size=256 * 1024):
+                if stop_event.is_set():
+                    break
+                if chunk:
+                    proc.stdin.write(chunk)
+        except Exception as exc:
+            if not stop_event.is_set():
+                logger.warning("[NVR:dahua] Lỗi đọc loadfile.cgi: %s", exc)
+        finally:
+            try:
+                proc.stdin.close()
+            except Exception:
+                pass
+            upstream.close()
+
+    threading.Thread(target=feed_upstream, daemon=True, name="DahuaLoadfileFeed").start()
+
+    def generate():
+        try:
+            while True:
+                chunk = proc.stdout.read(64 * 1024)
+                if not chunk:
+                    break
+                yield chunk
+        except GeneratorExit:
+            return
+        finally:
+            stop_event.set()
+            upstream.close()
+            _terminate_media_process(proc)
+            try:
+                proc.stdout.close()
+            except Exception:
+                pass
+            try:
+                stderr = (proc.stderr.read() or b"").decode("utf-8", "replace").strip()
+                if stderr:
+                    logger.warning("[NVR:dahua] FFmpeg DHAV->fMP4: %s", stderr[-500:])
+            except Exception:
+                pass
+
+    response = Response(stream_with_context(generate()), mimetype="video/mp4")
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-NVR-Transport"] = "dahua-cgi-stream"
+    response.headers["X-NVR-Chunk-Seconds"] = str(int((end_dt - start_dt).total_seconds()))
+    return response
+
+
+def _download_hikvision_reference(token, reference, nvr):
+    final_path = os.path.join(NVR_CACHE_DIR, f"{token}.mp4")
+    if os.path.isfile(final_path) and os.path.getsize(final_path) > 0:
+        return final_path
+    playback_uri = str(reference["playback_uri"])
+    body = (
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<downloadRequest><playbackURI>"
+        + playback_uri.replace("&", "&amp;")
+        + "</playbackURI></downloadRequest>"
+    )
+    endpoint = _nvr_base_url(nvr) + "/ISAPI/ContentMgmt/download"
+    raw_path = os.path.join(NVR_CACHE_DIR, f"{token}.download")
+    temp_mp4 = os.path.join(NVR_CACHE_DIR, f"{token}.part.mp4")
+    _clean_nvr_media_cache()
+    with NVR_MEDIA_LOCK:
+        if os.path.isfile(final_path) and os.path.getsize(final_path) > 0:
+            return final_path
+        response = None
+        try:
+            response = requests.post(
+                endpoint,
+                data=body,
+                headers={"Content-Type": "application/xml", "Accept": "application/octet-stream"},
+                auth=_nvr_auth(nvr),
+                timeout=_nvr_request_timeout(nvr, media=True),
+                verify=bool(nvr.get("verify_tls", False)),
+                stream=True,
+            )
+            if response.status_code in {400, 404, 405, 501}:
+                response.close()
+                response = requests.get(
+                    endpoint,
+                    data=body,
+                    headers={"Content-Type": "application/xml", "Accept": "application/octet-stream"},
+                    auth=_nvr_auth(nvr),
+                    timeout=_nvr_request_timeout(nvr, media=True),
+                    verify=bool(nvr.get("verify_tls", False)),
+                    stream=True,
+                )
+            response.raise_for_status()
+            with open(raw_path, "wb") as output:
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        output.write(chunk)
+        finally:
+            if response is not None:
+                response.close()
+        if not os.path.isfile(raw_path) or os.path.getsize(raw_path) <= 0:
+            raise RuntimeError("NVR trả về file rỗng.")
+        completed = subprocess.run(
+            [FFMPEG_PATH, "-y", "-hide_banner", "-loglevel", "error", "-i", raw_path,
+             "-map", "0", "-c", "copy", "-movflags", "+faststart", temp_mp4],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=max(180, int(nvr.get("read_timeout_sec", 30)) * 10),
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if completed.returncode != 0 or not os.path.isfile(temp_mp4) or os.path.getsize(temp_mp4) <= 0:
+            tail = (completed.stderr or "").strip().splitlines()[-1:]
+            raise RuntimeError(tail[0] if tail else "FFmpeg không remux được video NVR.")
+        os.replace(temp_mp4, final_path)
+        try:
+            os.remove(raw_path)
+        except OSError:
+            pass
+    return final_path
+
+
+def _download_dahua_reference(token, reference, nvr, at_value=None):
+    start_dt, end_dt = _resolve_dahua_bounds(
+        reference,
+        nvr,
+        at_value=at_value,
+        chunk_limit=True,
+    )
+    cache_key = hashlib.sha256(
+        f"{token}|{start_dt.isoformat()}|{end_dt.isoformat()}".encode("utf-8")
+    ).hexdigest()[:16]
+    final_path = os.path.join(NVR_CACHE_DIR, f"dahua_{cache_key}.mp4")
+    if os.path.isfile(final_path) and os.path.getsize(final_path) > 0:
+        return final_path
+    raw_path = os.path.join(NVR_CACHE_DIR, f"dahua_{cache_key}.dav")
+    temp_mp4 = os.path.join(NVR_CACHE_DIR, f"dahua_{cache_key}.part.mp4")
+    _clean_nvr_media_cache()
+    with NVR_MEDIA_LOCK:
+        if os.path.isfile(final_path) and os.path.getsize(final_path) > 0:
+            return final_path
+        response = _dahua_get(
+            nvr,
+            _dahua_loadfile_path(reference, nvr, start_dt, end_dt),
+            media=True,
+            stream=True,
+        )
+        try:
+            response.raise_for_status()
+            with open(raw_path, "wb") as output:
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        output.write(chunk)
+        finally:
+            response.close()
+        if not os.path.isfile(raw_path) or os.path.getsize(raw_path) <= 0:
+            raise RuntimeError("Dahua loadfile.cgi trả về file rỗng.")
+        completed = subprocess.run(
+            [
+                FFMPEG_PATH, "-y", "-hide_banner", "-loglevel", "error", "-i", raw_path,
+                "-map", "0:v:0", "-c:v", "copy", "-an", "-movflags", "+faststart", temp_mp4,
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=max(180, int(nvr.get("read_timeout_sec", 30)) * 20),
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if completed.returncode != 0 or not os.path.isfile(temp_mp4) or os.path.getsize(temp_mp4) <= 0:
+            tail = (completed.stderr or "").strip().splitlines()[-1:]
+            raise RuntimeError(tail[0] if tail else "FFmpeg không remux được DHAV.")
+        os.replace(temp_mp4, final_path)
+        try:
+            os.remove(raw_path)
+        except OSError:
+            pass
+    return final_path
+
+
+def _download_nvr_reference(token, at_value=None):
+    reference = _get_nvr_reference(token)
+    if not reference:
+        raise FileNotFoundError("Liên kết NVR đã hết hạn. Hãy tải lại timeline.")
+    cam_id = reference.get("cam_id", 1)
+    nvr = get_camera_recorder_config(cam_id)
+    vendor = str(reference.get("vendor") or nvr.get("vendor") or "hikvision").lower()
+    if vendor == "dahua":
+        return _download_dahua_reference(token, reference, nvr, at_value=at_value)
+    if vendor == "hikvision":
+        return _download_hikvision_reference(token, reference, nvr)
+    raise RuntimeError("Nguồn NVR không được hỗ trợ.")
+
+
 def validate_config(candidate):
     if not isinstance(candidate, dict):
         return "Cấu hình phải là một đối tượng JSON."
@@ -336,9 +1364,63 @@ def validate_config(candidate):
     cameras = candidate.get("cameras", [])
     if not isinstance(cameras, list):
         return "'cameras' phải là một danh sách."
+
+    root_ps = candidate.get("playback_source")
+    if isinstance(root_ps, dict):
+        root_mode = str(root_ps.get("mode", "")).strip().lower()
+        if root_mode == "hybrid":
+            return "Chế độ Hybrid đã bị loại bỏ. Chỉ chọn Local hoặc NVR."
+
     for index, camera in enumerate(cameras, start=1):
-        if not isinstance(camera, dict) or not all(camera.get(key) for key in ("ip", "user", "pass")):
-            return f"Camera {index} cần có ip, user và pass."
+        if not isinstance(camera, dict):
+            return f"Camera {index} phải là một đối tượng cấu hình."
+        mode = str(camera.get("playback_source", "local")).strip().lower()
+        if mode == "hybrid":
+            return f"Camera {index}: chế độ Hybrid đã bị loại bỏ. Chỉ chọn Local hoặc NVR."
+        if mode not in {"local", "nvr"}:
+            return f"Camera {index}: nguồn chỉ được chọn Local hoặc NVR."
+        if mode == "local":
+            if not all(camera.get(key) for key in ("ip", "user", "pass")):
+                return f"Camera {index} cần có ip, user và pass cho luồng Local."
+            if "port" in camera:
+                try:
+                    port = int(camera["port"])
+                    if not 1 <= port <= 65535:
+                        return f"Camera {index}: port camera nằm ngoài phạm vi 1-65535."
+                except (TypeError, ValueError):
+                    return f"Camera {index}: port camera không hợp lệ."
+        elif mode == "nvr":
+            host = str(camera.get("host") or camera.get("ip") or "").strip()
+            user = str(camera.get("user") or camera.get("username") or "").strip()
+            if not host or not user:
+                return f"Camera {index} (NVR): cần có IP/host và tài khoản đầu ghi."
+            vendor = str(camera.get("vendor") or camera.get("nvr_vendor") or "hikvision").strip().lower()
+            if vendor not in {"hikvision", "dahua"}:
+                return f"Camera {index} (NVR): hãng đầu ghi chỉ nhận hikvision hoặc dahua."
+            raw_channel = camera.get("nvr_channel") or camera.get("channel")
+            if raw_channel is None:
+                return f"Camera {index}: cần chọn Kênh NVR."
+            try:
+                channel = int(raw_channel)
+            except (TypeError, ValueError, OverflowError):
+                return f"Camera {index}: kênh NVR không hợp lệ."
+            if channel < 1:
+                return f"Camera {index}: cần chọn Kênh NVR."
+            for p_key in ("http_port", "rtsp_port"):
+                if p_key in camera:
+                    try:
+                        p_val = int(camera[p_key])
+                        if not 1 <= p_val <= 65535:
+                            return f"Camera {index}: {p_key} nằm ngoài phạm vi 1-65535."
+                    except (TypeError, ValueError):
+                        return f"Camera {index}: {p_key} không hợp lệ."
+            if "playback_chunk_sec" in camera:
+                try:
+                    chunk = int(camera["playback_chunk_sec"])
+                    if not 30 <= chunk <= 3600:
+                        return f"Camera {index}: playback_chunk_sec phải nằm trong khoảng 30-3600 giây."
+                except (TypeError, ValueError):
+                    return f"Camera {index}: playback_chunk_sec không hợp lệ."
     for key, default in (("video_dir", "cctv_videos"), ("db_path", "analytics.db"), ("log_dir", "logs")):
         configured_path = candidate.get(key, default)
         try:
@@ -411,6 +1493,29 @@ def build_rtsp_url(camera, stream):
     direct_url = camera.get(f"{stream}_rtsp_url")
     if direct_url:
         return str(direct_url)
+    mode = str(camera.get("playback_source", "local")).strip().lower()
+    if mode == "nvr":
+        rec = get_camera_recorder_config(camera)
+        channel = rec["nvr_channel"]
+        if stream == "record":
+            rec_stream = str(rec.get("stream", "main")).lower()
+            is_main = (rec_stream != "sub")
+        elif stream in {"main", "sub"}:
+            is_main = (stream == "main")
+        else:
+            is_main = False
+        user = quote(str(rec["username"]), safe="")
+        pwd = quote(str(rec["password"]), safe="")
+        host = rec["host"]
+        port = rec["rtsp_port"]
+        if rec["vendor"] == "dahua":
+            subtype = 0 if is_main else 1
+            return f"rtsp://{user}:{pwd}@{host}:{port}/cam/realmonitor?channel={channel}&subtype={subtype}"
+        else:
+            stream_idx = 1 if is_main else 2
+            track_chan = int(channel) * 100 + stream_idx
+            return f"rtsp://{user}:{pwd}@{host}:{port}/Streaming/Channels/{track_chan}"
+
     default_paths = {
         "record": "h264/ch1/main/av_stream",
         "preview": "h264/ch1/sub/av_stream",
@@ -418,8 +1523,8 @@ def build_rtsp_url(camera, stream):
     path = str(camera.get(f"{stream}_path", default_paths[stream])).lstrip("/")
     separator = "&" if "?" in path else "?"
     return (
-        f"rtsp://{quote(str(camera['user']), safe='')}:{quote(str(camera['pass']), safe='')}"
-        f"@{camera['ip']}:{camera.get('port', 554)}/{path}{separator}timeout=20000000"
+        f"rtsp://{quote(str(camera.get('user', '')), safe='')}:{quote(str(camera.get('pass', '')), safe='')}"
+        f"@{camera.get('ip', '')}:{camera.get('port', 554)}/{path}{separator}timeout=20000000"
     )
 
 
@@ -553,28 +1658,31 @@ def record_camera(cam_id, camera, stop_event):
     """Record one camera. The supervisor guarantees a single worker per camera."""
     last_alert_time = 0
     retry_delay = 1
-    ip = camera["ip"]
-    user = camera["user"]
-    password = camera["pass"]
+    mode = str(camera.get("playback_source", "local")).strip().lower()
     while not stop_event.is_set():
         start_dt = datetime.now()
         end_dt = start_dt + timedelta(seconds=DURATION)
         filename = build_filename(cam_id, start_dt, end_dt)
         filepath = os.path.join(VIDEO_DIR, filename)
         temp_filepath = f"{filepath}.part"
-        # Giữ nguyên luồng ghi đã dùng trong bản cũ. Chỉ dùng RTSP tùy chỉnh
-        # khi người vận hành cấu hình rõ ràng trong Admin.
-        configured_record_path = camera.get("record_path")
-        if camera.get("record_rtsp_url") or (
-            configured_record_path
-            and configured_record_path != "h264/ch1/main/av_stream"
-        ):
+        if mode == "nvr":
             rtsp_url = build_rtsp_url(camera, "record")
         else:
-            rtsp_url = (
-                f"rtsp://{user}:{password}@{ip}:554/"
-                "h264/ch1/main/av_stream?timeout=20000000"
-            )
+            configured_record_path = camera.get("record_path")
+            if camera.get("record_rtsp_url") or (
+                configured_record_path
+                and configured_record_path != "h264/ch1/main/av_stream"
+            ):
+                rtsp_url = build_rtsp_url(camera, "record")
+            else:
+                user = quote(str(camera.get("user", "")), safe="")
+                password = quote(str(camera.get("pass", "")), safe="")
+                ip = camera.get("ip", "")
+                port = camera.get("port", 554)
+                rtsp_url = (
+                    f"rtsp://{user}:{password}@{ip}:{port}/"
+                    "h264/ch1/main/av_stream?timeout=20000000"
+                )
         cmd = [
             FFMPEG_PATH,
             "-hide_banner",
@@ -721,6 +1829,9 @@ def restart_camera_worker(cam_id, camera):
 
 def start_recording_loop():
     for idx, cam in enumerate(CAMERA_LIST, start=1):
+        if not should_record_locally(cam):
+            logger.info(f"[Cam {idx}] Nguồn NVR (không ghi dự phòng), không khởi tạo worker ghi Local.")
+            continue
         ensure_camera_worker(idx, cam)
         time.sleep(0.5)
 
@@ -852,6 +1963,8 @@ def health_check_loop():
             stall_seconds = int(CONFIG.get("camera_stall_sec", 600))
             recovery_cooldown = int(CONFIG.get("camera_recovery_cooldown_sec", 120))
             for idx, cam in enumerate(CAMERA_LIST, start=1):
+                if not should_record_locally(cam):
+                    continue
                 with CAMERA_LOCK:
                     worker = CAM_WORKERS.get(idx)
                 if not worker or not worker.is_alive():
@@ -1347,10 +2460,15 @@ def index():
 def replay_cam(cam_id):
     if not 1 <= cam_id <= len(CAMERA_LIST):
         return "Camera không tồn tại", 404
+    cam = CAMERA_LIST[cam_id - 1]
+    mode = _camera_playback_mode(cam_id)
+    backup_local = bool(cam.get("backup_local", False)) if mode == "nvr" else False
     return render_template(
         "index.html",
         cam_id=cam_id,
         camera_name=get_camera_name(cam_id),
+        camera_mode=mode,
+        backup_local=backup_local,
         site=get_site_config(),
         max_merge_minutes=MAX_MERGE_MINUTES,
     )
@@ -1421,7 +2539,68 @@ def camera_snapshot(cam_id):
 
 @app.route("/list/cam<int:cam_id>")
 def list_videos_by_cam(cam_id):
-    """Return every completed MP4 immediately; active recordings use .part."""
+    """Return completed MP4s for local or query NVR recordings based on source parameter."""
+    if not 1 <= cam_id <= len(CAMERA_LIST):
+        return jsonify([]), 404
+    cam = CAMERA_LIST[cam_id - 1]
+    mode = _camera_playback_mode(cam_id)
+
+    req_source = request.args.get("source", "").strip().lower()
+    if not req_source:
+        target_source = "nvr" if mode == "nvr" else "local"
+    elif req_source in {"server1", "nvr"}:
+        target_source = "nvr"
+    elif req_source in {"server2", "local"}:
+        target_source = "local"
+    else:
+        target_source = "local"
+
+    if target_source == "nvr":
+        rec = get_camera_recorder_config(cam)
+        vendor = rec.get("vendor", "hikvision")
+        if not rec.get("host") or not rec.get("username"):
+            return jsonify([])
+        date_str = request.args.get("date", "").strip()
+        start_param = request.args.get("start", "").strip()
+        end_param = request.args.get("end", "").strip()
+        try:
+            if start_param and end_param:
+                window_start = datetime.fromisoformat(start_param)
+                window_end = datetime.fromisoformat(end_param)
+            elif date_str:
+                d = datetime.strptime(date_str, "%Y-%m-%d")
+                window_start = d.replace(hour=0, minute=0, second=0)
+                window_end = d.replace(hour=23, minute=59, second=59)
+            else:
+                now = datetime.now()
+                window_start = now - timedelta(hours=24)
+                window_end = now + timedelta(minutes=5)
+        except Exception:
+            now = datetime.now()
+            window_start = now - timedelta(hours=24)
+            window_end = now + timedelta(minutes=5)
+
+        try:
+            searcher = _search_dahua_camera if vendor == "dahua" else _search_hikvision_camera
+            segments = searcher(cam_id, window_start, window_end, rec)
+            videos = []
+            for seg in segments:
+                videos.append({
+                    "name": seg["filename"],
+                    "url": seg["play_url"],
+                    "download_url": seg["download_url"],
+                    "format": "range",
+                    "started_at": seg["started_at"],
+                    "end_at": seg["end_at"],
+                    "duration_sec": seg["duration_sec"],
+                    "source": "nvr",
+                })
+            videos.sort(key=lambda x: x["started_at"], reverse=True)
+            return jsonify(videos)
+        except Exception as exc:
+            logger.warning("[Replay:NVR] Lỗi tìm kiếm video NVR camera %s: %s", cam_id, exc)
+            return jsonify([])
+
     prefix = f"cam{cam_id}_"
     candidates = []
     if os.path.isdir(VIDEO_DIR):
@@ -1439,11 +2618,17 @@ def list_videos_by_cam(cam_id):
     candidates.sort(key=lambda item: item[0], reverse=True)
     videos = []
     for _, filename in candidates:
-        item = {"name": filename, "url": f"/video/{quote(filename)}"}
+        item = {
+            "name": filename,
+            "url": f"/video/{quote(filename)}",
+            "download_url": f"/download/{quote(filename)}",
+            "source": "local",
+        }
         metadata = parse_video_metadata(filename, known_duration=DURATION)
         if metadata:
             item["format"] = metadata["format"]
             item["started_at"] = metadata["start"].isoformat(timespec="seconds")
+            item["end_at"] = metadata["end"].isoformat(timespec="seconds")
             item["duration_sec"] = round(metadata["duration_sec"], 3)
         videos.append(item)
     return jsonify(videos)
@@ -1463,6 +2648,51 @@ def download_video(filename):
     if not safe_path or not os.path.isfile(safe_path):
         return "Video not found", 404
     return send_from_directory(VIDEO_DIR, os.path.basename(safe_path), as_attachment=True)
+
+
+@app.route("/nvr/video/<token>")
+def serve_nvr_video(token):
+    reference = _get_nvr_reference(token)
+    if not reference:
+        return "Liên kết NVR đã hết hạn. Hãy tải lại timeline.", 404
+    cam_id = reference.get("cam_id", 1)
+    nvr = get_camera_recorder_config(cam_id)
+    vendor = str(reference.get("vendor") or nvr.get("vendor") or "hikvision").lower()
+    if vendor == "dahua":
+        try:
+            return _stream_dahua_video(reference, nvr, at_value=request.args.get("at"))
+        except ValueError as exc:
+            return str(exc), 400
+        except (OSError, RuntimeError, requests.RequestException, subprocess.SubprocessError) as exc:
+            logger.warning("[NVR:dahua] Không thể stream video %s: %s", token, exc)
+            return "Không thể phát video từ Dahua NVR.", 502
+    try:
+        path = _download_nvr_reference(token)
+    except FileNotFoundError as exc:
+        return str(exc), 404
+    except (OSError, RuntimeError, requests.RequestException, subprocess.SubprocessError) as exc:
+        logger.warning("[NVR:hikvision] Không thể chuẩn bị video %s: %s", token, exc)
+        return "Không thể tải video từ NVR.", 502
+    return send_file(path, mimetype="video/mp4", conditional=True)
+
+
+@app.route("/nvr/download/<token>")
+def download_nvr_video(token):
+    reference = _get_nvr_reference(token)
+    try:
+        path = _download_nvr_reference(token, at_value=request.args.get("at"))
+    except FileNotFoundError as exc:
+        return str(exc), 404
+    except ValueError as exc:
+        return str(exc), 400
+    except (OSError, RuntimeError, requests.RequestException, subprocess.SubprocessError) as exc:
+        logger.warning("[NVR] Không thể tải video %s: %s", token, exc)
+        return "Không thể tải video từ NVR.", 502
+    cam_id = reference.get("cam_id") if reference else 0
+    started = str(reference.get("started_at", "")).replace(":", "-") if reference else "clip"
+    download_name = f"nvr_cam{cam_id}_{started}.mp4"
+    log_download(download_name)
+    return send_file(path, mimetype="video/mp4", as_attachment=True, download_name=download_name, conditional=True)
 
 
 @app.route("/stats")
@@ -1552,22 +2782,23 @@ def admin_page():
 @app.route("/api/admin/config", methods=["GET", "PUT"])
 @admin_required
 def admin_config():
-    global CONFIG
+    global CONFIG, CAMERA_LIST
     if request.method == "GET":
-        return jsonify(CONFIG)
+        return jsonify(migrate_config_data(CONFIG))
     candidate = request.get_json(silent=True)
     error = validate_config(candidate)
     if error:
         return jsonify({"ok": False, "error": error}), 400
     try:
-        candidate = dict(candidate)
+        cleaned = clean_config_for_saving(candidate)
         for key in ("server_port", "record_duration_sec", "record_timeout_sec", "camera_stall_sec", "max_merge_minutes"):
-            if key in candidate:
-                candidate[key] = int(candidate[key])
-        if "disk_limit_gb" in candidate:
-            candidate["disk_limit_gb"] = float(candidate["disk_limit_gb"])
-        save_config(candidate)
-        CONFIG = candidate
+            if key in cleaned:
+                cleaned[key] = int(cleaned[key])
+        if "disk_limit_gb" in cleaned:
+            cleaned["disk_limit_gb"] = float(cleaned["disk_limit_gb"])
+        save_config(cleaned)
+        CONFIG = cleaned
+        CAMERA_LIST = CONFIG.get("cameras", [])
         logger.info("Đã lưu cấu hình từ trang quản trị; một số thay đổi cần khởi động lại.")
         return jsonify(
             {
@@ -1605,9 +2836,11 @@ def restore_config_backup():
     if error:
         return jsonify({"ok": False, "error": error}), 400
     try:
-        save_config(candidate)
-        global CONFIG
-        CONFIG = candidate
+        cleaned = clean_config_for_saving(candidate)
+        save_config(cleaned)
+        global CONFIG, CAMERA_LIST
+        CONFIG = cleaned
+        CAMERA_LIST = CONFIG.get("cameras", [])
         logger.info("Đã khôi phục config.json từ bản backup.")
         return jsonify({"ok": True, "message": "Đã khôi phục cấu hình. Hãy khởi động lại ứng dụng."})
     except OSError as exc:
@@ -1621,6 +2854,9 @@ def api_status():
     cameras = []
     with CAMERA_LOCK:
         for cam_id in range(1, len(CAMERA_LIST) + 1):
+            cam = CAMERA_LIST[cam_id - 1]
+            source = _camera_playback_mode(cam_id)
+            records_locally = should_record_locally(cam)
             worker = CAM_WORKERS.get(cam_id)
             proc = CAM_PROCESSES.get(cam_id)
             last_success = CAM_LAST_SUCCESS.get(cam_id)
@@ -1628,10 +2864,13 @@ def api_status():
                 {
                     "id": cam_id,
                     "name": get_camera_name(cam_id),
-                    "worker_alive": bool(worker and worker.is_alive()),
-                    "ffmpeg_running": bool(proc and proc.poll() is None),
-                    "last_success_seconds": int(now - last_success) if last_success else None,
-                    "last_error": CAM_LAST_ERROR.get(cam_id),
+                    "source": source,
+                    "backup_local": bool(cam.get("backup_local", False)),
+                    "worker_expected": records_locally,
+                    "worker_alive": bool(worker and worker.is_alive()) if records_locally else False,
+                    "ffmpeg_running": bool(proc and proc.poll() is None) if records_locally else False,
+                    "last_success_seconds": int(now - last_success) if records_locally and last_success else None,
+                    "last_error": CAM_LAST_ERROR.get(cam_id) if records_locally else None,
                 }
             )
     return jsonify(
@@ -1650,13 +2889,105 @@ def api_status():
 def admin_test_camera():
     payload = request.get_json(silent=True) or {}
     camera = payload.get("camera")
-    if not isinstance(camera, dict) or not all(camera.get(key) for key in ("ip", "user", "pass")):
-        return jsonify({"ok": False, "message": "Cần nhập IP, tài khoản và mật khẩu trước khi kiểm tra."}), 400
+    if not isinstance(camera, dict):
+        return jsonify({"ok": False, "message": "Thiếu cấu hình camera."}), 400
+
+    mode = str(camera.get("playback_source", "local")).strip().lower()
+    if mode not in {"local", "nvr"}:
+        return jsonify({"ok": False, "message": "Nguồn camera chỉ được chọn Local hoặc NVR."}), 400
+
+    if mode == "local":
+        if not all(camera.get(key) for key in ("ip", "user", "pass")):
+            return jsonify({
+                "ok": False,
+                "mode": "local",
+                "message": "Local: cần IP, tài khoản và mật khẩu camera.",
+                "sources": {"local": {"ok": False, "message": "Cần IP, tài khoản và mật khẩu camera."}}
+            }), 400
+        try:
+            local_camera = dict(camera)
+            local_camera["port"] = int(local_camera.get("port", 554) or 554)
+            local_result = test_camera_connection(local_camera)
+            ok = bool(local_result.get("ok"))
+            msg = local_result.get("message") or ("Kết nối thành công" if ok else "Kết nối thất bại")
+            return jsonify({
+                "ok": ok,
+                "mode": "local",
+                "message": msg,
+                "sources": {"local": {**local_result, "ok": ok, "message": msg}}
+            }), (200 if ok else 400)
+        except (TypeError, ValueError):
+            return jsonify({
+                "ok": False,
+                "mode": "local",
+                "message": "Local: port RTSP không hợp lệ.",
+                "sources": {"local": {"ok": False, "message": "Port RTSP không hợp lệ."}}
+            }), 400
+
+    # mode == "nvr"
     try:
-        camera["port"] = int(camera.get("port", 554))
-    except (TypeError, ValueError):
-        return jsonify({"ok": False, "message": "Port RTSP không hợp lệ."}), 400
-    return jsonify(test_camera_connection(camera))
+        # NVR settings are per camera card. Do not merge any shared/global
+        # recorder payload into this connection test.
+        nvr = get_camera_recorder_config(camera)
+        raw_channel = camera.get("nvr_channel") if camera.get("nvr_channel") is not None else camera.get("channel")
+        if raw_channel is None:
+            raise ValueError("Chưa chọn Kênh NVR.")
+        channel = int(raw_channel)
+        if channel < 1:
+            raise ValueError("Kênh NVR phải từ 1 trở lên.")
+        nvr["nvr_channel"] = channel
+        if not nvr.get("host") or not nvr.get("username"):
+            raise ValueError("Cần nhập IP/host và tài khoản NVR.")
+        base_result = test_nvr_connection(nvr)
+        if not base_result.get("ok"):
+            return jsonify({
+                "ok": False,
+                "mode": "nvr",
+                "channel": channel,
+                "message": f"NVR: {base_result.get('message', 'Kết nối thất bại')}",
+                "sources": {"nvr": {**base_result, "ok": False, "channel": channel}}
+            }), 400
+
+        now = datetime.now()
+        searcher = _search_dahua_camera if nvr.get("vendor") == "dahua" else _search_hikvision_camera
+        searcher(channel, now - timedelta(hours=2), now, nvr)
+        return jsonify({
+            "ok": True,
+            "mode": "nvr",
+            "message": f"Kết nối thành công · Kênh {channel} ({nvr.get('vendor')})",
+            "channel": channel,
+            "sources": {
+                "nvr": {
+                    "ok": True,
+                    "channel": channel,
+                    "vendor": nvr.get("vendor"),
+                    "message": f"Kết nối thành công · Kênh {channel}"
+                }
+            }
+        }), 200
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "mode": "nvr",
+            "channel": camera.get("nvr_channel"),
+            "message": f"NVR: {exc}",
+            "sources": {"nvr": {"ok": False, "message": str(exc)}}
+        }), 400
+
+
+@app.route("/api/admin/test-nvr", methods=["POST"])
+@admin_required
+def admin_test_nvr():
+    payload = request.get_json(silent=True) or {}
+    raw = payload.get("nvr")
+    if not isinstance(raw, dict):
+        return jsonify({"ok": False, "message": "Thiếu cấu hình NVR."}), 400
+    try:
+        prepared = get_camera_recorder_config(raw)
+    except (TypeError, ValueError, OverflowError):
+        return jsonify({"ok": False, "message": "Cấu hình NVR không hợp lệ."}), 400
+    result = test_nvr_connection(prepared)
+    return jsonify(result), (200 if result.get("ok") else 400)
 
 
 @app.route("/api/admin/merged-videos", methods=["GET"])
@@ -1937,22 +3268,38 @@ def index_untracked_video_files():
 
 
 def get_timeline_data(window_start, window_end):
+    camera_modes = {
+        cam_id: _camera_playback_mode(cam_id)
+        for cam_id in range(1, len(CAMERA_LIST) + 1)
+    }
+    local_camera_ids = {
+        cam_id for cam_id, mode in camera_modes.items()
+        if mode == "local"
+    }
+    nvr_camera_ids = {
+        cam_id for cam_id, mode in camera_modes.items()
+        if mode == "nvr"
+    }
+
+    local_segments = []
+    events = []
     init_db()
-    index_untracked_video_files()
+    if local_camera_ids:
+        index_untracked_video_files()
+
     with db_connection() as connection:
         segment_rows = connection.execute(
             "SELECT filename, cam_id, started_at, ended_at, duration_sec, status, locked, note "
             "FROM video_segments ORDER BY started_at ASC, cam_id ASC, id ASC"
-        ).fetchall()
+        ).fetchall() if local_camera_ids else []
         event_rows = connection.execute(
             "SELECT filename, cam_id, event_time, label, note "
             "FROM video_events ORDER BY event_time ASC, id ASC"
         ).fetchall()
 
-    segments = []
     for row in segment_rows:
         segment = _timeline_segment_from_row(row)
-        if segment is None:
+        if segment is None or int(segment.get("cam_id", 0)) not in local_camera_ids:
             continue
         if segment["status"] == "complete":
             media_path = safe_video_path(segment["filename"])
@@ -1961,9 +3308,11 @@ def get_timeline_data(window_start, window_end):
         clip_start = _parse_local_datetime_value(segment["started_at"])
         clip_end = _parse_local_datetime_value(segment["end_at"])
         if clip_start < window_end and clip_end > window_start:
-            segments.append(segment)
+            segment["source"] = "local"
+            segment["play_url"] = f"/video/{quote(segment['filename'])}"
+            segment["download_url"] = f"/download/{quote(segment['filename'])}"
+            local_segments.append(segment)
 
-    events = []
     for row in event_rows:
         event = _timeline_event_from_row(row)
         if event is None:
@@ -1971,7 +3320,32 @@ def get_timeline_data(window_start, window_end):
         event_time = _parse_local_datetime_value(event["event_time"])
         if window_start <= event_time <= window_end:
             events.append(event)
-    return {"segments": segments, "events": events}
+
+    nvr_segments, warnings = [], []
+    if nvr_camera_ids:
+        try:
+            nvr_segments, warnings = search_nvr_timeline(
+                window_start, window_end, sorted(nvr_camera_ids)
+            )
+        except (RuntimeError, requests.RequestException) as exc:
+            if camera_modes and all(mode == "nvr" for mode in camera_modes.values()):
+                raise
+            logger.warning("[NVR] Kênh NVR không đọc được dữ liệu; không chuyển sang Local: %s", exc)
+            warnings = [f"NVR: {exc}"]
+
+    segments = sorted(
+        local_segments + nvr_segments,
+        key=lambda item: (item["started_at"], item["cam_id"]),
+    )
+    distinct_modes = sorted(set(camera_modes.values()))
+    source_mode = distinct_modes[0] if len(distinct_modes) == 1 else "mixed"
+    return {
+        "segments": segments,
+        "events": events,
+        "source_mode": source_mode,
+        "camera_source_modes": {str(key): value for key, value in camera_modes.items()},
+        "warnings": warnings,
+    }
 
 
 def _read_timeline_segments(window_start, window_end):
@@ -1987,6 +3361,9 @@ def timeline_api_from_db():
         return jsonify({"ok": False, "error": str(exc)}), 400
     try:
         payload = get_timeline_data(window_start, window_end)
+    except (RuntimeError, requests.RequestException) as exc:
+        logger.warning("NVR timeline error: %s", exc)
+        return jsonify({"ok": False, "error": str(exc)}), 502
     except (OSError, sqlite3.Error):
         logger.exception("Không thể đọc dữ liệu timeline")
         return jsonify({"ok": False, "error": "Không thể đọc dữ liệu timeline."}), 500

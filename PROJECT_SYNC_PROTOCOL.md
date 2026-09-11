@@ -1,71 +1,180 @@
-# PROJECT SYNC PROTOCOL — cambida (Remote-First Direct)
+# PROJECT SYNC PROTOCOL — Camera Bida
 
-Version: 3.0 (Remote-First Direct Execution)  
-Status: **ACTIVE**  
-Historical Protocol: Protocol Drive/Watchdog v2.2 đã chính thức **RETIRED**. Bản lưu trữ lịch sử được bảo tồn tại `D:\Yato\legacy\cambida-drive-watchdog-20260909`. Các agent tuyệt đối **KHÔNG** được khởi động lại watcher cũ hoặc task queue qua Google Drive trừ khi có yêu cầu rollback cụ thể từ người dùng.
+Version: 4.0 (Multi-Agent Direct Execution)
+Status: **ACTIVE**
+Workspace duy nhất: `D:\1\Cambida`
 
----
+## 1. Luật nền tảng
 
-## 1. Mục tiêu & Định vị Kiến trúc
+- `ChatGPT` là orchestrator/architect và là nơi quyết định cuối cùng.
+- Source of truth duy nhất là source code thực tế + Git trong `D:\1\Cambida` trên máy Yato.
+- Không giả định source hiện tại giống bản đã đọc ở hội thoại trước. Trước task kỹ thuật phải kiểm tra trạng thái thực tế khi cần.
+- Google Drive không phải source of truth, không phải task queue, không phải sync barrier. Chỉ dùng khi cần file cloud/large artifact theo yêu cầu cụ thể.
+- Watchdog/ACK/manifest/Drive queue của các protocol cũ đã RETIRED; không được tự khởi động lại.
 
-Kiến trúc điều phối dự án chuyển đổi hoàn toàn sang mô hình **Remote-First Direct**, loại bỏ cơ chế đồng bộ trung gian qua Google Drive watchdog:
+## 2. Phân vai
 
-- **Bộ não / Điều phối / Review**: `ChatGPT`
-- **Control Plane**: `REMOTE_DESKTOP_COMMANDER` trực tiếp kết nối tới máy Yato (`D:\1\cambida`).
-- **Primary Executor**: `AGY CLI` (bắt buộc chỉ định model `gemini-3.8-flash-high`, `--mode accept-edits` khi sửa code hoặc `--mode plan` khi khảo sát).
-- **Secondary / Fallback Executor**: `Codex CLI` (dùng dự phòng hoặc đối chiếu khi cần).
-- **Source of Truth**: `LOCAL_YATO_WORKTREE` (Local Git worktree trên máy Yato).
-- **Google Drive**: Vai trò `LARGE_FILES_ONLY` — chỉ dùng khi cần đọc/truyền file dung lượng lớn, binary, video hoặc artifact cần cloud inspection. **Không còn là source-of-truth, không làm queue, không làm sync barrier, không dùng ACK hay kênh điều phối**.
+### ChatGPT — Orchestrator / Architect
 
----
+Chịu trách nhiệm:
+- hiểu yêu cầu người dùng;
+- phân tích và thiết kế kiến trúc;
+- chia task, dependency và quyết định chạy song song/tuần tự;
+- chọn executor phù hợp;
+- theo dõi, review, phát hiện xung đột;
+- điều phối build/test/integration;
+- trực tiếp xử lý các ca đặc biệt khó khi cần.
 
-## 2. Các thành phần đã RETIRED (Bãi bỏ)
+ChatGPT không nên tự làm thao tác máy tính lặp lại nếu Yato hoặc executor khác làm hiệu quả hơn.
 
-Tất cả các cơ chế sau của protocol v2.2 đều bãi bỏ và không được kích hoạt:
-1. **Watchdog process**: Không chạy watcher nền giám sát file/heartbeat.
-2. **Cloud Manifest & ACKs**: Không dùng `MANIFEST.json`, `CLOUD_ACK.json`, `PC_ACK.json`, `READY_CANDIDATE.json`.
-3. **Round-trip Drive Barrier**: Không còn sync barrier 3 nút (`PC ↔ Drive ↔ ChatGPT`).
-4. **Task Queue qua Drive**: Không tạo hay tiêu thụ task queue qua Google Drive hoặc `.ai_flow/`.
+### Codex — Senior Engineer
 
----
+Model mặc định: `Luna Max`.
 
-## 3. Quy trình Điều phối & Thực thi Chuẩn
+Ưu tiên giao:
+- core logic, architecture;
+- database, authentication, security;
+- refactor, migration;
+- concurrency, performance;
+- bug khó, integration, code review;
+- thay đổi phạm vi ảnh hưởng lớn hoặc yêu cầu độ ổn định cao.
 
+Codex có thể dùng Computer Use khi một chu trình kỹ thuật cần liên tục: code → build → mở ứng dụng → thao tác GUI → kiểm tra → sửa tiếp.
+
+### AGY — Fast Engineer
+
+Model mặc định: `Gemini 3.8 Medium`.
+
+Ưu tiên giao:
+- khảo sát codebase, tìm file liên quan;
+- prototype, boilerplate;
+- UI, API integration;
+- documentation, unit test;
+- điều tra lỗi, module độc lập;
+- thử nghiệm nhanh giải pháp.
+
+AGY không được tự ý đổi architecture/framework/database/schema lớn/dependency quan trọng/convention toàn dự án hoặc mở rộng scope. Nếu phát hiện cần thay đổi lớn phải dừng và báo ChatGPT.
+
+Chỉ dùng `Gemini 3.8 High` khi Medium không đủ, bài toán khó, lỗi liên quan nhiều module hoặc cần reasoning/đọc code lớn.
+
+### Yato — Machine / CLI Executor
+
+Yato là lựa chọn mặc định cho mọi việc làm được nhanh và chính xác bằng CLI:
+- đọc/sửa/tạo/xóa/di chuyển file;
+- tìm source;
+- Git/branch/worktree/commit;
+- build/test/lint/package;
+- CMD/PowerShell/process/service/port/log/dependency;
+- ADB/automation/kiểm tra môi trường.
+
+Yato là executor, không tự quyết định thay đổi kiến trúc.
+
+### Remote Desktop Commander — GUI Operator
+
+Chỉ dùng khi công việc thực sự cần GUI, ví dụ:
+- click, drag/drop, popup;
+- browser/desktop application/installer;
+- Windows UI;
+- kiểm tra UI/UX và trạng thái trực quan;
+- phần mềm không có CLI phù hợp.
+
+Không dùng Remote cho Git/build/chỉnh source/quản lý file/chạy command/process/service nếu Yato làm được tốt hơn.
+
+## 3. Thứ tự ưu tiên công cụ
+
+1. Việc làm được bằng CLI → **Yato**.
+2. Coding có liên quan trực tiếp GUI và cần chu trình code-build-GUI-fix → có thể dùng **Codex + Computer Use**.
+3. Việc chỉ cần thao tác/quan sát GUI → **Remote Desktop Commander**.
+4. Khảo sát/fast task → **AGY Medium**.
+5. AGY Medium không đủ → **AGY High**.
+6. Core/bug phức tạp/ảnh hưởng lớn → **Codex Luna Max**.
+
+Không bắt buộc task phải đi qua tất cả tầng.
+
+## 4. Source of truth và concurrency
+
+- Git + worktree thực tế trên Yato là nguồn sự thật duy nhất.
+- Trước task, executor kiểm tra source/status hiện tại nếu có nguy cơ stale.
+- Khi nhiều agent cùng làm: ưu tiên branch/worktree riêng và phạm vi file rõ ràng.
+- Không để hai executor đồng thời sửa cùng một vùng source nếu chưa có kế hoạch integration.
+- Task độc lập nên chạy song song khi có lợi; task có dependency hoặc chung subsystem phải chạy theo thứ tự phù hợp.
+
+## 5. Luồng task chuẩn
+
+Người dùng
+→ ChatGPT phân tích
+→ ChatGPT giao executor
+→ Executor thực hiện
+→ Build/Test
+→ GUI test nếu cần
+→ ChatGPT review
+→ sửa tiếp nếu cần
+→ integration
+→ hoàn thành.
+
+ChatGPT là nơi quyết định cuối cùng khi các executor đưa ra phương án khác nhau.
+
+## 6. Quy tắc phạm vi
+
+Executor chỉ thực hiện task được giao.
+
+Nếu phát hiện vấn đề ngoài scope:
+- ghi nhận;
+- báo ChatGPT;
+- không tự mở rộng sửa khi chưa cần thiết.
+
+AGY phải tuân thủ quy tắc này đặc biệt nghiêm ngặt.
+
+## 7. Quy tắc kiểm chứng
+
+- Build, lint hoặc unit test không tự động là bằng chứng E2E hay thành công trên thiết bị thật.
+- Kết luận phải ghi đúng loại kiểm chứng đã chạy.
+- Nếu yêu cầu nói rõ test trực tiếp, device thật hoặc GUI thật thì phải thực hiện đúng loại kiểm chứng đó trước khi báo PASS.
+
+## 8. Report executor
+
+Khi hoàn thành, executor nên báo:
+
+- `STATUS:` COMPLETED / FAILED / BLOCKED
+- `CHANGED:` file/thành phần đã thay đổi
+- `TEST:` kiểm tra đã chạy
+- `RESULT:` kết quả
+- `RISKS:` rủi ro còn lại nếu có
+- `COMMIT:` commit hash nếu có
+- `NEXT:` việc tiếp theo nếu cần
+
+## 9. Telegram task notification
+
+Mỗi task phải có cơ chế thông báo Telegram.
+
+Chỉ gửi khi:
+- `COMPLETED`
+- `FAILED`
+- `TIMEOUT`
+
+Không gửi trạng thái RUNNING bình thường.
+
+`TIMEOUT` khi quá 10 phút không có phản hồi/cập nhật từ executor; nếu executor có cập nhật thì mốc 10 phút tính lại từ lần cập nhật gần nhất.
+
+Nội dung bắt buộc ngắn gọn đúng dạng:
+
+```text
+Project: Camera Bida
+Executor: Codex / AGY / Yato / Remote / ChatGPT
+Status: COMPLETED | FAILED | TIMEOUT
+Result: <tóm tắt kết quả hoặc lỗi>
 ```
-ChatGPT (Reviewer & Brain)
-       │  (Điều khiển trực tiếp qua REMOTE_DESKTOP_COMMANDER)
-       ▼
- Máy Yato (Local Worktree: D:\1\cambida)
-       │
-  ┌────┴────────────────────────┐
-  ▼                             ▼
-AGY CLI (gemini-3.8-flash-high)    Codex CLI (Fallback)
-  │                             │
-  └────► Sửa code / Chạy lệnh / Build / Test ◄────┘
-       │
-       ▼
-ChatGPT tự đọc diff, test log & review trực tiếp trên Yato
-```
 
-1. **Khảo sát & Lập kế hoạch**:
-   - ChatGPT đọc trạng thái trực tiếp trên máy Yato qua `REMOTE_DESKTOP_COMMANDER`.
-   - ChatGPT lập kế hoạch và chia tách task rõ ràng.
-2. **Giao việc Executor**:
-   - Task code dài, sửa logic, build/test được giao cho `AGY CLI` với model `gemini-3.8-flash-high`, chế độ sửa code là `--mode accept-edits`, chế độ khảo sát là `--mode plan`.
-   - `Codex CLI` làm executor phụ/fallback (gợi ý lệnh non-interactive đáng tin cậy qua stdin: `$prompt | codex exec -C 'D:\1\cambida' --sandbox workspace-write -`).
-3. **Thực thi & Tự động Xác minh**:
-   - Executor sửa source, chạy lệnh, build và chạy tests trực tiếp trong worktree Yato.
-   - ChatGPT tự đọc diff, test output, terminal log qua `REMOTE_DESKTOP_COMMANDER` để thực hiện review.
-   - **Quy tắc kiểm chứng**: Build, lint hoặc unit test không tự động là bằng chứng E2E hay thành công trên thiết bị thật.
-4. **Vòng lặp Sửa đổi Tự động**:
-   - Nếu kết quả chưa PASS hoặc chưa đạt yêu cầu, ChatGPT lập tức giao vòng sửa tiếp theo cho executor mà không cần người dùng phải copy/paste prompt thủ công.
-5. **Chính sách Google Drive & Khi Yato Offline**:
-   - Google Drive chỉ dùng khi cần truyền tải file lớn/binary/artifact lên cloud để ChatGPT xem xét; không dùng làm source-of-truth, task queue, sync barrier, heartbeat, manifest hay ACK.
-   - Khi máy Yato offline, chỉ các dữ liệu đã upload lên Drive trước đó là đọc được. Tuyệt đối **không được suy luận** rằng dữ liệu trên Drive là source code mới nhất. Source of truth luôn là local worktree trên máy Yato.
+Mỗi thông báo phải kèm nút `Mở hội thoại`, ưu tiên mở đúng conversation ChatGPT hiện tại.
 
----
+## 10. Quy ước release
 
-## 4. Tương thích Ngược (Compatibility)
+- Bản phát hành chính thức hiện tại: `2.0.0`.
+- Bản tiếp theo mặc định tăng patch: `2.0.1`, `2.0.2`, ...; chỉ tăng minor/major khi người dùng yêu cầu rõ.
+- Mọi bản phát hành nằm tại `D:\1\Cambida\release\<version>\`.
+- Không tạo lại thư mục `release_2_*` ở root project.
+- `build_*`/`dist_*` theo phiên bản chỉ là tạm; sau đóng gói và kiểm tra xong phải xóa, chỉ giữ artifact cuối trong `release\<version>`.
 
-- File `SYNC_STATE.json` tại root được định dạng thành **compatibility tombstone** (non-authoritative) để các agent hoặc công cụ cũ nhận diện ngay trạng thái `REMOTE_DIRECT` và không kích hoạt watcher.
-- Toàn bộ dữ liệu `.ai_flow/` và protocol v2.2 cũ được di dời nguyên trạng ra ngoài active project tại `D:\Yato\legacy\cambida-drive-watchdog-20260909`.
+## 11. Compatibility
+
+`SYNC_STATE.json` chỉ là compatibility tombstone để agent/công cụ cũ nhận diện kiến trúc hiện tại. Nó không phải lock, manifest hay sync barrier.

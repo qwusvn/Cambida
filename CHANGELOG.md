@@ -1,4 +1,121 @@
+# Quy ước phiên bản phát hành (2026-09-11)
+
+- Chuỗi phiên bản phát hành chính thức bắt đầu từ 2.0.0.
+- Bản kế tiếp là 2.0.1, sau đó 2.0.2, ... nếu không có yêu cầu đổi minor/major.
+- Artifact phát hành chỉ lưu tại D:\1\cambida\release\<version>\.
+- Các thư mục build/dist theo phiên bản ở root chỉ là tạm và phải dọn sau khi đóng gói.
+
 # CCTV Changelog
+
+## 2.0.1 - 2026-09-12
+
+- Hoàn tất chuyển mô hình cấu hình camera sang **mỗi kênh chỉ chọn một nguồn chính: `Local` hoặc `NVR`**; `Hybrid` không còn là chế độ cấu hình mới.
+- Cấu hình NVR được lưu trực tiếp trên từng camera/kênh: hãng đầu ghi, host, HTTP/RTSP port, tài khoản, mật khẩu, kênh NVR và luồng bản ghi.
+- Với camera nguồn `NVR`, bổ sung tùy chọn `backup_local` để ghi dự phòng luồng RTSP từ đầu ghi xuống máy tính. Khi bật, trang xem lại cho phép chọn `Server 1 - NVR` hoặc `Server 2 - Local`; khi tắt, không tạo worker ghi Local cho kênh đó.
+- Bổ sung migration tương thích cấu hình cũ dùng `playback_source.mode = nvr/hybrid` và `channel_map`; khi lưu lại, cấu hình được chuẩn hóa về per-camera và bỏ block `playback_source` toàn cục.
+- Sửa lỗi migration credential: camera legacy chuyển sang NVR giờ lấy đúng user/password của đầu ghi dùng chung thay vì giữ nhầm mật khẩu RTSP camera Local. Lỗi này trước đó gây `401 Unauthorized` khi kiểm tra Dahua.
+- `/api/admin/test-camera` chỉ còn kiểm tra đúng nguồn đang chọn (`Local` hoặc `NVR`) và với NVR sẽ kiểm tra cả kết nối đầu ghi lẫn truy vấn recording trên đúng kênh.
+- Timeline và trang xem lại hỗ trợ segment NVR với `play_url`/`download_url`; camera NVR có backup Local có thể chuyển nguồn phát lại trực tiếp trên trang xem lại.
+- Trạng thái Admin phân biệt `NVR-only` với `NVR + dự phòng đang ghi`, không còn báo sai kênh có backup là NVR-only.
+- Kiểm thử tự động: `python -m py_compile 1.py` và **29/29 unit/integration tests PASS**; JavaScript trong `admin.html`, `index.html`, `timeline.html` đều qua `node --check`.
+- Kiểm chứng đầu ghi thật: Dahua DHI-XVR5108HS kết nối thành công, nhận diện 8 kênh và truy vấn 2 giờ gần nhất trả 3 segment NVR trên kênh kiểm tra.
+- Đóng gói `CCTV_2.0.1.exe` bằng PyInstaller onedir. Smoke test từ chính EXE với config cách ly đạt HTTP 200 cho `/`, `/timeline` và `/admin`; metadata EXE hiển thị FileVersion/ProductVersion `2.0.1`.
+- Artifact phát hành đặt tại `D:\1\Cambida\release\2.0.1\`.
+
+## 1.3.51 - 2026-09-11
+
+- Hoàn thiện tính năng "Kiểm tra camera" per-camera end-to-end cho cả 3 chế độ: `Local`, `NVR` và `Hybrid`.
+- Giao diện Admin (`admin.html`) hỗ trợ và lưu giữ đầy đủ chế độ `Hybrid`:
+  - Cho phép chọn nguồn `Local`, `NVR` hoặc `Hybrid` trực tiếp trong từng thẻ camera.
+  - Khi chọn `Hybrid`: hiển thị đồng thời cả thông tin RTSP camera cục bộ (preset, IP, tài khoản, mật khẩu, port, path nâng cao) và ô `Kênh NVR`.
+  - Hỗ trợ nút `Hybrid · Cả hai nguồn` trong popup thêm kênh mới.
+  - Giữ nguyên thông tin cả hai nguồn trong `cameraValues()` và `setForm()`, không xóa trường RTSP hay kênh NVR khi ở chế độ Hybrid.
+  - Nút kiểm tra hiển thị đúng ngữ cảnh: `Kiểm tra Local`, `Kiểm tra NVR` hoặc `Kiểm tra Hybrid`.
+  - Kết quả kiểm tra Hybrid hiển thị màu sắc và thông điệp tương ứng từng nguồn (thành công, cảnh báo nếu chỉ 1 nguồn đạt, hoặc thất bại).
+- Backend `1.py`:
+  - `validate_config()` hỗ trợ đầy đủ `local`, `nvr`, `hybrid` cho từng camera; yêu cầu cả thông tin RTSP và kênh NVR khi chọn Hybrid.
+  - Endpoint `/api/admin/test-camera`:
+    - `Local`: kiểm tra độc lập luồng RTSP camera.
+    - `NVR`: kiểm tra kết nối đầu ghi dùng chung trong Cài đặt NVR và thực hiện truy vấn tìm bản ghi trên đúng kênh `nvr_channel` được chỉ định.
+    - `Hybrid`: kiểm tra độc lập cả hai nguồn (Local RTSP và NVR search) và trả về kết quả có cấu trúc riêng biệt (`sources: {"local": ..., "nvr": ...}`).
+- Đã chạy kiểm thử E2E thực tế trên đầu ghi Dahua thật:
+  - Dùng trực tiếp cấu hình trong `config.json` (`bidatamchin.ddns.net:81`, model DHI-XVR5108HS).
+  - Kết nối và tìm bản ghi thật trên kênh đã map (Kênh 1), phản hồi `HTTP 200` với thông báo `NVR: Kết nối thành công · Kênh 1`; không dùng mock.
+- Bộ test tự động (20/20 tests PASS):
+  - `tests/test_camera_test.py` (9 tests): kiểm tra xác thực admin, validation, chế độ Local, chế độ NVR, chế độ Hybrid độc lập, và test thật Dahua NVR.
+  - `tests/test_timeline.py` (6 tests): kiểm tra timeline API, cửa sổ thời gian và phân đoạn video.
+  - `tests/test_v2.py` (5 tests): kiểm tra parser tên file, config validation và video index.
+  - Kiểm tra cú pháp: `python -m py_compile 1.py` và `node --check` cho JavaScript giao diện quản trị đều đạt mã 0.
+- Đóng gói bản phát hành dạng thư mục vào `release_2_0_0_folder` với EXE `CCTV_2.0.0.exe` đại diện cho `1.py` cùng các tệp đồng hành (`ffmpeg.exe`, `config.json`, các file HTML) đặt trực tiếp bên cạnh EXE.
+
+## 1.3.50 - 2026-09-11
+
+- Nút kiểm tra trong từng Camera/Bàn định tuyến theo đúng nguồn xem lại: `Local` kiểm tra RTSP camera; `NVR` dùng cấu hình trong thẻ Cài đặt NVR và đúng Kênh NVR; `Hybrid` kiểm tra cả hai nguồn và báo kết quả riêng.
+- Khi chọn `NVR`, các trường IP/tài khoản/mật khẩu/Preset RTSP và phần RTSP nâng cao của camera Local được ẩn khỏi thẻ để tránh nhầm đây là thông tin dùng cho playback NVR; kênh NVR vẫn hiển thị rõ.
+- API `/api/admin/test-camera` nhận kèm cấu hình NVR hiện tại từ biểu mẫu, kiểm tra xác thực đầu ghi rồi thực hiện truy vấn recording trên kênh được chọn trước khi báo thành công.
+- Kiểm thử trực tiếp Dahua thật qua HTTP Digest + `mediaFileFind.cgi` đạt `200 OK`; kiểm thử Flask endpoint chế độ NVR trả `200` với `NVR: Kết nối thành công · Kênh 1`. Hybrid báo riêng Local timeout và NVR thành công, đúng logic tách nguồn.
+- `python -m py_compile 1.py` và `node --check` cho JavaScript Admin đã đạt. Build PyInstaller onedir mới thành công tại `dist_2_0_0_source_logic/CCTV_2.0.0/`; chưa chạy E2E trực tiếp EXE mới để tránh can thiệp tiến trình CCTV đang vận hành.
+
+## 1.3.49 - 2026-09-11
+
+- Chuyển bản phát hành từ PyInstaller one-file sang onedir để EXE chỉ còn là entrypoint nhỏ, không phải tự giải nén toàn bộ runtime mỗi lần mở.
+- Bật `noarchive=True` để module Python được tách ra `_internal` thay vì dồn vào EXE; EXE giảm còn khoảng 0,42 MB.
+- `ffmpeg.exe`, `config.json` và các file giao diện HTML được phát hành trực tiếp cạnh `CCTV_2.0.0.exe` để dễ thay thế/kiểm tra độc lập.
+- `_internal` chỉ giữ Python runtime, DLL và dependency; không chứa bản trùng FFmpeg/HTML. Riêng `config.json` mặc định vẫn được giữ nội bộ làm seed để tự phục hồi nếu config cạnh EXE bị xóa.
+- Runtime ưu tiên `ffmpeg.exe` và template ở thư mục cạnh EXE, sau đó mới fallback vào bundle để giữ tương thích.
+- Bản one-file trước thay đổi được backup tại `backup/1.3.49/CCTV_2.0.0_onefile.exe`.
+
+## 1.3.48 - 2026-09-10
+
+- Tách rõ cấu hình nguồn xem lại khỏi cấu hình đầu ghi: mỗi Camera/Bàn có lựa chọn riêng `Local`, `NVR` hoặc `Hybrid`.
+- Thẻ `Cài đặt NVR` chỉ chứa thông tin đầu ghi dùng chung: hãng, IP/host, HTTP/RTSP port, tài khoản, mật khẩu, stream, timezone và timeout.
+- `Kênh NVR` nằm ngay trong từng Camera/Bàn và chỉ có hiệu lực khi nguồn xem lại là `NVR` hoặc `Hybrid`.
+- Backend timeline định tuyến theo từng camera: Local chỉ đọc video trên máy; NVR chỉ đọc đầu ghi; Hybrid ưu tiên NVR và dùng Local dự phòng khi NVR không có dữ liệu.
+- Bỏ lựa chọn nguồn xem lại toàn cục khỏi Admin; `playback_source.mode` chỉ còn được tự sinh phía sau để tương thích cấu hình cũ.
+- Cấu hình cũ có `playback_source.mode` và `channel_map` vẫn được tự chuyển lên giao diện mới khi mở Admin.
+- Validate bắt buộc có kênh NVR khi một camera được đặt nguồn `NVR` hoặc `Hybrid`.
+- Backup trước thay đổi tại `backup/1.3.48/`.
+
+## 1.3.47 - 2026-09-10
+
+- Đưa map NVR vào trực tiếp từng thẻ Camera/Bàn trong Admin bằng ô `Kênh NVR`; không còn phải nhập chuỗi `1:1,2:2,...` thủ công.
+- Để trống `Kênh NVR` để camera đó không lấy bản ghi từ NVR.
+- Cấu hình cũ `playback_source.nvr.channel_map` được tự nạp vào ô `Kênh NVR`, giữ tương thích ngược.
+- Khi lưu Admin, `channel_map` vẫn được tự sinh phía sau để backend Hikvision/Dahua hiện tại tiếp tục hoạt động không đổi.
+- Camera mới mặc định map theo số thứ tự Camera → cùng số Channel NVR, có thể sửa hoặc xóa giá trị ngay trên thẻ Camera.
+- Backup trước thay đổi tại `backup/1.3.47/`.
+
+## 1.3.46 - 2026-09-10
+
+- Chuyển bản phát hành tạm thời sang portable one-file EXE: nhúng FFmpeg, template web và cấu hình mặc định vào `CCTV_2.0.0.exe`.
+- Lần chạy đầu trong thư mục chỉ có EXE sẽ tự tạo `config.json`, `analytics.db`, `cctv_videos`, `logs` và `nvr_cache`; không cần đặt `ffmpeg.exe` cạnh EXE.
+- Cấu hình được tạo ra cạnh EXE để các thay đổi trong Admin tiếp tục được lưu/persist như trước.
+- Kiểm thử empty-folder đạt: trước chạy chỉ có EXE; web UI khởi động thành công, các file/thư mục runtime tự sinh đầy đủ.
+- E2E Dahua từ chính portable EXE đạt: timeline trả 5 segment, `warnings=[]`; playback dùng FFmpeg nhúng, trả fragmented MP4 qua `dahua-cgi-stream`, nhận >500 KB dữ liệu đầu khoảng 0,85 giây trong phép thử.
+- Backup trước thay đổi portable tại `backup/1.3.46/`.
+
+## 1.3.45 - 2026-09-10
+
+- Bổ sung adapter NVR Dahua song song Hikvision; Dahua dùng HTTP Digest + `mediaFileFind.cgi` để đọc metadata recording từ đầu ghi.
+- Xác minh trực tiếp với DHI-XVR5108HS tại đầu ghi thật: đăng nhập thành công, truy vấn recording trả `StartTime`, `EndTime`, `FilePath`, `Length`, `CutLength`, `VideoStream`; firmware hiện expose 5 kênh video thực qua API.
+- Playback Dahua tối ưu theo thời điểm được bấm: `loadfile.cgi?action=startLoad` chỉ lấy cửa sổ cần phát (mặc định 300 giây), FFmpeg chuyển DHAV sang fragmented MP4 và stream thẳng về trình duyệt; RTSP `/cam/playback` theo start/end giữ làm fallback.
+- Download Dahua cũng giới hạn theo cửa sổ thời gian thay vì tải nguyên file DAV dài; kiểm thử 30 giây tạo MP4 khoảng 8,1 MB, H.264 1080p.
+- Hybrid đổi thành NVR ưu tiên theo từng camera; chỉ dùng Local cho camera không map hoặc khi NVR camera đó không có dữ liệu/không dùng được, tránh clip Local/NVR chồng nhau.
+- Admin hỗ trợ chọn `Hikvision ISAPI` hoặc `Dahua CGI + RTSP`, thêm RTSP port và thời lượng mỗi cửa sổ playback.
+- Cấu hình triển khai hiện dùng Dahua qua `bidatamchin.ddns.net:81`, RTSP 554, map NVR 1-5 và giữ chế độ Hybrid để các camera còn lại tiếp tục dùng Local.
+- E2E thật: timeline Dahua trả 5 camera không cảnh báo; endpoint video trả fragmented MP4 qua `dahua-cgi-stream`, nhận dữ liệu đầu tiên khoảng 1,1 giây trong phép thử; Python/JavaScript đều qua kiểm tra cú pháp.
+- Sao lưu trước khi sửa tại `backup/1.3.45/` gồm `1.py`, `admin.html`, `timeline.html`, `config.json` và `CHANGELOG.md` bản trước.
+
+## 1.3.44 - 2026-09-10
+
+- Bổ sung nguồn xem lại `Local / NVR / Hybrid`; chế độ NVR dùng Hikvision ISAPI để tìm bản ghi trên đầu ghi thay vì phụ thuộc danh sách file cục bộ.
+- Timeline gọi `POST /ISAPI/ContentMgmt/search`, ánh xạ camera sang track NVR, nhận `playbackURI` và chỉ tải/remux MP4 khi người dùng chọn đoạn cần xem hoặc tải.
+- Bổ sung `/nvr/video/<token>`, `/nvr/download/<token>` và kiểm tra kết nối NVR qua `/api/admin/test-nvr`; liên kết NVR dùng token ngẫu nhiên có thời hạn và cache media tạm thời.
+- Trang quản trị có cấu hình host/port/tài khoản/kênh/múi giờ NVR; mặc định vẫn là `Local` để không thay đổi hành vi hệ thống hiện tại.
+- Khi bật `NVR` hoặc `Hybrid`, trang xem lại theo bàn chuyển sang timeline và tự chọn đúng camera; luồng ghi RTSP cục bộ hiện tại không bị thay đổi.
+- Kiểm tra đã chạy: `python -m py_compile 1.py`, kiểm tra cú pháp JavaScript bằng Node, test mô phỏng ISAPI search/timezone/channel mapping và Flask routing/timeline local/NVR error path.
+- Đóng gói thử nghiệm bằng `CCTV_2.0.0.spec`; bộ chạy nằm tại `release_2_0_0_nvr_api/` gồm EXE, `ffmpeg.exe` và `config.json`.
+- Sao lưu trước khi sửa tại `backup/1.3.44/` gồm `1.py`, `admin.html`, `timeline.html`, `config.json` và `CHANGELOG.md` bản gốc.
 
 ## 1.3.43 - 2026-09-09
 
@@ -107,7 +224,7 @@
 - Kích hoạt thành công có hiệu lực ngay, không cần khởi động lại, và được lưu theo mã máy.
 - Sao lưu: `backup/1.2.10/1_before_restore_2.0.1.py.backup` và `backup/1.2.10/index_before_restore_2.0.1.html.backup`.
 
-## 2.0.1 - 2026-08-05
+## Legacy 2.0.1 - 2026-08-05 (retired numbering)
 
 - Khi chưa kích hoạt, ứng dụng không còn tắt: camera vẫn ghi và bot Telegram chờ vô hạn lệnh `/activate "MÃ_MÁY"` từ chat quản trị.
 - Lệnh kích hoạt đúng mã máy mở bản quyền ngay, không cần khởi động lại ứng dụng.
@@ -116,7 +233,7 @@
 - Đóng gói phát hành: `CCTV_2.0.1.exe`.
 - Sao lưu trước khi sửa: `backup/2.0.1/1_2.0.1.py.backup`.
 
-## 2.0.0 - 2026-08-04
+## Legacy 2.0.0 - 2026-08-04 (retired numbering)
 
 Bản 2.0 chuyển từ việc suy đoán trạng thái qua tên file sang chỉ mục và trạng thái vận hành thực tế. Chi tiết nằm trong `CHANGELOG_2.0.0.md`.
 

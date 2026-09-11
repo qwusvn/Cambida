@@ -17,13 +17,19 @@ class CCTV20Tests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(dir=os.path.join(ROOT, "test_data"))
         self.old_video_dir = APP.VIDEO_DIR
         self.old_db_path = APP.DB_PATH
+        self.old_camera_list = APP.CAMERA_LIST
         APP.VIDEO_DIR = self.temp.name
         APP.DB_PATH = os.path.join(self.temp.name, "analytics.db")
+        APP.CAMERA_LIST = [
+            {"name": "Bàn 1", "playback_source": "local"},
+            {"name": "Bàn 2", "playback_source": "local"},
+        ]
         APP.init_db()
 
     def tearDown(self):
         APP.VIDEO_DIR = self.old_video_dir
         APP.DB_PATH = self.old_db_path
+        APP.CAMERA_LIST = self.old_camera_list
         self.temp.cleanup()
 
     def test_parse_current_and_legacy_names(self):
