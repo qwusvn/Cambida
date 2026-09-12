@@ -1276,13 +1276,26 @@ def _download_hikvision_reference(token, reference, nvr):
     return final_path
 
 
-def _download_dahua_reference(token, reference, nvr, at_value=None):
+def _download_dahua_reference(token, reference, nvr, at_value=None, end_value=None):
     start_dt, end_dt = _resolve_dahua_bounds(
         reference,
         nvr,
         at_value=at_value,
         chunk_limit=True,
     )
+    if end_value:
+        try:
+            exact_end = datetime.fromisoformat(str(end_value).strip())
+            if exact_end.tzinfo is not None:
+                exact_end = exact_end.replace(tzinfo=None)
+            end_dt = min(end_dt, exact_end)
+        except (TypeError, ValueError):
+            raise ValueError("Thời điểm kết thúc playback Dahua không hợp lệ.")
+        if end_dt <= start_dt:
+            end_dt = min(
+                datetime.fromisoformat(str(reference["ended_at"])),
+                start_dt + timedelta(seconds=1),
+            )
     cache_key = hashlib.sha256(
         f"{token}|{start_dt.isoformat()}|{end_dt.isoformat()}".encode("utf-8")
     ).hexdigest()[:16]
@@ -3377,6 +3390,204 @@ def timeline_api_from_db():
     )
 
 
+def _prepare_nvr_merge_parts(cam_id, req_start, req_end):
+    nvr = get_camera_recorder_config(cam_id)
+    vendor = str(nvr.get("vendor") or "hikvision").strip().lower()
+    searcher = _search_dahua_camera if vendor == "dahua" else _search_hikvision_camera
+    segments = searcher(cam_id, req_start, req_end, nvr)
+    segments.sort(key=lambda item: item.get("started_at", ""))
+    parts = []
+    cursor = req_start
+    chunk_limit = max(30, min(3600, int(nvr.get("playback_chunk_sec", 300) or 300)))
+    for segment in segments:
+        try:
+            seg_start = datetime.fromisoformat(str(segment.get("started_at") or ""))
+            seg_end = datetime.fromisoformat(str(segment.get("end_at") or segment.get("ended_at") or ""))
+        except (TypeError, ValueError):
+            continue
+        part_start = max(req_start, seg_start, cursor)
+        part_end = min(req_end, seg_end)
+        if part_end <= part_start:
+            continue
+        play_url = str(segment.get("play_url") or "")
+        token = play_url.rstrip("/").rsplit("/", 1)[-1].split("?", 1)[0]
+        reference = _get_nvr_reference(token) if token else None
+        if not reference:
+            continue
+        if vendor == "dahua":
+            chunk_start = part_start
+            while chunk_start < part_end:
+                chunk_end = min(part_end, chunk_start + timedelta(seconds=chunk_limit))
+                parts.append({
+                    "vendor": vendor,
+                    "token": token,
+                    "reference": reference,
+                    "segment_start": seg_start,
+                    "start": chunk_start,
+                    "end": chunk_end,
+                })
+                chunk_start = chunk_end
+        else:
+            parts.append({
+                "vendor": vendor,
+                "token": token,
+                "reference": reference,
+                "segment_start": seg_start,
+                "start": part_start,
+                "end": part_end,
+            })
+        cursor = part_end
+        if cursor >= req_end:
+            break
+    covered = sum((part["end"] - part["start"]).total_seconds() for part in parts)
+    missing = max(0.0, (req_end - req_start).total_seconds() - covered)
+    return nvr, parts, missing
+
+
+def _materialize_nvr_merge_part(part, nvr, target_path):
+    vendor = part["vendor"]
+    if vendor == "dahua":
+        source_path = _download_dahua_reference(
+            part["token"],
+            part["reference"],
+            nvr,
+            at_value=part["start"].isoformat(timespec="seconds"),
+            end_value=part["end"].isoformat(timespec="seconds"),
+        )
+        source_offset = 0.0
+    elif vendor == "hikvision":
+        source_path = _download_hikvision_reference(part["token"], part["reference"], nvr)
+        source_offset = max(0.0, (part["start"] - part["segment_start"]).total_seconds())
+    else:
+        raise RuntimeError("Nguồn NVR không được hỗ trợ khi cắt video.")
+    duration = max(0.001, (part["end"] - part["start"]).total_seconds())
+    cmd = [
+        FFMPEG_PATH,
+        "-y",
+        "-ss",
+        f"{source_offset:.3f}",
+        "-i",
+        source_path,
+        "-t",
+        f"{duration:.3f}",
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a?",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "20",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        "-movflags",
+        "+faststart",
+        target_path,
+    ]
+    completed = subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=max(180, int(nvr.get("read_timeout_sec", 30) or 30) * 20),
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    if completed.returncode != 0 or not os.path.isfile(target_path) or os.path.getsize(target_path) <= 0:
+        raise RuntimeError((completed.stdout or "Cắt video NVR thất bại.")[-2000:])
+    return duration
+
+
+def _merge_nvr_response(cam_id, req_start, req_end):
+    try:
+        nvr, parts, missing_duration = _prepare_nvr_merge_parts(cam_id, req_start, req_end)
+    except Exception as exc:
+        logger.exception("Không thể chuẩn bị dữ liệu cắt NVR camera %s", cam_id)
+        return Response(f"data: error:{str(exc)}\n\n", mimetype="text/event-stream")
+    if not parts:
+        return Response("data: error:Không có video NVR trong khoảng đã chọn\n\n", mimetype="text/event-stream")
+    output_filename = f"merge_cam{cam_id}_{uuid.uuid4().hex[:8]}.mp4"
+    output_path = os.path.join(VIDEO_DIR, output_filename)
+
+    def generate():
+        work_dir = tempfile.mkdtemp(prefix=".cambida_nvr_merge_", dir=BASE_DIR)
+        part_paths = []
+        try:
+            yield "data: 5\n\n"
+            if missing_duration >= 1.0:
+                yield (
+                    "data: notice:Khoảng đã chọn có "
+                    f"{int(round(missing_duration))} giây không có bản ghi NVR; "
+                    "file kết quả chỉ gồm phần có sẵn.\n\n"
+                )
+            total = len(parts)
+            for index, part in enumerate(parts):
+                target_path = os.path.join(work_dir, f"part_{index:03d}.mp4")
+                part_paths.append(target_path)
+                _materialize_nvr_merge_part(part, nvr, target_path)
+                percent = 5 + int(((index + 1) / max(total, 1)) * 85)
+                yield f"data: {min(percent, 90)}\n\n"
+            if len(part_paths) == 1:
+                shutil.copyfile(part_paths[0], output_path)
+            else:
+                list_file_path = os.path.join(work_dir, "concat.txt")
+                with open(list_file_path, "w", encoding="utf-8") as list_file:
+                    for part_path in part_paths:
+                        escaped_path = (
+                            os.path.abspath(part_path)
+                            .replace(chr(92), "/")
+                            .replace(chr(39), chr(39) + chr(92) + chr(39) + chr(39))
+                        )
+                        list_file.write(f"file '{escaped_path}'\n")
+                yield "data: 95\n\n"
+                completed = subprocess.run(
+                    [
+                        FFMPEG_PATH,
+                        "-y",
+                        "-f",
+                        "concat",
+                        "-safe",
+                        "0",
+                        "-i",
+                        list_file_path,
+                        "-c",
+                        "copy",
+                        "-movflags",
+                        "+faststart",
+                        output_path,
+                    ],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+                if completed.returncode != 0 or not os.path.isfile(output_path):
+                    raise RuntimeError((completed.stdout or "Ghép các đoạn NVR thất bại.")[-2000:])
+            yield "data: 100\n\n"
+            yield f"data: done:{output_filename}\n\n"
+        except Exception as exc:
+            logger.exception("Không thể cắt/ghép video NVR camera %s", cam_id)
+            try:
+                if os.path.isfile(output_path):
+                    os.remove(output_path)
+            except OSError:
+                pass
+            yield f"data: error:{str(exc)}\n\n"
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream")
+
+
 @app.route("/merge")
 def merge_video():
     cam_id = request.args.get("cam_id", type=int)
@@ -3400,6 +3611,9 @@ def merge_video():
                 f"data: error:Quá {MAX_MERGE_MINUTES} phút\n\n",
                 mimetype="text/event-stream",
             )
+
+        if _camera_playback_mode(cam_id) == "nvr":
+            return _merge_nvr_response(cam_id, req_start, req_end)
 
         files = glob.glob(os.path.join(VIDEO_DIR, f"cam{cam_id}_*.mp4"))
         candidates = []

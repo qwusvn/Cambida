@@ -2,6 +2,7 @@ import importlib.util
 import os
 import tempfile
 import unittest
+from datetime import datetime
 from unittest.mock import patch, MagicMock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -288,6 +289,60 @@ class NvrPerCameraTests(unittest.TestCase):
             first = res_nvr.get_json()[0]
             self.assertEqual(first["source"], "nvr")
             self.assertEqual(first["url"], "/nvr/video/tok123")
+
+    def test_nvr_replay_page_selects_segment_containing_requested_time(self):
+        response = self.client.get("/replay/cam2")
+        self.assertEqual(response.status_code, 200)
+        body = response.get_data(as_text=True)
+        self.assertIn("const containingIndex = visibleVideos.findIndex", body)
+        self.assertIn('appendQueryParam(playUrl, "at", atValue)', body)
+        self.assertIn('appendQueryParam(downloadUrl, "at", atValue)', body)
+        self.assertIn("range.start <= requestedStart && requestedStart < range.end", body)
+
+    def test_prepare_nvr_merge_parts_starts_at_exact_requested_time(self):
+        segment = {
+            "started_at": "2026-09-12T22:00:00",
+            "end_at": "2026-09-12T22:29:01",
+            "play_url": "/nvr/video/token-2200",
+        }
+        nvr = {"vendor": "dahua", "playback_chunk_sec": 300}
+        reference = {
+            "vendor": "dahua",
+            "cam_id": 2,
+            "started_at": segment["started_at"],
+            "ended_at": segment["end_at"],
+        }
+        with patch.object(APP, "get_camera_recorder_config", return_value=nvr), patch.object(
+            APP, "_search_dahua_camera", return_value=[segment]
+        ), patch.object(APP, "_get_nvr_reference", return_value=reference):
+            _, parts, missing = APP._prepare_nvr_merge_parts(
+                2,
+                datetime.fromisoformat("2026-09-12T22:09:00"),
+                datetime.fromisoformat("2026-09-12T22:19:00"),
+            )
+        self.assertEqual(missing, 0)
+        self.assertEqual(len(parts), 2)
+        self.assertEqual(parts[0]["start"], datetime.fromisoformat("2026-09-12T22:09:00"))
+        self.assertEqual(parts[0]["end"], datetime.fromisoformat("2026-09-12T22:14:00"))
+        self.assertEqual(parts[1]["start"], datetime.fromisoformat("2026-09-12T22:14:00"))
+        self.assertEqual(parts[1]["end"], datetime.fromisoformat("2026-09-12T22:19:00"))
+
+    def test_merge_route_uses_nvr_path_for_nvr_camera(self):
+        response_obj = APP.Response(
+            "data: done:nvr-cut.mp4\n\n", mimetype="text/event-stream"
+        )
+        with patch.object(APP, "_camera_playback_mode", return_value="nvr"), patch.object(
+            APP, "_merge_nvr_response", return_value=response_obj
+        ) as merge_nvr:
+            response = self.client.get(
+                "/merge?cam_id=2&start=2026-09-12T22:09:00&end=2026-09-12T22:10:00"
+            )
+        self.assertEqual(response.status_code, 200)
+        merge_nvr.assert_called_once_with(
+            2,
+            datetime.fromisoformat("2026-09-12T22:09:00"),
+            datetime.fromisoformat("2026-09-12T22:10:00"),
+        )
 
 
 if __name__ == "__main__":

@@ -236,6 +236,24 @@
       return video?.download_url || `/download/${encodeURIComponent(getVideoName(video))}`;
     }
 
+    function getSelectedReplayStart() {
+      const dateValue = document.getElementById("filterDate")?.value || "";
+      const timeValue = (document.getElementById("filterTime")?.value || "").trim();
+      if (!dateValue || !timeValue) return null;
+      const value = new Date(`${dateValue}T${timeValue}`);
+      return Number.isNaN(value.getTime()) ? null : value;
+    }
+
+    function formatLocalDateTime(value) {
+      const pad = number => String(number).padStart(2, "0");
+      return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
+    }
+
+    function appendQueryParam(url, key, value) {
+      if (!value) return url;
+      return `${url}${url.includes("?") ? "&" : "?"}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    }
+
     function getVideoRange(video) {
       if (!video) return null;
       const startedAt = video.started_at ? new Date(video.started_at) : null;
@@ -298,7 +316,7 @@
         const range = getVideoRange(video);
         if (range) {
           const pad = value => String(value).padStart(2, "0");
-          option.text = `${pad(range.start.getHours())}:${pad(range.start.getMinutes())}:${pad(range.start.getSeconds())} (${pad(range.start.getDate())}/${pad(range.start.getMonth() + 1)}/${range.start.getFullYear()})`;
+          option.text = `${pad(range.start.getHours())}:${pad(range.start.getMinutes())}:${pad(range.start.getSeconds())} - ${pad(range.end.getHours())}:${pad(range.end.getMinutes())}:${pad(range.end.getSeconds())} (${pad(range.start.getDate())}/${pad(range.start.getMonth() + 1)}/${range.start.getFullYear()})`;
           option.dataset.startAt = range.start.toISOString();
         } else {
           option.text = getVideoName(video);
@@ -308,8 +326,26 @@
         list.appendChild(option);
       });
 
+      let initialIndex = 0;
+      const requestedStart = !recentWindowMode ? getSelectedReplayStart() : null;
+      if (requestedStart) {
+        const containingIndex = visibleVideos.findIndex(video => {
+          const range = getVideoRange(video);
+          return range && range.start <= requestedStart && requestedStart < range.end;
+        });
+        if (containingIndex >= 0) {
+          initialIndex = containingIndex;
+        } else {
+          const nextCandidate = visibleVideos
+            .map((video, index) => ({ index, range: getVideoRange(video) }))
+            .filter(item => item.range && item.range.start >= requestedStart)
+            .sort((a, b) => a.range.start - b.range.start)[0];
+          if (nextCandidate) initialIndex = nextCandidate.index;
+        }
+      }
+
       list.onchange = () => selectVideo(Number(list.value));
-      selectVideo(0);
+      selectVideo(initialIndex);
     }
 
     function selectVideo(index) {
@@ -321,11 +357,23 @@
       const player = document.getElementById("videoPlayer");
       const dlBtn = document.getElementById("downloadOriginalBtn");
       const codecWarning = document.getElementById("codecWarning");
-      player.src = getPlayUrl(video);
+      let playUrl = getPlayUrl(video);
+      let downloadUrl = getDownloadUrl(video);
+      const range = getVideoRange(video);
+      const requestedStart = getSelectedReplayStart();
+      if ((isNvrSource() || video.source === "nvr" || playUrl.startsWith("/nvr/")) && range) {
+        const playbackStart = requestedStart && requestedStart > range.start && requestedStart < range.end
+          ? requestedStart
+          : range.start;
+        const atValue = formatLocalDateTime(playbackStart);
+        playUrl = appendQueryParam(playUrl, "at", atValue);
+        downloadUrl = appendQueryParam(downloadUrl, "at", atValue);
+      }
+      player.src = playUrl;
       player.dataset.filename = filename;
       if (codecWarning) codecWarning.style.display = "none";
       if (dlBtn) {
-        dlBtn.href = getDownloadUrl(video);
+        dlBtn.href = downloadUrl;
         dlBtn.classList.remove("disabled");
         dlBtn.setAttribute("download", filename || `camera-{{ cam_id }}.mp4`);
       }

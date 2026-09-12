@@ -11,12 +11,15 @@
 
 - Khôi phục giao diện xem lại theo HTML thật trích từ `CCTV_1.3.42.exe`, đồng thời giữ backend NVR per-camera và adapter Dahua/Hikvision hiện tại.
 - Trang xem lại NVR chỉ dùng **một nguồn NVR đã cấu hình sẵn**; bỏ hoàn toàn lựa chọn/nhãn `Server 1 / Server 2` khỏi giao diện.
+- Sửa lỗi chọn giờ NVR: khi nhập một mốc như `22:09`, giao diện chọn đúng segment chứa mốc đó (ví dụ `22:00:00–22:29:01`) thay vì luôn nhảy tới segment mới nhất; playback và tải đoạn NVR truyền `at=YYYY-MM-DDTHH:MM:SS` để bắt đầu đúng từ thời điểm đã chọn.
+- `/merge` nay nhận biết camera nguồn NVR và cắt trực tiếp dữ liệu NVR theo khoảng thời gian yêu cầu; Dahua dùng `loadfile.cgi` theo mốc start/end chính xác, chia chunk theo `playback_chunk_sec`, sau đó chuẩn hóa H.264/AAC và concat khi cần. Local merge cũ vẫn giữ nguyên.
+- Kiểm tra đầu ghi thật Cam 2 ngày 12/09/2026: NVR clock lệch PC khoảng 6 giây; mốc `22:09:00` nằm đúng trong segment `22:00:00–22:29:01`; cắt thật `22:09:00→22:09:10` tạo MP4 1080p H.264 duration `10.00s`.
 - Theo yêu cầu mới nhất, **gỡ hoàn toàn cơ chế bản quyền Telegram ghim**: không còn `MachineGuid`, không còn khóa replay/timeline/cut/download, không còn watcher license và không còn lệnh `/license`/`/activate`; Telegram vẫn giữ cho cảnh báo/trạng thái hệ thống khác.
 - Giữ bản sửa cắt/ghép chính xác tới giây: chỉ lấy phần media giao với khoảng chọn, hỗ trợ nhiều segment, cảnh báo gap và re-encode part để tránh sai mốc do keyframe.
-- Kiểm thử source sau khi gỡ bản quyền: `python -m py_compile 1.py` đạt và **31/31 unittest PASS**.
+- Kiểm thử source hiện tại: `python -m py_compile 1.py` đạt, JavaScript render qua `node --check` và **34/34 unittest PASS**.
 - Đóng gói lại `CCTV_2.1.0.exe` bằng PyInstaller 6.16.0 dạng onedir; metadata EXE vẫn là FileVersion/ProductVersion `2.1.0`.
 - Smoke test từ chính EXE với config cách ly không có Telegram: `/`, `/admin`, `/replay/cam1` và `/timeline` đều trả HTTP 200.
-- Artifact phát hành: `D:\1\cambida\release\2.1.0\`; SHA-256 EXE: `82bb7a582387e7ec4830ba57bbdecef9975019dcd61da25cc07a08335adbb423`.
+- Artifact phát hành: `D:\1\cambida\release\2.1.0\`; SHA-256 EXE sau bản sửa thời gian/cắt NVR: `f88eb22570632843f32db103598cc014fcb2595dc82a9463f2536e68c3689bbc`.
 
 ## 2.0.1 - 2026-09-12
 
