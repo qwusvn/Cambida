@@ -15,6 +15,7 @@
 - Timeline dùng trực tiếp `StartTime/EndTime` NVR làm hệ thời gian; khi thả kéo ở vùng có bản ghi, playback/download gọi NVR với `at=YYYY-MM-DDTHH:MM:SS` đúng mốc dưới kim.
 - Màn hình cắt cũng dùng timeline-only; hai mốc bắt đầu/kết thúc là mốc tuyệt đối trên toàn ngày, có thể kéo qua ranh giới nhiều segment NVR. Backend giữ cơ chế báo gap và chỉ ghép phần có bản ghi.
 - Task timeline không sửa `config.json`; SHA-256 workspace được giữ nguyên `ee7b820bea42c423acb05f15cd548c33706a6e0c981409ad320fec1085d0c8c3` trong toàn bộ quá trình kiểm thử.
+- Sửa regression khi Hủy màn hình cắt quay lại replay: timeline được render lại sau khi màn hình hiện ra, nên vùng xanh và nhãn ruler không còn mất/cắt; Computer Use xác nhận PASS.
 - Sửa lỗi chọn giờ NVR: khi nhập một mốc như `22:09`, giao diện chọn đúng segment chứa mốc đó (ví dụ `22:00:00–22:29:01`) thay vì luôn nhảy tới segment mới nhất; playback và tải đoạn NVR truyền `at=YYYY-MM-DDTHH:MM:SS` để bắt đầu đúng từ thời điểm đã chọn.
 - `/merge` nay nhận biết camera nguồn NVR và cắt trực tiếp dữ liệu NVR theo khoảng thời gian yêu cầu; Dahua dùng `loadfile.cgi` theo mốc start/end chính xác, chia chunk theo `playback_chunk_sec`, sau đó chuẩn hóa H.264/AAC và concat khi cần. Local merge cũ vẫn giữ nguyên.
 - Kiểm tra đầu ghi thật Cam 2 ngày 12/09/2026: NVR clock lệch PC khoảng 6 giây; mốc `22:09:00` nằm đúng trong segment `22:00:00–22:29:01`; cắt thật `22:09:00→22:09:10` tạo MP4 1080p H.264 duration `10.00s`.

@@ -308,6 +308,8 @@ class NvrPerCameraTests(unittest.TestCase):
         self.assertIn("clipStartAt", body)
         self.assertIn("selectionWidthMs", body)
         self.assertNotIn("clipStartSec", body)
+        self.assertIn('renderTimelineCoverage("filmstrip")', body)
+        self.assertIn('renderTimeline("replay",timelineStates.replay.progress)', body)
 
     def test_prepare_nvr_merge_parts_starts_at_exact_requested_time(self):
         segment = {
