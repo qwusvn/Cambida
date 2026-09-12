@@ -239,22 +239,25 @@ class NvrPerCameraTests(unittest.TestCase):
         self.assertNotIn('id="srcServer1"', body)
         self.assertNotIn("Server 1 - NVR", body)
 
-    def test_nvr_camera_without_backup_shows_only_nvr(self):
+    def test_nvr_camera_without_backup_uses_configured_nvr_without_selector(self):
         response = self.client.get("/replay/cam2")
         self.assertEqual(response.status_code, 200)
         body = response.get_data(as_text=True)
         self.assertIn("Bàn 2 (NVR no backup)", body)
-        self.assertNotIn('input type="radio" class="btn-check" name="replaySource"', body)
-        self.assertIn("Server 1 - NVR", body)
+        self.assertNotIn('name="replaySource"', body)
+        self.assertNotIn("Server 1 - NVR", body)
+        self.assertNotIn("Server 2 - Local", body)
+        self.assertIn('const CAMERA_MODE = "nvr";', body)
 
-    def test_nvr_camera_with_backup_shows_server1_and_server2_selector(self):
+    def test_nvr_camera_with_backup_still_uses_single_configured_nvr_source(self):
         response = self.client.get("/replay/cam3")
         self.assertEqual(response.status_code, 200)
         body = response.get_data(as_text=True)
         self.assertIn("Bàn 3 (NVR with backup)", body)
-        self.assertIn('name="replaySource"', body)
-        self.assertIn("Server 1 - NVR", body)
-        self.assertIn("Server 2 - Local", body)
+        self.assertNotIn('name="replaySource"', body)
+        self.assertNotIn("Server 1 - NVR", body)
+        self.assertNotIn("Server 2 - Local", body)
+        self.assertIn('const CAMERA_MODE = "nvr";', body)
 
     def test_list_videos_routes_by_source_parameter(self):
         filename = "cam3_10-00-00_to_10-05-00_(11-09-2026).mp4"
