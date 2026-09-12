@@ -70,6 +70,16 @@
     .pill{height:44px;border:1px solid var(--border);border-radius:23px;background:#fff;color:#1f5e9f;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;gap:9px;font-size:13px;font-weight:650;padding:0 12px;white-space:nowrap;position:relative}
     .pill svg{flex:0 0 auto;color:#2385e5}
     .date-input{position:absolute;inset:0;z-index:2;opacity:0;cursor:pointer;width:100%;height:100%;touch-action:manipulation}
+    .timeline-mode-row{display:flex;justify-content:flex-end;margin:-2px 4px 7px}
+    .timeline-mode-toggle{height:30px;border:1px solid #dce8f2;border-radius:15px;background:#f7fafe;color:#35739f;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 11px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(31,91,153,.06)}
+    .timeline-mode-toggle:hover,.timeline-mode-toggle:focus-visible,.timeline-mode-toggle[aria-pressed="true"]{border-color:#8cc7f2;background:#edf7ff;color:#147ee8;outline:none}
+    .timeline-mode-toggle svg{width:14px;height:14px;flex:0 0 auto}
+    .legacy-time-panel{margin:0 4px 12px;padding:11px;border:1px solid var(--border);border-radius:13px;background:#f8fbfe;box-shadow:var(--shadow);display:grid;grid-template-columns:116px 1fr;gap:9px;align-items:end}
+    .legacy-time-field{display:grid;gap:5px;min-width:0}
+    .legacy-time-field label{color:#75869a;font-size:10px;font-weight:650}
+    .legacy-time-input,.legacy-video-list{width:100%;height:40px;border:1px solid #dbe6f0;border-radius:10px;background:#fff;color:#344258;padding:0 10px;font-size:12px;font-weight:600;outline:none}
+    .legacy-time-input:focus,.legacy-video-list:focus{border-color:#74baf0;box-shadow:0 0 0 2px rgba(25,137,255,.1)}
+    .legacy-video-list{padding-right:28px;text-overflow:ellipsis}
 
     .timeline-wrap{position:relative;margin:0 -12px 12px;padding:0 12px;height:164px;overflow:hidden}
     .timeline-toolbar{position:absolute;z-index:12;left:12px;right:12px;top:0;height:34px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:4px}
@@ -189,6 +199,24 @@
       <button id="liveButton" class="pill" type="button" aria-label="Xem trực tiếp"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8a4 4 0 0 1 0 8M7.76 4.76a10 10 0 0 0 0 14.48M16.24 4.76a10 10 0 0 0 0 14.48"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg><span id="liveButtonText">Xem trực tiếp</span></button>
     </div>
 
+    <div class="timeline-mode-row" data-replay-only>
+      <button id="timelineModeToggle" class="timeline-mode-toggle" type="button" aria-pressed="false" aria-controls="timelineWrap legacyTimePanel" aria-label="Chuyển sang chọn thời gian kiểu cũ">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <span id="timelineModeLabel">Chọn giờ</span>
+      </button>
+    </div>
+
+    <div id="legacyTimePanel" class="legacy-time-panel" data-replay-only hidden>
+      <div class="legacy-time-field">
+        <label for="legacyFilterTime">Giờ bắt đầu</label>
+        <input id="legacyFilterTime" class="legacy-time-input" type="time" step="60">
+      </div>
+      <div class="legacy-time-field">
+        <label for="legacyVideoList">Đoạn video</label>
+        <select id="legacyVideoList" class="legacy-video-list" aria-label="Chọn đoạn video theo thời gian"><option selected disabled>Chọn thời gian để xem video</option></select>
+      </div>
+    </div>
+
     <div class="timeline-wrap" id="timelineWrap">
       <div class="timeline-toolbar" role="toolbar" aria-label="Điều khiển tốc độ xem lại">
         <div class="timeline-rate-group">
@@ -303,7 +331,7 @@
   const pad = (n) => String(n).padStart(2,"0");
   let allVideos = [], visibleVideos = [], currentVideo = null, currentVideoIndex = -1;
   let clipStartSec = 0, clipEndSec = 60, mergeEventSource = null, timelineDrag = null;
-  let fetchSerial = 0, activeScreen = "replay", replayTitle = "";
+  let fetchSerial = 0, activeScreen = "replay", replayTitle = "", replayTimelineMode = "timeline";
   const timelineStates = {
     replay: {trackId:"timelineTrack", viewportId:"timelineViewport", hitId:"timelineHit", markerId:"timelineMarker", bubbleId:"timeBubble", zoomInId:"timelineZoomIn", zoomOutId:"timelineZoomOut", zoom:1, offset:0, progress:.5},
     cut: {trackId:"cutTimelineTrack", viewportId:"cutTimelineViewport", hitId:"cutTimelineHit", markerId:"cutTimelineMarker", bubbleId:"cutTimeBubble", zoomInId:"cutTimelineZoomIn", zoomOutId:"cutTimelineZoomOut", zoom:1, offset:0, progress:.5}
@@ -343,6 +371,17 @@
   function findVideoAtDate(date){let match=null,index=-1;visibleVideos.some((v,i)=>{const r=getVideoRange(v);if(r&&date>=r.start&&date<r.end){match=v;index=i;return true;}return false;});return{video:match,index};}
   function renderTimelineCoverage(targetId){const target=$(targetId);if(!target)return;target.textContent="";const day=getTimelineDayBounds(),span=day.end-day.start;visibleVideos.forEach(v=>{const r=getVideoRange(v);if(!r)return;const start=new Date(Math.max(day.start.getTime(),r.start.getTime())),end=new Date(Math.min(day.end.getTime(),r.end.getTime()));if(end<=start)return;const cell=document.createElement("div");cell.className="filmstrip-cell";cell.style.left=`${(start-day.start)/span*100}%`;cell.style.width=`${(end-start)/span*100}%`;cell.title=`${fmtTime(start)} - ${fmtTime(end)}`;target.appendChild(cell);});}
   function updateRuler(targetId){const el=$(targetId);if(!el)return;el.textContent="";const day=getTimelineDayBounds();for(let hour=0;hour<=24;hour+=3){const d=new Date(day.start.getTime()+hour*3600000),s=document.createElement("span");s.className="ruler-major";s.style.left=`${hour/24*100}%`;s.textContent=hour===24?"24:00":`${pad(hour)}:00`;el.appendChild(s);}}
+  function getLegacyRangeStart(){const date=$("filterDate")?.value,time=$("legacyFilterTime")?.value;if(!date||!time)return null;const value=new Date(`${date}T${time}:00`);return Number.isNaN(value.getTime())?null:value;}
+  function getLegacyVideoLabel(v){const range=getVideoRange(v);return range?`${fmtTime(range.start)} - ${fmtTime(range.end)}`:getVideoName(v);}
+  function updateLegacyVideoList(selectFirst=false){
+    const list=$("legacyVideoList");if(!list)return;const rangeStart=getLegacyRangeStart(),items=visibleVideos.map((video,index)=>({video,index,range:getVideoRange(video)})).filter(item=>!rangeStart||!item.range||item.range.end>rangeStart);list.textContent="";
+    if(!items.length){const option=document.createElement("option");option.disabled=true;option.selected=true;option.textContent="Không có video từ thời gian đã chọn";list.appendChild(option);return;}
+    items.forEach(item=>{const option=document.createElement("option");option.value=String(item.index);option.textContent=getLegacyVideoLabel(item.video);option.dataset.videoName=getVideoName(item.video);list.appendChild(option);});
+    const current=items.find(item=>currentVideo&&getVideoName(item.video)===getVideoName(currentVideo)),chosen=current||items[0];list.value=String(chosen.index);if(selectFirst&&!current)selectVideo(chosen.video,chosen.index,false);else if(selectFirst&&items[0]){list.value=String(items[0].index);selectVideo(items[0].video,items[0].index,false);}
+  }
+  function setReplayTimelineMode(mode){
+    replayTimelineMode=mode==="legacy"?"legacy":"timeline";const legacy=replayTimelineMode==="legacy",button=$("timelineModeToggle"),label=$("timelineModeLabel"),timeline=$("timelineWrap"),panel=$("legacyTimePanel");if(timeline)timeline.hidden=legacy;if(panel)panel.hidden=!legacy;if(button){button.setAttribute("aria-pressed",String(legacy));button.setAttribute("aria-label",legacy?"Chuyển sang timeline kiểu mới":"Chuyển sang chọn thời gian kiểu cũ");}if(label)label.textContent=legacy?"Timeline":"Chọn giờ";if(legacy)updateLegacyVideoList(false);else if(currentVideo)renderTimeline("replay",getTimelineProgressForPlayer($("videoPlayer")));
+  }
 
   function clamp(value,min,max){return Math.min(max,Math.max(min,value));}
   function getTimelineContext(player){return player?.id==="cutPlayer"?"cut":"replay";}
@@ -387,7 +426,7 @@
 
   function checkCodec(v){ [$("codecWarning"),$("cutCodecWarning")].forEach(el=>{el.hidden=true}); if(!v||isNvrSource()||v.source==="nvr"||getPlayUrl(v).startsWith("/nvr/"))return;fetch(`/api/video-codec/${encodeURIComponent(getVideoName(v))}`).then(r=>r.ok?r.json():null).then(info=>{if(info?.is_h265&&currentVideo&&getVideoName(currentVideo)===getVideoName(v)){ $("codecWarning").hidden=false;$("cutCodecWarning").hidden=false; }}).catch(()=>{}); }
 
-  function updateVisibleVideos(){const val=$("filterDate").value;const start=val?new Date(`${val}T00:00:00`):null,end=start?new Date(start.getTime()+86400000):null;visibleVideos=allVideos.filter(v=>{const r=getVideoRange(v);return !r||!start||!end||(r.end>start&&r.start<end)}).sort((a,b)=>(getVideoRange(a)?.start||0)-(getVideoRange(b)?.start||0));renderTimelineCoverage("filmstrip");renderTimelineCoverage("cutFilmstrip");updateRuler("ruler");updateRuler("cutRuler");if(!visibleVideos.length){$("watchError").textContent="Không có video cho ngày đã chọn.";$("watchError").hidden=false;currentVideo=null;setAnchor($("downloadOriginalBtn"),null);$("cutButton").disabled=true;renderTimeline("replay",.5);renderTimeline("cut",.5);return;}$("watchError").hidden=true;let idx=visibleVideos.findIndex(v=>getVideoName(v)===getVideoName(currentVideo));if(idx<0)idx=Math.max(0,visibleVideos.length-1);selectVideo(visibleVideos[idx],idx,false);}
+  function updateVisibleVideos(){const val=$("filterDate").value;const start=val?new Date(`${val}T00:00:00`):null,end=start?new Date(start.getTime()+86400000):null;visibleVideos=allVideos.filter(v=>{const r=getVideoRange(v);return !r||!start||!end||(r.end>start&&r.start<end)}).sort((a,b)=>(getVideoRange(a)?.start||0)-(getVideoRange(b)?.start||0));renderTimelineCoverage("filmstrip");renderTimelineCoverage("cutFilmstrip");updateRuler("ruler");updateRuler("cutRuler");if(!visibleVideos.length){$("watchError").textContent="Không có video cho ngày đã chọn.";$("watchError").hidden=false;currentVideo=null;setAnchor($("downloadOriginalBtn"),null);$("cutButton").disabled=true;renderTimeline("replay",.5);renderTimeline("cut",.5);updateLegacyVideoList(false);return;}$("watchError").hidden=true;let idx=visibleVideos.findIndex(v=>getVideoName(v)===getVideoName(currentVideo));if(idx<0)idx=Math.max(0,visibleVideos.length-1);selectVideo(visibleVideos[idx],idx,false);updateLegacyVideoList(false);}
   function fetchVideos(){const serial=++fetchSerial;updateSourceButton();let url=`/list/cam${CAMERA_ID}?source=${encodeURIComponent(getSelectedSource())}`;if($("filterDate").value&&isNvrSource())url+=`&date=${encodeURIComponent($("filterDate").value)}`;fetch(url).then(r=>{if(!r.ok)throw new Error(`Không tải được danh sách video (${r.status}).`);return r.json()}).then(data=>{if(serial!==fetchSerial)return;allVideos=Array.isArray(data)?data:(Array.isArray(data?.videos)?data.videos:[]);updateVisibleVideos();}).catch(e=>{if(serial!==fetchSerial)return;$("watchError").textContent=e.message||"Không tải được danh sách video.";$("watchError").hidden=false;});}
 
   function syncTimelineFromPlayer(){if(!currentVideo)return;syncTimelineForPlayer("replay",$("videoPlayer"));}
@@ -433,9 +472,10 @@
   function mergeVideo(){if(!currentVideo)return;const bounds=getMergeBounds();if(bounds.duration>MAX_MERGE_SECONDS){$("cutError").textContent=`Đoạn cắt không được dài hơn ${MAX_MERGE_MINUTES} phút.`;$("cutError").hidden=false;return;}if(mergeEventSource)mergeEventSource.close();$("cutError").hidden=true;$("mergeProgress").hidden=false;$("mergeButton").disabled=true;setMergeProgress(3,"Đang chuẩn bị video...");const url=`/merge?cam_id=${encodeURIComponent(CAMERA_ID)}&start=${encodeURIComponent(formatLocalSecond(bounds.start))}&end=${encodeURIComponent(formatLocalSecond(bounds.end))}`;mergeEventSource=new EventSource(url);mergeEventSource.onmessage=(event)=>{const data=String(event.data||"");if(data.startsWith("notice:")){setMergeProgress(8,data.slice(7));return}if(data.startsWith("error:")){mergeEventSource.close();mergeEventSource=null;$("cutError").textContent=data.slice(6)||"Không thể cắt video.";$("cutError").hidden=false;$("mergeProgress").hidden=true;$("mergeButton").disabled=false;return}if(data.startsWith("done:")){const file=data.slice(5).trim();mergeEventSource.close();mergeEventSource=null;setAnchor($("mergedDownloadBtn"),`/download/${encodeURIComponent(file)}`,file);$("mergeProgress").hidden=true;$("mergeButton").disabled=false;showDone();return}const p=parseInt(data,10);if(Number.isFinite(p))setMergeProgress(p,`Đang xử lý... ${p}%`)};mergeEventSource.onerror=()=>{mergeEventSource?.close();mergeEventSource=null;$("cutError").textContent="Mất kết nối khi cắt video. Hãy kiểm tra lại kết quả hoặc thử lại.";$("cutError").hidden=false;$("mergeProgress").hidden=true;$("mergeButton").disabled=false;};}
 
   document.addEventListener("DOMContentLoaded",()=>{
-    const today=new Date();$("filterDate").value=fmtDateInput(today);$("cutFilterDate").value=fmtDateInput(today);setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");wireDatePicker("filterDate");wireDatePicker("cutFilterDate");updateRuler("ruler");updateRuler("cutRuler");
+    const today=new Date(),oneHourAgo=new Date(today.getTime()-3600000);$("filterDate").value=fmtDateInput(today);$("cutFilterDate").value=fmtDateInput(today);$("legacyFilterTime").value=`${pad(oneHourAgo.getHours())}:${pad(oneHourAgo.getMinutes())}`;setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");wireDatePicker("filterDate");wireDatePicker("cutFilterDate");updateRuler("ruler");updateRuler("cutRuler");setReplayTimelineMode("timeline");
     replayTitle=$("headerTitle").textContent.trim();wirePlayer("videoPlayer","pauseButton","pauseIcon","playerTime","overlayTimestamp","playerFrame","fullscreenButton","replay");wirePlayer("cutPlayer","cutPauseButton","cutPauseIcon","cutPlayerTime","cutOverlayTimestamp","cutPlayerFrame","cutFullscreenButton","cut");wireTimeline("timelineHit",false);wireTimeline("cutTimelineHit",true);wireTimelineZoom("replay");wireTimelineZoom("cut");wirePlaybackControls("replay");wirePlaybackControls("cut");
     updateSourceButton();$("sourceButton").addEventListener("click",()=>setSourceMenu($("sourceMenu").hidden));document.addEventListener("click",ev=>{if(!ev.target.closest("#sourceControl"))setSourceMenu(false);});document.querySelectorAll('input[name="replaySource"]').forEach(r=>r.addEventListener("change",()=>{setSourceMenu(false);fetchVideos();}));
+    $("timelineModeToggle").addEventListener("click",()=>setReplayTimelineMode(replayTimelineMode==="timeline"?"legacy":"timeline"));$("legacyFilterTime").addEventListener("change",()=>updateLegacyVideoList(true));$("legacyVideoList").addEventListener("change",()=>{const index=Number($("legacyVideoList").value);if(Number.isInteger(index)&&visibleVideos[index])selectVideo(visibleVideos[index],index,false);});
     $("liveButton").addEventListener("click",()=>toggleLive("replay"));$("cutLiveButton").addEventListener("click",()=>toggleLive("cut"));$("headerLiveButton").addEventListener("click",()=>{if(!$("doneScreen").hidden)showReplay();else toggleLive(activeScreen);});
     $("filterDate").addEventListener("change",()=>{$("cutFilterDate").value=$("filterDate").value;setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");fetchVideos();});
     $("cutFilterDate").addEventListener("change",()=>{$("filterDate").value=$("cutFilterDate").value;setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");fetchVideos();});

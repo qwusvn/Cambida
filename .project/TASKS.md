@@ -20,6 +20,7 @@
 - [x] 2026-09-12 — Chụp và đăng ký screenshot kiểm chứng `ui_cdp_replay.png` và `ui_cdp_cut.png`.
 - [x] 2026-09-12 — Sửa riêng timeline theo yêu cầu mới: kim giữa cố định, kéo track bên dưới kim, bỏ thumbnail, tô xanh đúng các khoảng có video và để trống các khoảng không có video; Chromium interaction verify + 29/29 unittest đạt.
 - [x] 2026-09-12 — Cập nhật luật Git: mọi task chỉ được `COMPLETED` sau khi tạo commit riêng đúng scope; commit hash bắt buộc trong báo cáo hoàn tất.
+- [x] 2026-09-12 — Thêm nút chuyển `Timeline ↔ Chọn giờ`: timeline mới vẫn là mặc định; chế độ cũ dùng giờ bắt đầu + danh sách đoạn video, dùng chung ngày/nguồn/player. Chromium 430×900, JavaScript syntax, `git diff --check` và unittest 29/29 đều đạt.
 
 ## DOING
 

@@ -37,7 +37,13 @@
 - Bỏ toàn bộ thumbnail khỏi timeline; thay bằng các block màu xanh theo khoảng thời gian thực của `visibleVideos`, phần không có video giữ nền trong suốt.
 - Timeline chuyển sang trục 24 giờ của ngày được chọn; vùng chọn cắt và hai tay nắm được quy đổi sang thời gian tuyệt đối để không lệch sau thay đổi.
 - Chromium 430×900 xác nhận marker giữ x=215 px khi track dịch 80 px, time bubble thay đổi, không còn `img` trong filmstrip và block video có màu xanh; JavaScript syntax, `git diff --check` và 29/29 unittest đều đạt.
-- Chưa commit.
+- Trạng thái UI/timeline đã được checkpoint riêng tại commit `335bb2c` trước task chuyển chế độ để không trộn scope lịch sử với thay đổi mới.
+
+## 2026-09-12 — Chuyển Timeline / Chọn giờ
+- Thêm một nút tùy chọn trên màn Xem lại để chuyển giữa timeline mới và cách chọn thời gian kiểu cũ.
+- Chế độ `Timeline` vẫn là mặc định. Chế độ `Chọn giờ` dùng ngày đang chọn, ô giờ bắt đầu và danh sách các đoạn video còn hiệu lực sau mốc giờ đó; chọn đoạn dùng lại `selectVideo` hiện tại nên không thay luồng phát/tải/cắt.
+- Chromium 430×900 xác nhận chuyển hai chiều đúng, chế độ cũ chọn đúng đoạn `13:06:24 - 13:07:24` từ mốc 13:00 và player nhận `/video/fake.mp4`; khi quay lại timeline kim vẫn nằm chính giữa.
+- JavaScript syntax, `git diff --check -- index.html` và unittest 29/29 đều đạt.
 
 ## 2026-09-12 — Checkpoint 17:12 +07
 - Đối chiếu lại `.project`, source/Git và trạng thái executor trước khi tạo checkpoint.
