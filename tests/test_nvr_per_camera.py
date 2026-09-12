@@ -304,6 +304,8 @@ class NvrPerCameraTests(unittest.TestCase):
         self.assertIn("pendingProgress", body)
         self.assertIn("clipStartAt", body)
         self.assertIn("selectionWidthMs", body)
+        self.assertIn("const base=nvr?requested:(range?.start||requested);", body)
+        self.assertIn('player.dataset.baseAt=base?formatLocalSecond(base):""', body)
         self.assertNotIn("clipStartSec", body)
         self.assertIn('renderTimelineCoverage("filmstrip")', body)
         self.assertIn('renderTimeline("replay",timelineStates.replay.progress)', body)

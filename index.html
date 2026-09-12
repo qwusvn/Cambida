@@ -349,9 +349,10 @@
   function loadPlayer(player,v,targetDate=null){
     if(!v)return;
     const context=getTimelineContext(player);stopPlayback(player,context);player.pause();
-    const range=getVideoRange(v);let base=targetDate instanceof Date&&!Number.isNaN(targetDate.getTime())?new Date(targetDate):range?.start||null;
-    if(range&&base){if(base<range.start)base=new Date(range.start);if(base>=range.end)base=new Date(Math.max(range.start.getTime(),range.end.getTime()-1000));}
-    let url=getPlayUrl(v);if(isNvrVideo(v)&&base)url=appendQueryParam(url,"at",formatLocalSecond(base));
+    const range=getVideoRange(v);let requested=targetDate instanceof Date&&!Number.isNaN(targetDate.getTime())?new Date(targetDate):range?.start||null;
+    if(range&&requested){if(requested<range.start)requested=new Date(range.start);if(requested>=range.end)requested=new Date(Math.max(range.start.getTime(),range.end.getTime()-1000));}
+    const nvr=isNvrVideo(v);let url=getPlayUrl(v);if(nvr&&requested)url=appendQueryParam(url,"at",formatLocalSecond(requested));
+    const base=nvr?requested:(range?.start||requested);
     player.dataset.baseAt=base?formatLocalSecond(base):"";player.src=url;player.load();resetVideoTransform(player.closest(".player"));
   }
   function setPauseIcon(svg,playing){ svg.innerHTML=playing?'<path d="M7 5h4v14H7zm6 0h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>'; }

@@ -14,6 +14,7 @@
 - `/list/camX` trong mode RTSP local lọc theo `date/start/end` ngay ở backend để timeline không phải tải toàn bộ lịch sử; tham số `source=nvr` cũng bị ép về local trong giai đoạn này để tránh phụ thuộc đầu ghi.
 - Timeline UI vẫn giữ kim giữa cố định, coverage xanh/gap trống, không thumbnail và không ô nhập giờ.
 - Kiểm chứng RTSP-local: `/list/cam2?source=nvr&date=...` vẫn trả source=`local`; `/video/...` hỗ trợ HTTP Range `206`; cắt thật 10 giây từ MP4 local cho output H.264 1080p đúng `10.00s`; `/api/timeline` báo toàn bộ camera source=`local`. Source test **35/35 PASS**.
+- Sửa timestamp overlay local bị cộng offset hai lần: local MP4 dùng thời điểm bắt đầu segment làm `baseAt`, còn NVR (nếu bật lại sau này) mới dùng mốc `at=` làm base. CDP xác nhận file `17:29:38–17:34:38` tại `currentTime≈178s` hiển thị đúng `17:32:36`; kim vẫn cố định, Cut→Hủy giữ coverage và không có `/nvr/` ref.
 
 - Khôi phục giao diện xem lại theo HTML thật trích từ `CCTV_1.3.42.exe`, đồng thời giữ backend NVR per-camera và adapter Dahua/Hikvision hiện tại.
 - Trang xem lại NVR chỉ dùng **một nguồn NVR đã cấu hình sẵn**; bỏ hoàn toàn lựa chọn/nhãn `Server 1 / Server 2` khỏi giao diện.
