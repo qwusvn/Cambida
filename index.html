@@ -2,547 +2,449 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{ camera_name }} · {{ site.name }}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-	:root { --bg: {{ site.theme.background }}; --surface: {{ site.theme.surface }}; --primary: {{ site.theme.primary }}; --accent: {{ site.theme.accent }}; --text: {{ site.theme.text }}; }
-	.btn-gradient {
-	  background: linear-gradient(90deg, var(--primary), var(--accent));
-	  border: none;
-	  color: white;
-	  font-weight: 600;
-	  border-radius: 50px;
-	  padding: 12px 28px;
-	  transition: transform 0.2s;
-	}
-	.btn-gradient:hover {
-	  transform: scale(1.05);
-	  color: white;
-	}
-    body {
-      background-color: var(--bg);
-      color: var(--text);
-      margin: 0;
-      padding: 0;
-      overflow-x: hidden;
+    :root {
+      color-scheme: light;
+      --bg:#ffffff;
+      --text:#17233a;
+      --muted:#7f8da1;
+      --blue:#1989ff;
+      --blue-dark:#0878ea;
+      --purple:#9b43ee;
+      --green:#16bf67;
+      --green-bg:#e8faef;
+      --pink:#ff2f67;
+      --border:#e4ebf3;
+      --soft:#f6f9fc;
+      --warn:#fff5cf;
+      --warn-border:#f5df91;
+      --warn-icon:#f5b400;
+      --shadow:0 4px 14px rgba(31,91,153,.08);
+      --radius:13px;
+      --system:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Arial,sans-serif;
     }
-    .background {
-      position: fixed;
-      width: 100%;
-      height: 100%;
-      background: var(--bg);
-      overflow: hidden;
-      z-index: 0;
-      top: 0;
-      left: 0;
-    }
-    .background span {
-      position: absolute;
-      display: block;
-      width: 20px;
-      height: 20px;
-      background: color-mix(in srgb, var(--primary) 18%, transparent);
-      animation: animate 25s linear infinite;
-      bottom: -150px;
-    }
-    .background span:nth-child(1) { left: 10%; width: 80px; height: 80px; animation-duration: 22s; }
-    .background span:nth-child(2) { left: 20%; width: 20px; height: 20px; animation-duration: 18s; }
-    .background span:nth-child(3) { left: 25%; width: 50px; height: 50px; animation-duration: 28s; }
-    .background span:nth-child(4) { left: 40%; width: 30px; height: 30px; animation-duration: 32s; }
-    .background span:nth-child(5) { left: 70%; width: 90px; height: 90px; animation-duration: 24s; }
-    .background span:nth-child(6) { left: 80%; width: 15px; height: 15px; animation-duration: 30s; }
-    .background span:nth-child(7) { left: 65%; width: 25px; height: 25px; animation-duration: 20s; }
-    .background span:nth-child(8) { left: 35%; width: 40px; height: 40px; animation-duration: 26s; }
-    .background span:nth-child(9) { left: 50%; width: 10px; height: 10px; animation-duration: 22s; }
-    .background span:nth-child(10) { left: 90%; width: 60px; height: 60px; animation-duration: 34s; }
-    @keyframes animate {
-      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-      100% { transform: translateY(-1000px) rotate(720deg); opacity: 0; }
-    }
-    .container {
-      position: relative;
-      z-index: 1;
-      max-width: 700px;
-      margin: 30px auto;
-      padding-bottom: 100px;
-    }
-    video {
-      width: 100%;
-      border-radius: 12px;
-      margin-bottom: 20px;
-    }
-    .btn-lg {
-      font-size: 1.25rem;
-      padding: 15px;
-    }
-    select, input[type="date"], input[type="time"] {
-      background-color: var(--surface);
-      color: var(--text);
-    }
-    .btn-primary {
-      background-color: var(--primary);
-      border-color: var(--primary);
-    }
-    img.stream {
-      width: 100%;
-      border-radius: 12px;
-      max-height: 400px;
-      object-fit: cover;
-    }
-    .highlighted-title {
-      font-size: 2rem;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      background: linear-gradient(90deg, var(--primary), var(--accent));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      text-shadow: 0 0 12px var(--primary);
-    }
-    .merge-date-picker-wrap {
-      position: relative;
-      display: inline-block;
-      min-width: 190px;
-    }
-    .merge-date-picker {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      cursor: pointer;
-    }
-    .merge-date-nav {
-      border: 0;
-      background: transparent;
-      color: #ffc107;
-      font-size: 1.2rem;
-      font-weight: 700;
-      line-height: 1;
-      padding: 0 8px;
-      cursor: pointer;
-    }
-    .merge-date-nav:hover,
-    .merge-date-nav:focus-visible {
-      color: #fff;
-    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-width:320px;background:#fff;color:var(--text);font-family:var(--system);-webkit-font-smoothing:antialiased}
+    body{min-height:100svh}
+    button,input,a{font:inherit}
+    button,a{-webkit-tap-highlight-color:transparent}
+    button{cursor:pointer}
+    [hidden]{display:none!important}
+    .app{width:min(100%,432px);min-height:100svh;margin:0 auto;background:#fff;padding:env(safe-area-inset-top) 12px calc(16px + env(safe-area-inset-bottom))}
+    .header{height:68px;display:grid;grid-template-columns:96px 1fr 88px;align-items:center;gap:4px;padding:7px 0 5px}
+    .source-control{position:relative;justify-self:start;z-index:30}
+    .source-button{min-width:78px;height:34px;border:1px solid #dbe7f2;border-radius:18px;background:#f7fafe;color:#176da9;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 8px;box-shadow:0 2px 7px rgba(31,91,153,.07);font-size:11px;font-weight:750;white-space:nowrap}
+    .source-button:hover,.source-button:focus-visible,.source-button[aria-expanded="true"]{border-color:#8ec8f5;background:#edf7ff;color:#0878ea;outline:none}
+    .source-button:disabled{cursor:default;opacity:.78}
+    .source-button svg{flex:0 0 auto}
+    .source-button .source-chevron{transition:transform .18s ease}
+    .source-button[aria-expanded="true"] .source-chevron{transform:rotate(180deg)}
+    .source-button-label{max-width:52px;overflow:hidden;text-overflow:ellipsis}
+    .source-menu{position:absolute;top:40px;left:0;min-width:178px;padding:5px;border:1px solid #dfe8f1;border-radius:12px;background:#fff;box-shadow:0 10px 28px rgba(24,75,122,.16)}
+    .source-menu-option{position:relative;min-height:38px;display:flex;align-items:center;gap:8px;padding:0 10px;border-radius:8px;color:#4e6074;font-size:11px;font-weight:650;white-space:nowrap}
+    .source-menu-option input{position:absolute;opacity:0;pointer-events:none}
+    .source-menu-option:has(input:checked),.source-menu-option:hover{background:#f0f7ff;color:#147ee8}
+    .source-menu-option:has(input:checked):after{content:"✓";margin-left:auto;color:#147ee8;font-size:14px;font-weight:800}
+    .source-menu-static{justify-content:center;color:#78889b}
+    .header-copy{text-align:center;min-width:0;line-height:1.08}
+    .header-title{margin:0;font-size:17px;font-weight:760;letter-spacing:-.25px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .header-subtitle{margin:5px 0 0;font-size:12px;font-weight:560;color:#8290a3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .live-badge{justify-self:end;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 10px;border:1px solid transparent;border-radius:18px;background:#eef5ff;color:#147ee8;font-size:12px;font-weight:700;white-space:nowrap}
+    .live-badge:hover,.live-badge:focus-visible{outline:none;filter:brightness(.98);border-color:#a9d4f7}
+    .live-badge.is-live{background:var(--green-bg);color:#14a959}
+    .live-dot{width:8px;height:8px;border-radius:50%;background:#2388ee;box-shadow:0 0 0 2px rgba(35,136,238,.08)}
+    .live-badge.is-live .live-dot{background:#18c968;box-shadow:0 0 0 2px rgba(24,201,104,.08)}
+
+    .player{position:relative;overflow:hidden;width:100%;aspect-ratio:1.66;border-radius:12px;background:#101820;box-shadow:0 1px 0 rgba(0,0,0,.05);touch-action:none}
+    .player video,.player .live-stream{width:100%;height:100%;display:block;object-fit:cover;background:#101820;transform:translate3d(0,0,0) scale(1);transform-origin:center;will-change:transform;user-select:none;-webkit-user-select:none;touch-action:none}
+    .player .live-stream{object-position:center}
+    .player-top{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;padding:11px 12px;color:#fff;font-size:11px;font-weight:650;text-shadow:0 1px 3px rgba(0,0,0,.72);pointer-events:none}
+    .pause-button{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:62px;height:62px;border:2px solid rgba(255,255,255,.86);border-radius:50%;background:rgba(54,64,75,.48);backdrop-filter:blur(2px);color:#fff;display:grid;place-items:center;padding:0;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+    .player-bottom{position:absolute;left:12px;right:12px;bottom:9px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.75)}
+    .time-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:560;margin-bottom:5px}
+    .fullscreen-button{border:0;background:transparent;color:#fff;width:28px;height:28px;padding:2px;display:grid;place-items:center;margin:-7px -4px -7px 0}
+
+    .control-row{display:grid;grid-template-columns:1.35fr 1fr;gap:9px;margin:13px 4px 11px}
+    .pill{height:44px;border:1px solid var(--border);border-radius:23px;background:#fff;color:#1f5e9f;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;gap:9px;font-size:13px;font-weight:650;padding:0 12px;white-space:nowrap;position:relative}
+    .pill svg{flex:0 0 auto;color:#2385e5}
+    .date-input{position:absolute;inset:0;z-index:2;opacity:0;cursor:pointer;width:100%;height:100%;touch-action:manipulation}
+
+    .timeline-wrap{position:relative;margin:0 -12px 12px;padding:0 12px;height:164px;overflow:hidden}
+    .timeline-toolbar{position:absolute;z-index:12;left:12px;right:12px;top:0;height:34px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:4px}
+    .timeline-rate-group{display:flex;align-items:center;gap:3px;min-width:0}
+    .timeline-rate-group.forward{justify-content:flex-end}
+    .rate-button,.zoom-button{border:1px solid #dce8f2;background:#fff;color:#6b8095;display:inline-flex;align-items:center;justify-content:center;gap:2px;padding:0;box-shadow:0 2px 5px rgba(31,91,153,.07)}
+    .rate-button{width:34px;height:29px;border-radius:9px;font-size:9px;font-weight:760}
+    .rate-button svg{width:14px;height:14px;flex:0 0 auto}
+    .rate-button:hover,.rate-button:focus-visible,.rate-button.is-active{border-color:#8cc7f2;background:#edf7ff;color:#147ee8;outline:none}
+    .rate-button.is-active{box-shadow:0 0 0 2px rgba(25,137,255,.12)}
+    .rate-label{line-height:1}
+    .time-bubble{position:relative;z-index:8;height:30px;display:flex;align-items:center;justify-content:center;min-width:75px;padding:0 10px;border-radius:16px;background:#188cff;color:#fff;font-size:12px;font-weight:650;box-shadow:0 2px 6px rgba(24,140,255,.28);white-space:nowrap}
+    .time-bubble:after{content:"";position:absolute;bottom:-6px;left:50%;transform:translateX(-50%);border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #188cff}
+    .timeline-viewport{position:absolute;z-index:1;left:12px;right:12px;top:41px;bottom:18px;overflow:hidden;border-radius:5px}
+    .timeline-track{position:absolute;top:0;bottom:0;left:0;width:100%;min-width:100%;height:100%;transform:translate3d(0,0,0);will-change:width,transform}
+    .filmstrip{position:absolute;left:0;right:auto;top:0;width:100%;height:47px;border-radius:5px;overflow:hidden;background:transparent}
+    .filmstrip-cell{position:absolute;top:0;height:47px;min-width:1px;border-radius:3px;background:var(--green);box-shadow:inset 0 0 0 1px rgba(8,133,68,.08)}
+    .cut-selection{position:absolute;z-index:5;top:0;height:47px;left:33%;width:36%;background:rgba(52,139,255,.18);border-top:2px solid rgba(42,131,255,.6);border-bottom:2px solid rgba(42,131,255,.6);pointer-events:none}
+    .cut-handle{position:absolute;z-index:7;top:4px;width:16px;height:39px;border-radius:6px;background:#3189ff;box-shadow:0 1px 3px rgba(26,96,177,.28);pointer-events:none}
+    .cut-handle:after{content:"";position:absolute;top:11px;bottom:11px;left:7px;width:2px;border-radius:2px;background:rgba(255,255,255,.92)}
+    .handle-start{left:calc(33% - 8px)}
+    .handle-end{left:calc(69% - 8px)}
+    .timeline-marker{position:absolute;z-index:9;top:-7px;bottom:0;left:50%;width:3px;border-radius:2px;background:var(--pink);transform:translateX(-50%);box-shadow:0 0 0 1px rgba(255,255,255,.5);pointer-events:none}
+    .timeline-marker:before{content:"";position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:10px;height:10px;border-radius:50%;background:var(--pink)}
+    .ruler{position:absolute;left:0;right:auto;top:53px;width:100%;height:48px;border-top:1px solid #d8e1ea;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(5% - 1px),#cfd9e3 calc(5% - 1px),#cfd9e3 5%);background-size:100% 11px;background-repeat:no-repeat}
+    .ruler-major{position:absolute;top:12px;transform:translateX(-50%);color:#67788b;font-size:11px;font-weight:520}
+    .ruler-major:before{content:"";position:absolute;top:-12px;left:50%;width:1px;height:10px;background:#aebdca}
+    .timeline-hit{position:absolute;inset:38px 12px 18px;z-index:10;touch-action:none;user-select:none;-webkit-user-select:none;background:transparent;border-radius:6px;outline:none}
+    .timeline-hit:focus-visible{box-shadow:0 0 0 2px rgba(25,137,255,.28)}
+    .timeline-zoom{position:absolute;z-index:13;right:12px;bottom:0;display:flex;gap:4px}
+    .zoom-button{width:29px;height:28px;border-radius:8px}
+    .zoom-button svg{width:16px;height:16px}
+    .zoom-button:hover,.zoom-button:focus-visible{border-color:#8cc7f2;background:#edf7ff;color:#147ee8;outline:none}
+
+    .selection-info{display:grid;grid-template-columns:1fr 1fr 1fr;margin:3px 2px 10px;border:1px solid var(--border);border-radius:11px;background:#fbfdff;overflow:hidden}
+    .selection-info>div{padding:8px 7px 7px;text-align:center;border-right:1px solid var(--border)}
+    .selection-info>div:last-child{border-right:0}
+    .selection-info label{display:block;margin:0 0 3px;color:#8897a9;font-size:10px;font-weight:530}
+    .selection-info strong{display:block;color:#344258;font-size:13px;font-weight:700;white-space:nowrap}
+
+    .warning{margin:8px 2px 11px;padding:13px 12px;border-radius:10px;border:1px solid var(--warn-border);background:var(--warn);display:flex;align-items:flex-start;gap:10px;color:#8b6a16;font-size:12.5px;line-height:1.42;font-weight:550}
+    .warning-icon{flex:0 0 auto;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--warn-icon);color:#fff;font-size:15px;font-weight:800;margin-top:1px}
+    .inline-error{margin:0 2px 10px;padding:10px 12px;border-radius:10px;background:#fff0f2;border:1px solid #ffd4da;color:#b94052;font-size:11px}
+    .progress-box{margin:0 2px 10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#f8fbfe}
+    .merge-track{height:7px;border-radius:9px;background:#dce7f1;overflow:hidden}
+    .merge-fill{height:100%;width:0;background:linear-gradient(90deg,var(--blue),var(--purple));border-radius:inherit}
+    .merge-label{margin:6px 0 0;text-align:center;color:#657589;font-size:10px}
+
+    .actions{display:grid;gap:9px;margin:0 2px}
+    .action{min-height:58px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:15px;font-weight:740;text-decoration:none;letter-spacing:-.1px}
+    .primary{border:0;color:#fff;background:linear-gradient(90deg,#10a9ef 0%,#118af5 68%,#1688ff 100%);box-shadow:0 4px 12px rgba(17,139,245,.18)}
+    .cut-primary{background:linear-gradient(90deg,#10a9ef 0%,#167cf4 52%,#9d42ee 100%)}
+    .outline{border:1.5px solid #8cc7f2;color:#1b639d;background:#fff}
+    .cancel{border:1px solid #dce4ec;color:#6e7d90;background:#f2f5f8}
+    .action[aria-disabled="true"],.action:disabled{opacity:.45;pointer-events:none}
+
+    .done-panel{margin-top:10px;padding:22px 16px;border:1px solid var(--border);border-radius:16px;background:#fff;box-shadow:var(--shadow);text-align:center}
+    .done-icon{width:60px;height:60px;margin:0 auto 12px;border-radius:50%;background:#e8faef;color:#14b45e;display:grid;place-items:center}
+    .done-panel h2{font-size:18px;margin:0 0 6px}.done-panel p{font-size:12px;color:var(--muted);margin:0 0 15px}
+
+    .screen.is-live .timeline-wrap,.screen.is-live .selection-info,.screen.is-live [data-replay-only],.screen.is-live [data-cut-only],.screen.is-live .warning,.screen.is-live .inline-error,.screen.is-live .progress-box{display:none}
+    .screen.is-live .date-control{display:none}
+    .screen.is-live .control-row{grid-template-columns:1fr}
+    .screen.is-live .live-stream{display:block}
+    .screen.is-live .player video{display:none}
+    .screen.is-live .pause-button,.screen.is-live .player-bottom{display:none}
+    .live-stream[hidden]{display:none}
+    @media(max-width:370px){.app{padding-left:9px;padding-right:9px}.header{grid-template-columns:82px 1fr 82px}.timeline-wrap{margin-left:-9px;margin-right:-9px;padding-left:9px;padding-right:9px}.timeline-viewport{left:9px;right:9px}.timeline-hit{left:9px;right:9px}.timeline-toolbar{left:9px;right:9px}.timeline-zoom{right:9px}.live-badge{padding:0 8px}.source-button{min-width:70px;padding:0 6px}.source-button-label{max-width:45px}.control-row{gap:6px}.pill{font-size:12px;padding:0 8px}}
   </style>
 </head>
 <body>
-  <div class="background">
-    <span></span><span></span><span></span><span></span><span></span>
-    <span></span><span></span><span></span><span></span><span></span>
-    <span></span><span></span><span></span><span></span><span></span>
-    <span></span><span></span><span></span><span></span><span></span>
-  </div>
-
-  <div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <a href="/" class="btn btn-outline-light btn-sm">‹ Trang chủ</a>
-      <a href="/timeline?cam={{ cam_id }}" class="btn btn-outline-light btn-sm">🕒 Timeline</a>
-    </div>
-
-    <div class="mb-4 text-center">
-      <h4>{{ camera_name }}</h4>
-      <img id="streamView" class="stream" src="/cam{{ cam_id }}">
-    </div>
-
-    <h2 class="highlighted-title text-center mb-4">{{ site.name }}</h2>
-
-    {% if camera_mode == 'nvr' and backup_local %}
-    <div class="card bg-dark border-secondary p-3 mb-3 text-center">
-      <label class="form-label fw-bold text-warning mb-2">📡 Nguồn phát lại:</label>
-      <div class="btn-group w-100" role="group" aria-label="Nguồn phát lại">
-        <input type="radio" class="btn-check" name="replaySource" id="srcServer1" value="server1" checked autocomplete="off">
-        <label class="btn btn-outline-warning fw-semibold" for="srcServer1">🗄️ Server 1 - NVR</label>
-
-        <input type="radio" class="btn-check" name="replaySource" id="srcServer2" value="server2" autocomplete="off">
-        <label class="btn btn-outline-warning fw-semibold" for="srcServer2">💾 Server 2 - Local</label>
+<main class="app">
+  <header class="header">
+    <div id="sourceControl" class="source-control">
+      <button id="sourceButton" class="source-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Chọn nguồn phát lại">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></svg>
+        <span id="sourceButtonLabel" class="source-button-label">Nguồn</span>
+        <svg class="source-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div id="sourceMenu" class="source-menu" role="menu" hidden>
+        {% if camera_mode == 'nvr' and backup_local %}
+        <label class="source-menu-option" role="menuitemradio"><input id="srcServer1" type="radio" name="replaySource" value="server1" checked><span>Server 1 - NVR</span></label>
+        <label class="source-menu-option" role="menuitemradio"><input id="srcServer2" type="radio" name="replaySource" value="server2"><span>Server 2 - Local</span></label>
+        {% elif camera_mode == 'nvr' %}
+        <div class="source-menu-option source-menu-static" role="menuitem">Server 1 - NVR</div>
+        {% else %}
+        <div class="source-menu-option source-menu-static" role="menuitem">Server 2 - Local</div>
+        {% endif %}
       </div>
-      <small id="sourceHelp" class="text-white-50 mt-2 d-block">Đang phát từ Server 1: Bản ghi lưu trên đầu ghi NVR</small>
     </div>
-    {% elif camera_mode == 'nvr' %}
-    <div class="text-center mb-3">
-      <span class="badge bg-secondary px-3 py-2">Nguồn phát lại: Server 1 - NVR</span>
+    <div class="header-copy">
+      <h1 id="headerTitle" class="header-title">{{ camera_name }}</h1>
+      <p class="header-subtitle">{{ site.name }}</p>
     </div>
-    {% endif %}
+    <button id="headerLiveButton" class="live-badge" type="button" aria-label="Đang xem lại. Nhấn để xem trực tiếp"><span id="modeBadgeDot" class="live-dot"></span><span id="modeBadgeText">Xem lại</span></button>
+  </header>
 
-  <div class="row mb-3">
-    <div class="col-md-6">
-      <label for="filterDate" class="form-label">📅 Chọn ngày:</label>
-      <input type="date" id="filterDate" class="form-control">
-    </div>
-    <div class="col-md-6">
-      <label for="filterTime" class="form-label">🕑 Chọn giờ bắt đầu:</label>
-      <input type="time" id="filterTime" class="form-control" step="60">
-    </div>
-  </div>
-
-    <div class="mb-3">
-      <label for="videoList" class="form-label">🎬 Chọn video:</label>
-      <select id="videoList" class="form-select"><option selected disabled>Danh sách video sẽ hiển thị ở đây.</option></select>
-    </div>
-	<div>
-	  <video id="videoPlayer" controls playsinline muted class="rounded shadow w-100 mb-2"></video>
-	  <div id="codecWarning" class="alert alert-warning py-2" role="alert" style="display:none;"></div>
-	  <div class="d-grid">
-		<a id="downloadOriginalBtn" class="btn btn-warning btn-lg disabled" href="#" role="button" aria-disabled="true">
-		   Tải đoạn này về máy
-		</a>
-	  </div>
-	</div>
-
-    <hr class="my-4">
-
-    <h5 class="text-center">🔗 Ghép Video (Tối đa {{ max_merge_minutes }} phút)</h5>
-    <div class="alert alert-info text-center" style="font-size: 0.9rem;">
-      Chọn video nằm trong khoảng thời gian.
-    </div>
-
-    <div class="row mb-3 align-items-end">
-      <div class="col-md-12 text-center mb-2">
-        <button type="button" class="merge-date-nav" id="prevMergeDate" aria-label="Ngày trước">&lt;</button>
-        <span class="badge bg-secondary merge-date-picker-wrap">
-          Ngày: <span id="mergeDateDisplay" class="text-warning">Đang tải...</span>
-          <input type="date" id="mergeDate" class="merge-date-picker" aria-label="Chọn ngày ghép" required>
-        </span>
-        <button type="button" class="merge-date-nav" id="nextMergeDate" aria-label="Ngày sau">&gt;</button>
-      </div>
-      <div class="col-6">
-        <label class="form-label">⏱ Bắt đầu:</label>
-        <input type="time" id="mergeStart" class="form-control" required>
-      </div>
-      <div class="col-6">
-        <label class="form-label">🏁 Kết thúc:</label>
-        <input type="time" id="mergeEnd" class="form-control" required>
+  <section id="replayScreen" class="screen screen-replay">
+    <div class="player" id="playerFrame">
+      <video id="videoPlayer" playsinline preload="metadata" poster="/snapshot/cam{{ cam_id }}"></video>
+      <img id="liveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
+      <div class="player-top"><span id="overlayTimestamp">--/--/---- --:--:--</span><span>CAM {{ '%02d'|format(cam_id|int) }}</span></div>
+      <button id="pauseButton" class="pause-button" type="button" aria-label="Phát hoặc tạm dừng">
+        <svg id="pauseIcon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg>
+      </button>
+      <div class="player-bottom">
+        <div class="time-row"><span id="playerTime">00:00 / 00:00</span><button id="fullscreenButton" class="fullscreen-button" type="button" aria-label="Toàn màn hình"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button></div>
       </div>
     </div>
 
-    <div class="d-grid mb-2">
-      <button class="btn btn-gradient btn-lg" onclick="mergeVideo()">Bắt đầu Ghép</button>
+    <div class="control-row">
+      <label class="pill date-control" aria-label="Chọn ngày">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+        <span id="dateLabel">Hôm nay</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        <input id="filterDate" class="date-input" type="date">
+      </label>
+      <button id="liveButton" class="pill" type="button" aria-label="Xem trực tiếp"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8a4 4 0 0 1 0 8M7.76 4.76a10 10 0 0 0 0 14.48M16.24 4.76a10 10 0 0 0 0 14.48"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg><span id="liveButtonText">Xem trực tiếp</span></button>
     </div>
 
-    <div id="mergeProgressWrap" class="mb-3" style="display:none;">
-      <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
-        <div id="mergeProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-warning" style="width: 0%">0%</div>
+    <div class="timeline-wrap" id="timelineWrap">
+      <div class="timeline-toolbar" role="toolbar" aria-label="Điều khiển tốc độ xem lại">
+        <div class="timeline-rate-group">
+          <button class="rate-button" type="button" data-timeline-context="replay" data-direction="reverse" data-rate="2" title="Tua lùi 2 lần" aria-label="Tua lùi 2 lần"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 6-6 6 6 6M20 6l-6 6 6 6"/></svg><span class="rate-label">2×</span></button>
+          <button class="rate-button" type="button" data-timeline-context="replay" data-direction="reverse" data-rate="4" title="Tua lùi 4 lần" aria-label="Tua lùi 4 lần"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 6-6 6 6 6M20 6l-6 6 6 6"/></svg><span class="rate-label">4×</span></button>
+        </div>
+        <div id="timeBubble" class="time-bubble">--:--:--</div>
+        <div class="timeline-rate-group forward">
+          <button class="rate-button" type="button" data-timeline-context="replay" data-direction="forward" data-rate="2" title="Tua nhanh 2 lần" aria-label="Tua nhanh 2 lần"><span class="rate-label">2×</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 6 6-6 6M11 6l6 6-6 6"/></svg></button>
+          <button class="rate-button" type="button" data-timeline-context="replay" data-direction="forward" data-rate="4" title="Tua nhanh 4 lần" aria-label="Tua nhanh 4 lần"><span class="rate-label">4×</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 6 6-6 6M11 6l6 6-6 6"/></svg></button>
+        </div>
       </div>
-      <p class="text-center text-white mt-1" id="mergeStatusText">Đang xử lý...</p>
+      <div id="timelineViewport" class="timeline-viewport">
+        <div id="timelineTrack" class="timeline-track">
+          <div id="filmstrip" class="filmstrip"></div>
+          <div id="ruler" class="ruler"></div>
+        </div>
+        <div id="timelineMarker" class="timeline-marker" aria-hidden="true"></div>
+      </div>
+      <div class="timeline-zoom" role="group" aria-label="Thu phóng timeline">
+        <button id="timelineZoomOut" class="zoom-button" type="button" title="Thu nhỏ thang thời gian" aria-label="Thu nhỏ timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+        <button id="timelineZoomIn" class="zoom-button" type="button" title="Phóng to thang thời gian" aria-label="Phóng to timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <div id="timelineHit" class="timeline-hit" role="slider" tabindex="0" aria-label="Kéo timeline để xem lại" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
     </div>
 
-    <div id="mergeResult" class="text-center"></div>
-  </div>
+    <div id="codecWarning" class="warning" hidden><span class="warning-icon">!</span><span>Video này sử dụng codec H.265/HEVC. Vui lòng tải về máy để xem bằng phần mềm phù hợp hoặc đổi camera sang H.264.</span></div>
+    <div id="watchError" class="inline-error" hidden></div>
 
-  <script>
-    const CAMERA_MODE = "{{ camera_mode }}";
-    const BACKUP_LOCAL = {{ 'true' if backup_local else 'false' }};
-    let allVideos = [];
-    let recentWindowMode = true;
+    <div class="actions replay-actions" data-replay-only>
+      <a id="downloadOriginalBtn" class="action primary" href="#" aria-disabled="true" tabindex="-1"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m-5-5 5 5 5-5M5 21h14"/></svg>Tải đoạn này về máy</a>
+      <button id="cutButton" class="action outline" type="button" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="3"/><circle cx="6" cy="17" r="3"/><path d="m8.6 8.5 10.4 6.2M8.6 15.5 19 9.3"/></svg>Bắt đầu cắt video</button>
+    </div>
+  </section>
 
-    function getSelectedSource() {
-      if (CAMERA_MODE !== "nvr") return "local";
-      if (!BACKUP_LOCAL) return "nvr";
-      const selected = document.querySelector('input[name="replaySource"]:checked');
-      return selected ? selected.value : "server1";
-    }
+  <section id="cutScreen" class="screen screen-cut" hidden>
+    <div class="player" id="cutPlayerFrame">
+      <video id="cutPlayer" playsinline preload="metadata" poster="/snapshot/cam{{ cam_id }}"></video>
+      <img id="cutLiveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
+      <div class="player-top"><span id="cutOverlayTimestamp">--/--/---- --:--:--</span><span>CAM {{ '%02d'|format(cam_id|int) }}</span></div>
+      <button id="cutPauseButton" class="pause-button" type="button" aria-label="Phát hoặc tạm dừng"><svg id="cutPauseIcon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg></button>
+      <div class="player-bottom">
+        <div class="time-row"><span id="cutPlayerTime">00:00 / 00:00</span><button id="cutFullscreenButton" class="fullscreen-button" type="button" aria-label="Toàn màn hình"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button></div>
+      </div>
+    </div>
 
-    function isNvrSource() {
-      const src = getSelectedSource();
-      return src === "nvr" || src === "server1";
-    }
+    <div class="control-row">
+      <label class="pill date-control"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span id="cutDateLabel">Hôm nay</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg><input id="cutFilterDate" class="date-input" type="date"></label>
+      <button id="cutLiveButton" class="pill" type="button" aria-label="Xem trực tiếp"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8a4 4 0 0 1 0 8M7.76 4.76a10 10 0 0 0 0 14.48M16.24 4.76a10 10 0 0 1 0 14.48"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg><span id="cutLiveButtonText">Xem trực tiếp</span></button>
+    </div>
 
-    function getVideoRange(video) {
-      if (video.started_at && video.end_at) {
-        const start = new Date(video.started_at);
-        const end = new Date(video.end_at);
-        if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-          return { start, end };
-        }
-      }
-      const legacy = video.name.match(/cam\d+_(\d{2})-(\d{2})-(\d{2})_to_\d{2}-\d{2}-\d{2}_\((\d{2})-(\d{2})-(\d{4})\)\.mp4$/);
-      if (!legacy) return null;
-      const full = video.name.match(/cam\d+_(\d{2})-(\d{2})-(\d{2})_to_(\d{2})-(\d{2})-(\d{2})_\((\d{2})-(\d{2})-(\d{4})\)\.mp4$/);
-      if (!full) return null;
-      const [, sh, sm, ss, eh, em, es, day, month, year] = full;
-      const start = new Date(Number(year), Number(month) - 1, Number(day), Number(sh), Number(sm), Number(ss));
-      const end = new Date(Number(year), Number(month) - 1, Number(day), Number(eh), Number(em), Number(es));
-      if (end <= start) end.setDate(end.getDate() + 1);
-      return { start, end };
-    }
+    <div class="timeline-wrap" id="cutTimelineWrap">
+      <div class="timeline-toolbar" role="toolbar" aria-label="Điều khiển tốc độ cắt video">
+        <div class="timeline-rate-group">
+          <button class="rate-button" type="button" data-timeline-context="cut" data-direction="reverse" data-rate="2" title="Tua lùi 2 lần" aria-label="Tua lùi 2 lần"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 6-6 6 6 6M20 6l-6 6 6 6"/></svg><span class="rate-label">2×</span></button>
+          <button class="rate-button" type="button" data-timeline-context="cut" data-direction="reverse" data-rate="4" title="Tua lùi 4 lần" aria-label="Tua lùi 4 lần"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 6-6 6 6 6M20 6l-6 6 6 6"/></svg><span class="rate-label">4×</span></button>
+        </div>
+        <div id="cutTimeBubble" class="time-bubble">--:--:--</div>
+        <div class="timeline-rate-group forward">
+          <button class="rate-button" type="button" data-timeline-context="cut" data-direction="forward" data-rate="2" title="Tua nhanh 2 lần" aria-label="Tua nhanh 2 lần"><span class="rate-label">2×</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 6 6-6 6M11 6l6 6-6 6"/></svg></button>
+          <button class="rate-button" type="button" data-timeline-context="cut" data-direction="forward" data-rate="4" title="Tua nhanh 4 lần" aria-label="Tua nhanh 4 lần"><span class="rate-label">4×</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 6 6-6 6M11 6l6 6-6 6"/></svg></button>
+        </div>
+      </div>
+      <div id="cutTimelineViewport" class="timeline-viewport">
+        <div id="cutTimelineTrack" class="timeline-track">
+          <div id="cutFilmstrip" class="filmstrip"></div>
+          <div id="cutSelection" class="cut-selection"></div>
+          <div id="cutHandleStart" class="cut-handle handle-start"></div>
+          <div id="cutHandleEnd" class="cut-handle handle-end"></div>
+          <div id="cutRuler" class="ruler"></div>
+        </div>
+        <div id="cutTimelineMarker" class="timeline-marker" aria-hidden="true"></div>
+      </div>
+      <div class="timeline-zoom" role="group" aria-label="Thu phóng timeline cắt video">
+        <button id="cutTimelineZoomOut" class="zoom-button" type="button" title="Thu nhỏ thang thời gian" aria-label="Thu nhỏ timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+        <button id="cutTimelineZoomIn" class="zoom-button" type="button" title="Phóng to thang thời gian" aria-label="Phóng to timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <div id="cutTimelineHit" class="timeline-hit" role="slider" tabindex="0" aria-label="Kéo timeline để chọn đoạn cắt" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+    </div>
 
-    function updateVideoList() {
-      const list = document.getElementById("videoList");
-      const dlBtn = document.getElementById("downloadOriginalBtn");
-      const selectedDate = document.getElementById("filterDate").value;
-      const selectedTime = (document.getElementById("filterTime")?.value || "").trim();
-      list.innerHTML = '<option selected disabled>Danh sách video sẽ hiển thị ở đây...</option>';
+    <div class="selection-info">
+      <div><label>Thời gian bắt đầu</label><strong id="clipStartLabel">--:--:--</strong></div>
+      <div><label>Thời gian kết thúc</label><strong id="clipEndLabel">--:--:--</strong></div>
+      <div><label>Thời lượng</label><strong id="clipDurationLabel">00:00:00</strong></div>
+    </div>
 
-      const filtered = allVideos.filter(video => {
-        const videoRange = getVideoRange(video);
-        if (!videoRange || Number.isNaN(videoRange.start.getTime())) {
-          return isNvrSource();
-        }
+    <div id="cutCodecWarning" class="warning" hidden><span class="warning-icon">!</span><span>Video này sử dụng codec H.265/HEVC. Vui lòng tải về máy để xem bằng phần mềm phù hợp hoặc đổi camera sang H.264.</span></div>
+    <div id="cutError" class="inline-error" hidden></div>
+    <div id="mergeProgress" class="progress-box" hidden><div class="merge-track"><div id="mergeProgressFill" class="merge-fill"></div></div><p id="mergeProgressLabel" class="merge-label">Đang xử lý...</p></div>
 
-        if (recentWindowMode && !isNvrSource()) {
-          const now = new Date();
-          const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-          return videoRange.end > oneHourAgo && videoRange.start <= now;
-        }
+    <div class="actions cut-actions" data-cut-only>
+      <button id="mergeButton" class="action primary cut-primary" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="3"/><circle cx="6" cy="17" r="3"/><path d="m8.6 8.5 10.4 6.2M8.6 15.5 19 9.3"/></svg>Cắt và tải về</button>
+      <button id="cancelCutButton" class="action cancel" type="button">Hủy</button>
+    </div>
+  </section>
 
-        if (!selectedDate) return true;
-        const rangeStart = new Date(`${selectedDate}T${selectedTime || "00:00"}`);
-        const rangeEnd = new Date(`${selectedDate}T00:00`);
-        rangeEnd.setDate(rangeEnd.getDate() + 1);
-        return videoRange.end > rangeStart && videoRange.start < rangeEnd;
-      });
+  <section id="doneScreen" hidden>
+    <div class="done-panel">
+      <div class="done-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m5 12 4 4L19 6"/></svg></div>
+      <h2>Đã cắt video thành công</h2><p>Đoạn video đã sẵn sàng để tải về.</p>
+      <div class="actions"><a id="mergedDownloadBtn" class="action primary cut-primary" href="#" aria-disabled="true">Tải về máy</a><button id="doneBackButton" class="action cancel" type="button">Quay về xem lại</button></div>
+    </div>
+  </section>
+</main>
+<script>
+  const CAMERA_MODE = "{{ camera_mode }}";
+  const BACKUP_LOCAL = {{ 'true' if backup_local else 'false' }};
+  const CAMERA_ID = "{{ cam_id }}";
+  const MAX_MERGE_MINUTES = Number({{ max_merge_minutes|int }});
+  const MAX_MERGE_SECONDS = Math.max(60, MAX_MERGE_MINUTES * 60);
+  const $ = (id) => document.getElementById(id);
+  const pad = (n) => String(n).padStart(2,"0");
+  let allVideos = [], visibleVideos = [], currentVideo = null, currentVideoIndex = -1;
+  let clipStartSec = 0, clipEndSec = 60, mergeEventSource = null, timelineDrag = null;
+  let fetchSerial = 0, activeScreen = "replay", replayTitle = "";
+  const timelineStates = {
+    replay: {trackId:"timelineTrack", viewportId:"timelineViewport", hitId:"timelineHit", markerId:"timelineMarker", bubbleId:"timeBubble", zoomInId:"timelineZoomIn", zoomOutId:"timelineZoomOut", zoom:1, offset:0, progress:.5},
+    cut: {trackId:"cutTimelineTrack", viewportId:"cutTimelineViewport", hitId:"cutTimelineHit", markerId:"cutTimelineMarker", bubbleId:"cutTimeBubble", zoomInId:"cutTimelineZoomIn", zoomOutId:"cutTimelineZoomOut", zoom:1, offset:0, progress:.5}
+  };
+  const playbackStates = new WeakMap();
+  const gestureStates = new WeakMap();
 
-      if (filtered.length === 0) {
-        const opt = document.createElement("option");
-        opt.text = isNvrSource() ? "Không tìm thấy bản ghi NVR cho ngày đã chọn." : "Không có video cho ngày/giờ đã chọn.";
-        opt.disabled = true;
-        list.appendChild(opt);
-        if (dlBtn) {
-          dlBtn.classList.add("disabled");
-          dlBtn.removeAttribute("href");
-        }
-        return;
-      }
+  function getSelectedSource(){ if(CAMERA_MODE!=="nvr") return "local"; if(!BACKUP_LOCAL) return "nvr"; return document.querySelector('input[name="replaySource"]:checked')?.value || "server1"; }
+  function isNvrSource(){ const s=getSelectedSource(); return s==="nvr"||s==="server1"; }
+  function getSourceLabel(source=getSelectedSource()){ return source==="local"||source==="server2" ? "Server 2" : "Server 1"; }
+  function getSourceFullLabel(source=getSelectedSource()){ return source==="local"||source==="server2" ? "Server 2 - Local" : {% if camera_mode == 'nvr' %}"Server 1 - NVR"{% else %}"Server 1"{% endif %}; }
+  function updateSourceButton(){ const button=$("sourceButton"),label=$("sourceButtonLabel"); if(!button||!label)return; const source=getSelectedSource(); label.textContent=getSourceLabel(source); button.title=getSourceFullLabel(source); button.setAttribute("aria-label",`Nguồn phát lại: ${getSourceFullLabel(source)}`); const choices=document.querySelectorAll('input[name="replaySource"]'); button.disabled=choices.length<2; }
+  function setSourceMenu(open){ const button=$("sourceButton"),menu=$("sourceMenu"); if(!button||!menu||button.disabled)return; menu.hidden=!open; button.setAttribute("aria-expanded",String(open)); }
+  function getVideoName(v){ return String(v?.name||v?.filename||""); }
+  function parseDate(v){ if(!v)return null; const d=new Date(v); return Number.isNaN(d.getTime())?null:d; }
+  function getVideoRange(v){
+    const s=parseDate(v?.started_at), e=parseDate(v?.end_at||v?.ended_at); if(s&&e&&e>s)return {start:s,end:e};
+    if(s&&Number(v?.duration_sec)>0)return {start:s,end:new Date(s.getTime()+Number(v.duration_sec)*1000)};
+    const m=getVideoName(v).match(/cam\d+_(\d{2})-(\d{2})-(\d{2})_to_(\d{2})-(\d{2})-(\d{2})_\((\d{2})-(\d{2})-(\d{4})\)/i); if(!m)return null;
+    const [,sh,sm,ss,eh,em,es,day,month,year]=m, start=new Date(+year,+month-1,+day,+sh,+sm,+ss), end=new Date(+year,+month-1,+day,+eh,+em,+es); if(end<=start)end.setDate(end.getDate()+1); return {start,end};
+  }
+  function getDuration(v){ const n=Number(v?.duration_sec); if(Number.isFinite(n)&&n>0)return n; const r=getVideoRange(v); return r?Math.max(1,(r.end-r.start)/1000):60; }
+  function fmtTime(d){return d?`${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`:"--:--:--"}
+  function fmtDate(d){return d?`${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`:"--/--/----"}
+  function fmtDateInput(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`}
+  function fmtDuration(sec){sec=Math.max(0,Math.round(Number(sec)||0));return `${pad(Math.floor(sec/3600))}:${pad(Math.floor(sec%3600/60))}:${pad(sec%60)}`}
+  function fmtShort(sec){sec=Math.max(0,Math.round(Number(sec)||0));return `${pad(Math.floor(sec/60))}:${pad(sec%60)}`}
+  function formatLocalSecond(d){return `${fmtDateInput(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`}
+  function getPlayUrl(v){return v?.url||`/video/${encodeURIComponent(getVideoName(v))}`}
+  function getDownloadUrl(v){return v?.download_url||`/download/${encodeURIComponent(getVideoName(v))}`}
 
-      const pad = n => String(n).padStart(2, "0");
-      filtered.forEach((video, videoIndex) => {
-        const option = document.createElement("option");
-        const match = video.name.match(/cam\d+_(\d{2})-(\d{2})-(\d{2})_to_(\d{2})-(\d{2})-(\d{2})_\((\d{2})-(\d{2})-(\d{4})\)/);
-        const vRange = getVideoRange(video);
-        if (match) {
-          const [, sh, sm, ss, eh, em, es, d, m, y] = match;
-          option.text = `${sh}:${sm}:${ss} - ${eh}:${em}:${es} (${d}/${m}/${y})`;
-          option.dataset.startAt = `${y}-${m}-${d}T${sh}:${sm}:${ss}`;
-        } else if (vRange) {
-          const s = vRange.start, e = vRange.end;
-          option.text = `${pad(s.getHours())}:${pad(s.getMinutes())}:${pad(s.getSeconds())} - ${pad(e.getHours())}:${pad(e.getMinutes())}:${pad(e.getSeconds())} (${pad(s.getDate())}/${pad(s.getMonth()+1)}/${s.getFullYear()})`;
-          option.dataset.startAt = s.toISOString();
-        } else {
-          option.text = video.name;
-        }
-        option.value = video.name;
-        option.dataset.timelineIndex = videoIndex;
-        list.appendChild(option);
-      });
+  function setDateLabel(inputId,labelId){ const input=$(inputId); if(!input?.value)return; const d=new Date(`${input.value}T12:00:00`), now=new Date(); const today=fmtDateInput(now)===input.value; $(labelId).textContent=`${today?"Hôm nay, ":""}${fmtDate(d)}`; }
+  function wireDatePicker(inputId){const input=$(inputId),pill=input?.closest(".pill");if(!input||!pill)return;const open=()=>{input.focus({preventScroll:true});try{if(typeof input.showPicker==="function")input.showPicker();else input.click();}catch(_){input.click();}};input.addEventListener("pointerdown",ev=>{if(typeof input.showPicker!=="function")return;ev.preventDefault();open();});pill.addEventListener("click",ev=>{if(ev.target===input)return;ev.preventDefault();open();});}
+  function getTimelineDayBounds(){const value=$("filterDate")?.value||fmtDateInput(new Date()),start=new Date(`${value}T00:00:00`),end=new Date(start.getTime()+86400000);return{start,end,duration:86400};}
+  function getTimelineDateAtProgress(progress){const day=getTimelineDayBounds();return new Date(day.start.getTime()+clamp(progress,0,1)*day.duration*1000);}
+  function getTimelineProgressForDate(value){const day=getTimelineDayBounds(),date=value instanceof Date?value:parseDate(value);if(!date)return 0;return clamp((date-day.start)/(day.end-day.start),0,1);}
+  function findVideoAtDate(date){let match=null,index=-1;visibleVideos.some((v,i)=>{const r=getVideoRange(v);if(r&&date>=r.start&&date<r.end){match=v;index=i;return true;}return false;});return{video:match,index};}
+  function renderTimelineCoverage(targetId){const target=$(targetId);if(!target)return;target.textContent="";const day=getTimelineDayBounds(),span=day.end-day.start;visibleVideos.forEach(v=>{const r=getVideoRange(v);if(!r)return;const start=new Date(Math.max(day.start.getTime(),r.start.getTime())),end=new Date(Math.min(day.end.getTime(),r.end.getTime()));if(end<=start)return;const cell=document.createElement("div");cell.className="filmstrip-cell";cell.style.left=`${(start-day.start)/span*100}%`;cell.style.width=`${(end-start)/span*100}%`;cell.title=`${fmtTime(start)} - ${fmtTime(end)}`;target.appendChild(cell);});}
+  function updateRuler(targetId){const el=$(targetId);if(!el)return;el.textContent="";const day=getTimelineDayBounds();for(let hour=0;hour<=24;hour+=3){const d=new Date(day.start.getTime()+hour*3600000),s=document.createElement("span");s.className="ruler-major";s.style.left=`${hour/24*100}%`;s.textContent=hour===24?"24:00":`${pad(hour)}:00`;el.appendChild(s);}}
 
-      list.onchange = () => selectVideo(list.selectedIndex - 1);
-      if (filtered.length) selectVideo(0);
-    }
+  function clamp(value,min,max){return Math.min(max,Math.max(min,value));}
+  function getTimelineContext(player){return player?.id==="cutPlayer"?"cut":"replay";}
+  function getTimelinePlayer(context){return $(context==="cut"?"cutPlayer":"videoPlayer");}
+  function getMediaDuration(player){const duration=Number(player?.duration);return Number.isFinite(duration)&&duration>0?duration:getDuration(currentVideo);}
+  function getPlayerProgress(player){const duration=getMediaDuration(player);return duration?clamp((Number(player?.currentTime)||0)/duration,0,1):0;}
+  function getTimelineProgressForPlayer(player){const range=getVideoRange(currentVideo);if(!range)return timelineStates[getTimelineContext(player)]?.progress??0;return getTimelineProgressForDate(new Date(range.start.getTime()+(Number(player?.currentTime)||0)*1000));}
+  function getTimelineProgressAt(context,clientX){const state=timelineStates[context],viewport=$(state.viewportId);if(!viewport)return 0;const rect=viewport.getBoundingClientRect(),width=Math.max(1,rect.width),trackWidth=width*state.zoom;return clamp((clientX-rect.left-state.offset)/trackWidth,0,1);}
+  function renderTimeline(context,progress=null){const state=timelineStates[context],track=$(state.trackId),viewport=$(state.viewportId),hit=$(state.hitId);if(!state||!track||!viewport)return;const resolved=clamp(progress==null?state.progress:progress,0,1),width=Math.max(0,viewport.getBoundingClientRect().width),trackWidth=width*state.zoom;state.progress=resolved;state.offset=width/2-resolved*trackWidth;track.style.width=`${Math.max(1,state.zoom*100)}%`;track.style.transform=`translate3d(${state.offset}px,0,0)`;const bubble=$(state.bubbleId);if(bubble)bubble.textContent=fmtTime(getTimelineDateAtProgress(resolved));if(hit){hit.setAttribute("aria-valuenow",String(Math.round(resolved*100)));hit.setAttribute("aria-valuetext",fmtTime(getTimelineDateAtProgress(resolved)));}}
+  function syncTimelineForPlayer(context,player){if(!currentVideo)return;renderTimeline(context,getTimelineProgressForPlayer(player));}
+  function setAnchor(anchor,url,name){ if(!url){anchor.href="#";anchor.setAttribute("aria-disabled","true");anchor.removeAttribute("download");anchor.tabIndex=-1;return;} anchor.href=url;anchor.setAttribute("download",name||"");anchor.setAttribute("aria-disabled","false");anchor.tabIndex=0; }
+  function getPlaybackState(player){let state=playbackStates.get(player);if(!state){state={mode:"normal",rate:1,reverseTimer:null};playbackStates.set(player,state);}return state;}
+  function clearPlaybackButtons(context){document.querySelectorAll(`.rate-button[data-timeline-context="${context}"]`).forEach(button=>button.classList.remove("is-active"));}
+  function stopPlayback(player,context=getTimelineContext(player)){if(!player)return;const state=getPlaybackState(player);if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;}state.mode="normal";state.rate=1;player.playbackRate=1;clearPlaybackButtons(context);}
+  function syncPlayerUi(player,context,time,overlay){const duration=getMediaDuration(player),current=clamp(Number(player.currentTime)||0,0,duration);time.textContent=`${fmtShort(current)} / ${fmtShort(duration)}`;const range=getVideoRange(currentVideo);if(range)overlay.textContent=`${fmtDate(range.start)} ${fmtTime(new Date(range.start.getTime()+current*1000))}`;syncTimelineForPlayer(context,player);}
+  function startReversePlayback(context,rate){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;const state=getPlaybackState(player);if(state.reverseTimer)clearInterval(state.reverseTimer);player.pause();player.playbackRate=1;state.mode="reverse";state.rate=rate;clearPlaybackButtons(context);document.querySelector(`.rate-button[data-timeline-context="${context}"][data-direction="reverse"][data-rate="${rate}"]`)?.classList.add("is-active");state.reverseTimer=setInterval(()=>{const next=clamp((Number(player.currentTime)||0)-0.06*rate,0,getMediaDuration(player));player.currentTime=next;syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"),$(context==="cut"?"cutOverlayTimestamp":"overlayTimestamp"));if(next<=0)stopPlayback(player,context);},60);}
+  function setPlaybackRate(context,direction,rate){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;if(direction==="reverse"){startReversePlayback(context,rate);return;}const state=getPlaybackState(player);if(state.mode==="forward"&&state.rate===rate){stopPlayback(player,context);return;}if(state.reverseTimer)clearInterval(state.reverseTimer);state.reverseTimer=null;state.mode="forward";state.rate=rate;player.playbackRate=rate;clearPlaybackButtons(context);document.querySelector(`.rate-button[data-timeline-context="${context}"][data-direction="forward"][data-rate="${rate}"]`)?.classList.add("is-active");player.play().catch(()=>{});}
+  function wirePlaybackControls(context){document.querySelectorAll(`.rate-button[data-timeline-context="${context}"]`).forEach(button=>button.addEventListener("click",()=>setPlaybackRate(context,button.dataset.direction,Number(button.dataset.rate)||1)));}
+  function applyVideoTransform(frame,player,state){const maxX=Math.max(0,frame.clientWidth*(state.scale-1)/2),maxY=Math.max(0,frame.clientHeight*(state.scale-1)/2);state.x=clamp(state.x,-maxX,maxX);state.y=clamp(state.y,-maxY,maxY);player.style.transform=`translate3d(${state.x}px,${state.y}px,0) scale(${state.scale})`;}
+  function resetVideoTransform(frame){const state=gestureStates.get(frame);if(!state)return;state.scale=1;state.x=0;state.y=0;const player=frame.querySelector("video");if(player)applyVideoTransform(frame,player,state);}
+  function wireVideoGestures(frameId,playerId){const frame=$(frameId),player=$(playerId);if(!frame||!player)return;const state={scale:1,x:0,y:0,pointers:new Map(),gesture:null};gestureStates.set(frame,state);const isControl=target=>target?.closest("button,a,input");const readPoint=ev=>({x:ev.clientX,y:ev.clientY});const beginGesture=()=>{const points=[...state.pointers.values()];if(points.length===2){const [a,b]=points,stateStart={distance:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),midX:(a.x+b.x)/2,midY:(a.y+b.y)/2,scale:state.scale,x:state.x,y:state.y};state.gesture={type:"pinch",...stateStart};}else if(points.length===1&&state.scale>1){state.gesture={type:"pan",startX:points[0].x,startY:points[0].y,x:state.x,y:state.y};}};frame.addEventListener("pointerdown",ev=>{if(ev.pointerType!=="touch"||isControl(ev.target))return;state.pointers.set(ev.pointerId,readPoint(ev));try{frame.setPointerCapture(ev.pointerId);}catch(_){ }beginGesture();ev.preventDefault();},{passive:false});frame.addEventListener("pointermove",ev=>{if(!state.pointers.has(ev.pointerId))return;state.pointers.set(ev.pointerId,readPoint(ev));const points=[...state.pointers.values()];if(points.length>=2&&state.gesture?.type==="pinch"){const [a,b]=points,distance=Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;state.scale=clamp(state.gesture.scale*distance/state.gesture.distance,1,3);state.x=state.gesture.x+(midX-state.gesture.midX);state.y=state.gesture.y+(midY-state.gesture.midY);applyVideoTransform(frame,player,state);ev.preventDefault();}else if(points.length===1&&state.gesture?.type==="pan"){const point=points[0];state.x=state.gesture.x+(point.x-state.gesture.startX);state.y=state.gesture.y+(point.y-state.gesture.startY);applyVideoTransform(frame,player,state);ev.preventDefault();}},{passive:false});const end=ev=>{state.pointers.delete(ev.pointerId);if(state.pointers.size===1&&state.scale>1){const point=[...state.pointers.values()][0];state.gesture={type:"pan",startX:point.x,startY:point.y,x:state.x,y:state.y};}else if(!state.pointers.size)state.gesture=null;};frame.addEventListener("pointerup",end);frame.addEventListener("pointercancel",end);frame.addEventListener("lostpointercapture",end);}
+  function loadPlayer(player,v){ if(!v)return; const context=getTimelineContext(player);stopPlayback(player,context);player.pause();player.src=getPlayUrl(v);player.load();resetVideoTransform(player.closest(".player")); }
+  function setPauseIcon(svg,playing){ svg.innerHTML=playing?'<path d="M7 5h4v14H7zm6 0h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>'; }
+  function wirePlayer(playerId,buttonId,iconId,timeId,overlayId,frameId,fullId,context){
+    const p=$(playerId),b=$(buttonId),icon=$(iconId),time=$(timeId),overlay=$(overlayId),frame=$(frameId),full=$(fullId);
+    const sync=()=>syncPlayerUi(p,context,time,overlay);
+    b.addEventListener("click",()=>{const state=getPlaybackState(p);if(state.mode==="reverse")stopPlayback(p,context);if(p.paused)p.play().catch(()=>{});else p.pause();});
+    p.addEventListener("play",()=>setPauseIcon(icon,true));p.addEventListener("pause",()=>setPauseIcon(icon,false));p.addEventListener("timeupdate",sync);p.addEventListener("loadedmetadata",sync);p.addEventListener("durationchange",sync);p.addEventListener("ratechange",sync);
+    full.addEventListener("click",()=>{if(document.fullscreenElement)document.exitFullscreen();else frame.requestFullscreen?.();});wireVideoGestures(frameId,playerId);
+  }
 
-    function selectVideo(index) {
-      const list = document.getElementById("videoList");
-      const option = list?.querySelector(`option[data-timeline-index="${index}"]`);
-      if (!option) return;
-      list.value = option.value;
-      const filename = option.value;
-      const video = allVideos.find(v => v.name === filename) || allVideos[index];
-      const player = document.getElementById("videoPlayer");
-      const dlBtn = document.getElementById("downloadOriginalBtn");
-      const codecWarning = document.getElementById("codecWarning");
+  function selectVideo(v,index,autoplay=false,seekSec=null){
+    if(!v)return;
+    currentVideo=v;currentVideoIndex=index;
+    loadPlayer($("videoPlayer"),v);loadPlayer($("cutPlayer"),v);
+    setAnchor($("downloadOriginalBtn"),getDownloadUrl(v),getVideoName(v));$("cutButton").disabled=false;$("watchError").hidden=true;
+    const r=getVideoRange(v),targetSec=Number.isFinite(Number(seekSec))?Math.max(0,Number(seekSec)):0,targetDate=r?new Date(r.start.getTime()+targetSec*1000):getTimelineDateAtProgress(timelineStates.replay.progress);
+    if(r){$("overlayTimestamp").textContent=`${fmtDate(targetDate)} ${fmtTime(targetDate)}`;$("cutOverlayTimestamp").textContent=`${fmtDate(targetDate)} ${fmtTime(targetDate)}`;updateRuler("ruler");updateRuler("cutRuler");}
+    if(seekSec!==null){[$("videoPlayer"),$("cutPlayer")].forEach(player=>{const apply=()=>{const max=getMediaDuration(player);player.currentTime=clamp(targetSec,0,max);};if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});});}
+    configureClipRange();const dayProgress=getTimelineProgressForDate(targetDate);renderTimeline("replay",dayProgress);renderTimeline("cut",dayProgress);checkCodec(v);if(autoplay)$("videoPlayer").play().catch(()=>{});
+  }
 
-      const playUrl = video?.url || ("/video/" + encodeURIComponent(filename));
-      const dlUrl = video?.download_url || ("/download/" + encodeURIComponent(filename));
-      player.src = playUrl;
-      player.dataset.filename = filename;
-      if (codecWarning) codecWarning.style.display = "none";
-      if (dlBtn) {
-        dlBtn.href = dlUrl;
-        dlBtn.classList.remove("disabled");
-        dlBtn.setAttribute("download", filename);
-      }
-      if (!playUrl.startsWith("/nvr/") && video?.source !== "nvr") {
-        fetch("/api/video-codec/" + encodeURIComponent(filename))
-          .then(res => res.ok ? res.json() : null)
-          .then(info => {
-            if (!info?.is_h265 || player.dataset.filename !== filename || !codecWarning) return;
-            codecWarning.innerText = "⚠️ Video này dùng H.265/HEVC. Nhiều trình duyệt không phát được; hãy tải về xem bằng phần mềm hỗ trợ hoặc đổi camera sang H.264.";
-            codecWarning.style.display = "block";
-          })
-          .catch(() => {});
-      }
-    }
+  function checkCodec(v){ [$("codecWarning"),$("cutCodecWarning")].forEach(el=>{el.hidden=true}); if(!v||isNvrSource()||v.source==="nvr"||getPlayUrl(v).startsWith("/nvr/"))return;fetch(`/api/video-codec/${encodeURIComponent(getVideoName(v))}`).then(r=>r.ok?r.json():null).then(info=>{if(info?.is_h265&&currentVideo&&getVideoName(currentVideo)===getVideoName(v)){ $("codecWarning").hidden=false;$("cutCodecWarning").hidden=false; }}).catch(()=>{}); }
 
-    function fetchVideos() {
-      const src = getSelectedSource();
-      const dateVal = document.getElementById("filterDate")?.value || "";
-      let url = `/list/cam{{ cam_id }}?source=${encodeURIComponent(src)}`;
-      if (dateVal && isNvrSource()) {
-        url += `&date=${encodeURIComponent(dateVal)}`;
-      }
-      const list = document.getElementById("videoList");
-      if (list) list.innerHTML = '<option selected disabled>Đang tải danh sách video...</option>';
-      const dlBtn = document.getElementById("downloadOriginalBtn");
-      if (dlBtn) {
-        dlBtn.classList.add("disabled");
-        dlBtn.removeAttribute("href");
-      }
+  function updateVisibleVideos(){const val=$("filterDate").value;const start=val?new Date(`${val}T00:00:00`):null,end=start?new Date(start.getTime()+86400000):null;visibleVideos=allVideos.filter(v=>{const r=getVideoRange(v);return !r||!start||!end||(r.end>start&&r.start<end)}).sort((a,b)=>(getVideoRange(a)?.start||0)-(getVideoRange(b)?.start||0));renderTimelineCoverage("filmstrip");renderTimelineCoverage("cutFilmstrip");updateRuler("ruler");updateRuler("cutRuler");if(!visibleVideos.length){$("watchError").textContent="Không có video cho ngày đã chọn.";$("watchError").hidden=false;currentVideo=null;setAnchor($("downloadOriginalBtn"),null);$("cutButton").disabled=true;renderTimeline("replay",.5);renderTimeline("cut",.5);return;}$("watchError").hidden=true;let idx=visibleVideos.findIndex(v=>getVideoName(v)===getVideoName(currentVideo));if(idx<0)idx=Math.max(0,visibleVideos.length-1);selectVideo(visibleVideos[idx],idx,false);}
+  function fetchVideos(){const serial=++fetchSerial;updateSourceButton();let url=`/list/cam${CAMERA_ID}?source=${encodeURIComponent(getSelectedSource())}`;if($("filterDate").value&&isNvrSource())url+=`&date=${encodeURIComponent($("filterDate").value)}`;fetch(url).then(r=>{if(!r.ok)throw new Error(`Không tải được danh sách video (${r.status}).`);return r.json()}).then(data=>{if(serial!==fetchSerial)return;allVideos=Array.isArray(data)?data:(Array.isArray(data?.videos)?data.videos:[]);updateVisibleVideos();}).catch(e=>{if(serial!==fetchSerial)return;$("watchError").textContent=e.message||"Không tải được danh sách video.";$("watchError").hidden=false;});}
 
-      fetch(url)
-        .then(res => {
-          if (!res.ok) throw new Error(`Không tải được danh sách video (${res.status}).`);
-          return res.json();
-        })
-        .then(data => {
-          allVideos = Array.isArray(data) ? data : [];
-          updateVideoList();
-        })
-        .catch(error => {
-          allVideos = [];
-          if (list) list.innerHTML = '<option selected disabled>Không tải được danh sách video hoặc camera offline.</option>';
-          console.error("[Replay]", error);
-        });
-    }
-
-    function mergeVideo() {
-      const dateVal = document.getElementById("mergeDate").value;
-      const timeStart = document.getElementById("mergeStart").value;
-      const timeEnd = document.getElementById("mergeEnd").value;
-      const camId = "{{ cam_id }}";
-
-      if (!dateVal || !timeStart || !timeEnd) {
-        alert("Vui lòng chọn ngày và giờ đầy đủ.");
-        return;
-      }
-
-      const startFull = `${dateVal}T${timeStart}`;
-      const endFull = `${dateVal}T${timeEnd}`;
-      const startTime = new Date(startFull);
-      const endTime = new Date(endFull);
-      if (endTime <= startTime) endTime.setDate(endTime.getDate() + 1);
-      const diffMins = (endTime - startTime) / 1000 / 60;
-
-      if (diffMins > {{ max_merge_minutes|int }}) { alert("Chỉ được ghép tối đa {{ max_merge_minutes }} phút."); return; }
-
-      document.getElementById("mergeProgressWrap").style.display = "block";
-      document.getElementById("mergeResult").innerHTML = "";
-      document.getElementById("mergeProgressBar").style.width = "0%";
-      document.getElementById("mergeStatusText").innerText = "Đang xử lý...";
-
-      const endRequest = `${endTime.getFullYear()}-${String(endTime.getMonth() + 1).padStart(2, "0")}-${String(endTime.getDate()).padStart(2, "0")}T${timeEnd}`;
-      const url = `/merge?cam_id=${camId}&start=${encodeURIComponent(startFull)}&end=${encodeURIComponent(endRequest)}`;
-      const evtSource = new EventSource(url);
-      let mergeFinished = false;
-
-      evtSource.onmessage = function(event) {
-        const data = event.data;
-        if (data.startsWith("notice:")) {
-            document.getElementById("mergeStatusText").innerText = data.slice("notice:".length);
-        } else if (data.startsWith("error:")) {
-            mergeFinished = true;
-            document.getElementById("mergeResult").innerHTML = `<p class="text-danger">❌ ${data.split(":")[1]}</p>`;
-            document.getElementById("mergeProgressWrap").style.display = "none";
-            evtSource.close();
-        } else if (data.startsWith("done:")) {
-            mergeFinished = true;
-            const outputFile = data.split(":")[1];
-            document.getElementById("mergeProgressBar").style.width = "100%";
-            document.getElementById("mergeProgressBar").innerText = "Hoàn tất!";
-            document.getElementById("mergeResult").innerHTML = `
-              <p class="text-success fw-bold">✅ Ghép thành công!</p>
-              <video src="/video/${outputFile}" controls class="mt-2 shadow" style="width:100%;border-radius:12px;"></video>
-              <a class="btn btn-success mt-3" href="/download/${outputFile}" download>Tải về máy</a>
-            `;
-            evtSource.close();
-        } else {
-            const percent = parseInt(data);
-            if (!isNaN(percent)) {
-                document.getElementById("mergeProgressBar").style.width = percent + "%";
-                document.getElementById("mergeProgressBar").innerText = percent + "%";
-            }
-        }
-      };
-      evtSource.onerror = function() {
-        if (mergeFinished) return;
-        mergeFinished = true;
-        document.getElementById("mergeProgressWrap").style.display = "none";
-        document.getElementById("mergeResult").innerHTML = '<p class="text-danger">❌ Mất kết nối khi ghép video. Hãy kiểm tra lại kết quả hoặc thử lại.</p>';
-        evtSource.close();
-      };
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      const dateInput = document.getElementById("filterDate");
-      const timeInput = document.getElementById("filterTime");
-      const now = new Date();
-      const pad = (n) => String(n).padStart(2, "0");
-      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-      const defaultDate = `${oneHourAgo.getFullYear()}-${pad(oneHourAgo.getMonth() + 1)}-${pad(oneHourAgo.getDate())}`;
-      const defaultTime = `${pad(oneHourAgo.getHours())}:${pad(oneHourAgo.getMinutes())}`;
-
-      document.getElementById("videoPlayer").addEventListener("ended", () => {
-        const list = document.getElementById("videoList");
-        const current = list.selectedOptions[0];
-        const currentStart = current?.dataset.startAt;
-        if (!currentStart) return;
-        const nextOption = [...list.querySelectorAll('option[data-start-at]')]
-          .filter(option => option.dataset.startAt > currentStart)
-          .sort((a, b) => a.dataset.startAt.localeCompare(b.dataset.startAt))[0];
-        if (!nextOption) return;
-        selectVideo(Number(nextOption.dataset.timelineIndex));
-        setTimeout(() => document.getElementById("videoPlayer").play().catch(() => {}), 0);
-      });
-
-      if (dateInput) {
-        dateInput.value = defaultDate;
-        dateInput.addEventListener("change", () => {
-          recentWindowMode = false;
-          if (isNvrSource()) {
-            fetchVideos();
-          } else {
-            updateVideoList();
-          }
-        });
-      }
-
-      const mergeDateInput = document.getElementById("mergeDate");
-      const mergeDateDisplay = document.getElementById("mergeDateDisplay");
-      const updateMergeDateDisplay = () => {
-        if (!mergeDateInput || !mergeDateDisplay || !mergeDateInput.value) return;
-        const [year, month, day] = mergeDateInput.value.split("-");
-        mergeDateDisplay.innerText = `${day}/${month}/${year}`;
-      };
-      if (mergeDateInput) {
-        mergeDateInput.value = defaultDate;
-        updateMergeDateDisplay();
-        mergeDateInput.addEventListener("change", updateMergeDateDisplay);
-      }
-      const shiftMergeDate = (days) => {
-        if (!mergeDateInput || !mergeDateInput.value) return;
-        const selectedDate = new Date(`${mergeDateInput.value}T00:00:00`);
-        selectedDate.setDate(selectedDate.getDate() + days);
-        mergeDateInput.value = `${selectedDate.getFullYear()}-${pad(selectedDate.getMonth() + 1)}-${pad(selectedDate.getDate())}`;
-        updateMergeDateDisplay();
-      };
-      document.getElementById("prevMergeDate")?.addEventListener("click", () => shiftMergeDate(-1));
-      document.getElementById("nextMergeDate")?.addEventListener("click", () => shiftMergeDate(1));
-
-      if (timeInput) {
-        timeInput.value = defaultTime;
-        timeInput.addEventListener("change", () => {
-          recentWindowMode = false;
-          updateVideoList();
-        });
-      }
-
-      document.querySelectorAll('input[name="replaySource"]').forEach(radio => {
-        radio.addEventListener("change", () => {
-          const help = document.getElementById("sourceHelp");
-          if (help) {
-            help.textContent = radio.value === "server1"
-              ? "Đang phát từ Server 1: Bản ghi lưu trên đầu ghi NVR"
-              : "Đang phát từ Server 2: Bản ghi dự phòng lưu trên máy tính";
-          }
-          recentWindowMode = false;
-          fetchVideos();
-        });
-      });
-
-      fetchVideos();
+  function syncTimelineFromPlayer(){if(!currentVideo)return;syncTimelineForPlayer("replay",$("videoPlayer"));}
+  function seekTimelineProgress(context,progress){
+    const resolved=clamp(progress,0,1),targetDate=getTimelineDateAtProgress(resolved),match=findVideoAtDate(targetDate),player=getTimelinePlayer(context);renderTimeline(context,resolved);
+    if(!match.video){player?.pause();return;}
+    const range=getVideoRange(match.video),sec=range?Math.max(0,(targetDate-range.start)/1000):0,same=currentVideo&&getVideoName(currentVideo)===getVideoName(match.video);
+    if(!same){selectVideo(match.video,match.index,false,sec);return;}
+    const apply=()=>{const max=getMediaDuration(player);player.currentTime=clamp(sec,0,max);syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"),$(context==="cut"?"cutOverlayTimestamp":"overlayTimestamp"));};
+    if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});
+  }
+  function updateCutFromPointer(context,clientX){
+    if(!currentVideo||!timelineDrag)return;const range=getVideoRange(currentVideo);if(!range)return;const progress=getTimelineProgressAt(context,clientX),targetDate=getTimelineDateAtProgress(progress),duration=Math.max(1,getDuration(currentVideo)),sec=clamp((targetDate-range.start)/1000,0,duration);
+    if(timelineDrag.mode==="start")clipStartSec=Math.min(sec,clipEndSec-1);else if(timelineDrag.mode==="end")clipEndSec=Math.max(sec,clipStartSec+1);else if(timelineDrag.mode==="selection"){const width=timelineDrag.selectionWidth,nextStart=Math.max(0,Math.min(duration-width,sec-timelineDrag.grabOffsetSec));clipStartSec=nextStart;clipEndSec=nextStart+width;}updateClipVisual();
+  }
+  function wireTimeline(hitId,cut=false){
+    const context=cut?"cut":"replay",hit=$(hitId),endDrag=ev=>{if(timelineDrag?.pointerId!==ev.pointerId)return;try{if(hit.hasPointerCapture?.(ev.pointerId))hit.releasePointerCapture(ev.pointerId);}catch(_){ }timelineDrag=null;};
+    hit.addEventListener("pointerdown",ev=>{if(!visibleVideos.length)return;ev.preventDefault();try{hit.setPointerCapture(ev.pointerId);}catch(_){ }if(cut&&currentVideo){const range=getVideoRange(currentVideo),progress=getTimelineProgressAt(context,ev.clientX),targetDate=getTimelineDateAtProgress(progress),duration=Math.max(1,getDuration(currentVideo)),sec=range?clamp((targetDate-range.start)/1000,0,duration):0,startRect=$("cutHandleStart").getBoundingClientRect(),endRect=$("cutHandleEnd").getBoundingClientRect(),selectionRect=$("cutSelection").getBoundingClientRect();if(ev.clientX>=startRect.left-10&&ev.clientX<=startRect.right+10)timelineDrag={mode:"start",pointerId:ev.pointerId};else if(ev.clientX>=endRect.left-10&&ev.clientX<=endRect.right+10)timelineDrag={mode:"end",pointerId:ev.pointerId};else if(ev.clientX>selectionRect.left&&ev.clientX<selectionRect.right)timelineDrag={mode:"selection",pointerId:ev.pointerId,grabOffsetSec:sec-clipStartSec,selectionWidth:clipEndSec-clipStartSec};}
+      if(!timelineDrag)timelineDrag={mode:"seek",pointerId:ev.pointerId,startX:ev.clientX,startProgress:timelineStates[context].progress};else if(timelineDrag.mode!=="seek")updateCutFromPointer(context,ev.clientX);
     });
-  </script>
+    hit.addEventListener("pointermove",ev=>{if(timelineDrag?.pointerId!==ev.pointerId)return;if(timelineDrag.mode==="seek"){const viewport=$(timelineStates[context].viewportId),width=Math.max(1,viewport?.getBoundingClientRect().width||1),trackWidth=width*timelineStates[context].zoom,delta=(ev.clientX-timelineDrag.startX)/trackWidth;seekTimelineProgress(context,timelineDrag.startProgress-delta);}else if(cut)updateCutFromPointer(context,ev.clientX);});hit.addEventListener("pointerup",endDrag);hit.addEventListener("pointercancel",endDrag);hit.addEventListener("lostpointercapture",endDrag);
+    hit.addEventListener("keydown",ev=>{if(!visibleVideos.length)return;let progress=timelineStates[context].progress,step=(ev.shiftKey?10:1)/86400;if(ev.key==="ArrowLeft")progress-=step;else if(ev.key==="ArrowRight")progress+=step;else if(ev.key==="Home")progress=0;else if(ev.key==="End")progress=1;else return;ev.preventDefault();seekTimelineProgress(context,progress);});
+  }
+
+  function setTimelineZoom(context,delta){const state=timelineStates[context],viewport=$(state.viewportId);if(!state||!viewport)return;const next=clamp(state.zoom+delta,1,4);if(next===state.zoom)return;state.zoom=next;renderTimeline(context,state.progress);}
+  function wireTimelineZoom(context){const state=timelineStates[context];$(state.zoomInId)?.addEventListener("click",()=>setTimelineZoom(context,.5));$(state.zoomOutId)?.addEventListener("click",()=>setTimelineZoom(context,-.5));}
+  function configureClipRange(){const dur=Math.min(getDuration(currentVideo),MAX_MERGE_SECONDS);clipStartSec=Math.max(0,Math.min(dur*.33,Math.max(0,dur-2)));clipEndSec=Math.max(clipStartSec+1,Math.min(dur,dur*.63));updateClipVisual();}
+  function updateClipVisual(){
+    if(!currentVideo)return;
+    const dur=Math.max(1,getDuration(currentVideo)),s=Math.max(0,Math.min(dur,clipStartSec)),e=Math.max(s+1,Math.min(dur,clipEndSec));clipStartSec=s;clipEndSec=e;
+    const range=getVideoRange(currentVideo);let left=s/dur*100,right=e/dur*100;if(range){const a=new Date(range.start.getTime()+s*1000),b=new Date(range.start.getTime()+e*1000);left=getTimelineProgressForDate(a)*100;right=getTimelineProgressForDate(b)*100;$("clipStartLabel").textContent=fmtTime(a);$("clipEndLabel").textContent=fmtTime(b);}
+    $("cutSelection").style.left=`${left}%`;$("cutSelection").style.width=`${Math.max(0,right-left)}%`;$("cutHandleStart").style.left=`calc(${left}% - 8px)`;$("cutHandleEnd").style.left=`calc(${right}% - 8px)`;$("clipDurationLabel").textContent=fmtDuration(e-s);renderTimeline("cut",getTimelineProgressForPlayer($("cutPlayer")));
+  }
+
+  function updateModeBadge(isLive){const badge=$("headerLiveButton"),text=$("modeBadgeText");if(!badge||!text)return;badge.classList.toggle("is-live",isLive);text.textContent=isLive?"Trực tiếp":"Xem lại";badge.setAttribute("aria-label",isLive?"Đang xem trực tiếp. Nhấn để xem lại":"Đang xem lại. Nhấn để xem trực tiếp");}
+  function setScreenLive(screen,isLive){const cut=screen==="cut",screenEl=$(cut?"cutScreen":"replayScreen"),video=$(cut?"cutPlayer":"videoPlayer"),stream=$(cut?"cutLiveStream":"liveStream"),button=$(cut?"cutLiveButton":"liveButton"),buttonText=$(cut?"cutLiveButtonText":"liveButtonText"),frame=$(cut?"cutPlayerFrame":"playerFrame");if(!screenEl||!video||!stream)return;screenEl.classList.toggle("is-live",isLive);if(isLive){activeScreen=screen;stopPlayback(video,screen);video.pause();resetVideoTransform(frame);stream.hidden=false;stream.src=`/cam${CAMERA_ID}?stream=sub&live=${Date.now()}`;stream.onerror=()=>{const error=$(cut?"cutError":"watchError");if(error){error.textContent="Không thể mở hình ảnh trực tiếp từ camera.";error.hidden=false;}};$(cut?"cutOverlayTimestamp":"overlayTimestamp").textContent="TRỰC TIẾP";buttonText.textContent="Xem lại";button.setAttribute("aria-label","Quay về xem lại");updateModeBadge(true);}else{stream.removeAttribute("src");stream.hidden=true;stream.onerror=null;buttonText.textContent="Xem trực tiếp";button.setAttribute("aria-label","Xem trực tiếp");if(currentVideo)syncPlayerUi(video,screen,$(cut?"cutPlayerTime":"playerTime"),$(cut?"cutOverlayTimestamp":"overlayTimestamp"));updateModeBadge(false);}}
+  function toggleLive(screen=activeScreen){const screenEl=$(screen==="cut"?"cutScreen":"replayScreen");if(screenEl&&!screenEl.hidden)setScreenLive(screen,!screenEl.classList.contains("is-live"));}
+  function showReplay(){setScreenLive("cut",false);setScreenLive("replay",false);$("replayScreen").hidden=false;$("cutScreen").hidden=true;$("doneScreen").hidden=true;activeScreen="replay";$("headerTitle").textContent=replayTitle||"{{ camera_name }}";$("cutPlayer").pause();window.scrollTo({top:0,behavior:"smooth"});}
+  function showCut(){if(!currentVideo)return;setScreenLive("replay",false);setScreenLive("cut",false);$("replayScreen").hidden=true;$("cutScreen").hidden=false;$("doneScreen").hidden=true;activeScreen="cut";$("headerTitle").textContent="Cắt video";$("videoPlayer").pause();loadPlayer($("cutPlayer"),currentVideo);configureClipRange();renderTimeline("cut",getTimelineProgressForPlayer($("cutPlayer")));window.scrollTo({top:0,behavior:"smooth"});}
+  function showDone(){setScreenLive("replay",false);setScreenLive("cut",false);$("replayScreen").hidden=true;$("cutScreen").hidden=true;$("doneScreen").hidden=false;$("headerTitle").textContent="Cắt video";updateModeBadge(false);window.scrollTo({top:0,behavior:"smooth"});}
+  function getMergeBounds(){const r=getVideoRange(currentVideo),base=r?.start||new Date(),start=new Date(base.getTime()+clipStartSec*1000),end=new Date(base.getTime()+clipEndSec*1000);start.setMilliseconds(0);end.setMilliseconds(0);if(end<=start)end.setTime(start.getTime()+1000);return{start,end,duration:(end-start)/1000};}
+  function setMergeProgress(p,label){const v=Math.max(0,Math.min(100,Number(p)||0));$("mergeProgressFill").style.width=`${v}%`;$("mergeProgressLabel").textContent=label||`${v}%`;}
+  function mergeVideo(){if(!currentVideo)return;const bounds=getMergeBounds();if(bounds.duration>MAX_MERGE_SECONDS){$("cutError").textContent=`Đoạn cắt không được dài hơn ${MAX_MERGE_MINUTES} phút.`;$("cutError").hidden=false;return;}if(mergeEventSource)mergeEventSource.close();$("cutError").hidden=true;$("mergeProgress").hidden=false;$("mergeButton").disabled=true;setMergeProgress(3,"Đang chuẩn bị video...");const url=`/merge?cam_id=${encodeURIComponent(CAMERA_ID)}&start=${encodeURIComponent(formatLocalSecond(bounds.start))}&end=${encodeURIComponent(formatLocalSecond(bounds.end))}`;mergeEventSource=new EventSource(url);mergeEventSource.onmessage=(event)=>{const data=String(event.data||"");if(data.startsWith("notice:")){setMergeProgress(8,data.slice(7));return}if(data.startsWith("error:")){mergeEventSource.close();mergeEventSource=null;$("cutError").textContent=data.slice(6)||"Không thể cắt video.";$("cutError").hidden=false;$("mergeProgress").hidden=true;$("mergeButton").disabled=false;return}if(data.startsWith("done:")){const file=data.slice(5).trim();mergeEventSource.close();mergeEventSource=null;setAnchor($("mergedDownloadBtn"),`/download/${encodeURIComponent(file)}`,file);$("mergeProgress").hidden=true;$("mergeButton").disabled=false;showDone();return}const p=parseInt(data,10);if(Number.isFinite(p))setMergeProgress(p,`Đang xử lý... ${p}%`)};mergeEventSource.onerror=()=>{mergeEventSource?.close();mergeEventSource=null;$("cutError").textContent="Mất kết nối khi cắt video. Hãy kiểm tra lại kết quả hoặc thử lại.";$("cutError").hidden=false;$("mergeProgress").hidden=true;$("mergeButton").disabled=false;};}
+
+  document.addEventListener("DOMContentLoaded",()=>{
+    const today=new Date();$("filterDate").value=fmtDateInput(today);$("cutFilterDate").value=fmtDateInput(today);setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");wireDatePicker("filterDate");wireDatePicker("cutFilterDate");updateRuler("ruler");updateRuler("cutRuler");
+    replayTitle=$("headerTitle").textContent.trim();wirePlayer("videoPlayer","pauseButton","pauseIcon","playerTime","overlayTimestamp","playerFrame","fullscreenButton","replay");wirePlayer("cutPlayer","cutPauseButton","cutPauseIcon","cutPlayerTime","cutOverlayTimestamp","cutPlayerFrame","cutFullscreenButton","cut");wireTimeline("timelineHit",false);wireTimeline("cutTimelineHit",true);wireTimelineZoom("replay");wireTimelineZoom("cut");wirePlaybackControls("replay");wirePlaybackControls("cut");
+    updateSourceButton();$("sourceButton").addEventListener("click",()=>setSourceMenu($("sourceMenu").hidden));document.addEventListener("click",ev=>{if(!ev.target.closest("#sourceControl"))setSourceMenu(false);});document.querySelectorAll('input[name="replaySource"]').forEach(r=>r.addEventListener("change",()=>{setSourceMenu(false);fetchVideos();}));
+    $("liveButton").addEventListener("click",()=>toggleLive("replay"));$("cutLiveButton").addEventListener("click",()=>toggleLive("cut"));$("headerLiveButton").addEventListener("click",()=>{if(!$("doneScreen").hidden)showReplay();else toggleLive(activeScreen);});
+    $("filterDate").addEventListener("change",()=>{$("cutFilterDate").value=$("filterDate").value;setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");fetchVideos();});
+    $("cutFilterDate").addEventListener("change",()=>{$("filterDate").value=$("cutFilterDate").value;setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");fetchVideos();});
+    $("cutButton").addEventListener("click",showCut);$("cancelCutButton").addEventListener("click",showReplay);$("mergeButton").addEventListener("click",mergeVideo);$("doneBackButton").addEventListener("click",showReplay);
+    $("videoPlayer").addEventListener("ended",()=>{const n=currentVideoIndex+1;if(visibleVideos[n])selectVideo(visibleVideos[n],n,true)});
+    $("videoPlayer").addEventListener("error",()=>{$("watchError").textContent="Không thể phát video này trên trình duyệt. Bạn vẫn có thể tải video về máy.";$("watchError").hidden=false;});
+    window.addEventListener("resize",()=>{renderTimeline("replay");renderTimeline("cut");if(currentVideo)updateClipVisual();});fetchVideos();
+  });
+  window.addEventListener("beforeunload",()=>mergeEventSource?.close());
+</script>
 </body>
 </html>
