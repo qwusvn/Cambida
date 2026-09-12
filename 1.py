@@ -24,7 +24,6 @@ import tempfile
 import threading
 import time
 import uuid
-import winreg
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -44,7 +43,6 @@ from flask import (
     jsonify,
     redirect,
     render_template,
-    render_template_string,
     request,
     session,
     send_file,
@@ -1593,174 +1591,11 @@ def get_resource_path(relative_path):
 
 
 
-LICENSE_LOCK = threading.RLock()
-LICENSE_ENFORCEMENT_ENABLED = False
-LICENSE_CHECK_INTERVAL_SEC = 60
-LICENSE_STATE = {
-    "active": False,
-    "key": "",
-    "checked_at": 0.0,
-    "reason": "Chưa kiểm tra bản quyền.",
-}
-
-
-def _read_windows_machine_guid():
-    """Read the physical Windows MachineGuid used as the license identity."""
-    try:
-        access = winreg.KEY_READ
-        if hasattr(winreg, "KEY_WOW64_64KEY"):
-            access |= winreg.KEY_WOW64_64KEY
-        key = winreg.OpenKey(
-            winreg.HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\Microsoft\Cryptography",
-            0,
-            access,
-        )
-        try:
-            value, _ = winreg.QueryValueEx(key, "MachineGuid")
-        finally:
-            winreg.CloseKey(key)
-        value = str(value or "").strip()
-        return value or None
-    except OSError as exc:
-        logger.error("Không đọc được Windows MachineGuid: %s", exc)
-        return None
-
-
-def get_machine_license_key():
-    """Return a stable license key derived only from this Windows MachineGuid."""
-    machine_guid = _read_windows_machine_guid()
-    if not machine_guid:
-        return ""
-    # Legacy key style: 16 ký tự hex viết hoa lấy trực tiếp từ MachineGuid.
-    # Không thêm prefix để tương thích với danh sách key Telegram cũ.
-    digest = hashlib.sha256(machine_guid.encode("utf-8")).hexdigest().upper()
-    return digest[:16]
-
-
-def _telegram_pinned_text():
-    token = str(CONFIG.get("telegram_token") or "").strip()
-    chat_id = str(CONFIG.get("telegram_chat_id") or "").strip()
-    if not token or not chat_id:
-        raise RuntimeError("Thiếu telegram_token hoặc telegram_chat_id trong cấu hình.")
-    response = requests.get(
-        f"https://api.telegram.org/bot{token}/getChat",
-        params={"chat_id": chat_id},
-        timeout=8,
-    )
-    response.raise_for_status()
-    payload = response.json()
-    if not payload.get("ok"):
-        raise RuntimeError(str(payload.get("description") or "Telegram getChat thất bại."))
-    pinned = payload.get("result", {}).get("pinned_message") or {}
-    return str(pinned.get("text") or pinned.get("caption") or "")
-
-
-def _pinned_message_has_key(pinned_text, license_key):
-    if not pinned_text or not license_key:
-        return False
-    pattern = rf"(?<![A-Za-z0-9]){re.escape(license_key)}(?![A-Za-z0-9])"
-    return re.search(pattern, str(pinned_text), re.IGNORECASE) is not None
-
-
-def refresh_license_state():
-    """Re-evaluate the license only from MachineGuid + the Telegram pinned message."""
-    license_key = get_machine_license_key()
-    active = False
-    reason = ""
-    try:
-        if not license_key:
-            reason = "Không đọc được mã máy Windows."
-        else:
-            pinned_text = _telegram_pinned_text()
-            active = _pinned_message_has_key(pinned_text, license_key)
-            reason = (
-                "Key máy có trong tin nhắn ghim Telegram."
-                if active
-                else "Key máy chưa có trong tin nhắn ghim Telegram."
-            )
-    except Exception as exc:
-        reason = f"Không xác minh được tin nhắn ghim Telegram: {exc}"
-        logger.warning("[License] %s", reason)
-    with LICENSE_LOCK:
-        LICENSE_STATE.update(
-            active=bool(active),
-            key=license_key,
-            checked_at=time.time(),
-            reason=reason,
-        )
-    logger.info("[License] active=%s key=%s reason=%s", active, license_key or "N/A", reason)
-    return bool(active)
-
-
-def initialize_license_enforcement():
-    global LICENSE_ENFORCEMENT_ENABLED
-    LICENSE_ENFORCEMENT_ENABLED = True
-    return refresh_license_state()
-
-
-def license_watch_loop():
-    while True:
-        time.sleep(max(30, int(CONFIG.get("license_check_interval_sec", LICENSE_CHECK_INTERVAL_SEC) or LICENSE_CHECK_INTERVAL_SEC)))
-        refresh_license_state()
-
-
-def get_license_snapshot():
-    with LICENSE_LOCK:
-        return dict(LICENSE_STATE)
-
-
-def _is_replay_license_path(path_value):
-    exact = {"/timeline", "/cut", "/cut_progress", "/merge"}
-    prefixes = (
-        "/replay/",
-        "/list/",
-        "/video/",
-        "/download/",
-        "/nvr/video/",
-        "/nvr/download/",
-        "/api/video-codec/",
-        "/api/timeline",
-    )
-    return path_value in exact or any(path_value.startswith(prefix) for prefix in prefixes)
-
-
-@app.before_request
-def enforce_replay_license():
-    """Keep recording/live/admin running while replay functions require a valid pin."""
-    if not LICENSE_ENFORCEMENT_ENABLED or not _is_replay_license_path(request.path):
-        return None
-    state = get_license_snapshot()
-    if state.get("active"):
-        return None
-    if request.path == "/merge":
-        return Response(
-            "data: error:Bản quyền xem lại chưa được kích hoạt bằng tin nhắn ghim Telegram.\n\n",
-            status=403,
-            mimetype="text/event-stream",
-        )
-    if request.path.startswith(("/api/", "/list/")):
-        return jsonify(
-            {
-                "ok": False,
-                "error": "Bản quyền xem lại chưa được kích hoạt bằng tin nhắn ghim Telegram.",
-                "license_key": state.get("key", ""),
-            }
-        ), 403
-    key_value = state.get("key") or "Không đọc được mã máy"
-    reason = state.get("reason") or "Chưa xác minh bản quyền."
-    return render_template_string(
-        """<!doctype html><html lang=\"vi\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Bản quyền CCTV</title><style>body{font-family:system-ui;background:#160707;color:#fff;display:grid;place-items:center;min-height:100vh;margin:0}.card{max-width:560px;margin:24px;padding:28px;border-radius:18px;background:#2b0d0d;box-shadow:0 12px 40px #0008}.key{display:block;padding:12px;margin:16px 0;background:#110505;border-radius:10px;color:#ffc107;word-break:break-all;font-weight:700}p{line-height:1.55}</style></head><body><main class=\"card\"><h2>Chưa kích hoạt bản quyền xem lại</h2><p>Hãy thêm mã máy dưới đây vào tin nhắn ghim của chat Telegram quản trị, sau đó chờ hệ thống xác minh lại.</p><span class=\"key\">{{ license_key }}</span><p>{{ reason }}</p><p>Camera vẫn tiếp tục ghi hình và chức năng xem trực tiếp vẫn hoạt động.</p></main></body></html>""",
-        license_key=key_value,
-        reason=reason,
-    ), 403
 
 def telegram_command_help():
     return (
         "📋 **LỆNH CCTV**\n"
         "`/status` — Xem trạng thái hệ thống.\n"
-        "`/license` — Xem key và trạng thái bản quyền xem lại.\n"
-        "`/activate \"KEY\"` — Kiểm tra lại KEY với tin nhắn ghim.\n"
         "`/reset` hoặc `/restart` — Khởi động lại ứng dụng.\n"
         "`/list` — Hiển thị danh sách lệnh này."
     )
@@ -2233,31 +2068,6 @@ def monitor_telegram_commands():
                         continue
                     if re.fullmatch(r"/list(?:@\w+)?", text):
                         send_telegram_alert(telegram_command_help())
-                        continue
-                    if re.fullmatch(r"/license(?:@\w+)?", text):
-                        state = get_license_snapshot()
-                        send_telegram_alert(
-                            "🔐 **BẢN QUYỀN XEM LẠI**\n"
-                            f"Key: `{state.get('key') or get_machine_license_key() or 'N/A'}`\n"
-                            f"Trạng thái: {'✅ Hợp lệ' if state.get('active') else '⛔ Chưa kích hoạt'}\n"
-                            f"Chi tiết: {state.get('reason') or 'Chưa kiểm tra.'}"
-                        )
-                        continue
-                    activate_match = re.fullmatch(r'/activate(?:@\w+)?\s+["“]?([^"”\s]+)["”]?', raw_text, re.IGNORECASE)
-                    if activate_match:
-                        supplied_key = activate_match.group(1).strip()
-                        machine_key = get_machine_license_key()
-                        if not machine_key or supplied_key.casefold() != machine_key.casefold():
-                            send_telegram_alert(
-                                "⛔ Key không khớp với máy CCTV này.\n"
-                                f"Key máy: `{machine_key or 'N/A'}`"
-                            )
-                        elif refresh_license_state():
-                            send_telegram_alert("✅ Bản quyền xem lại hợp lệ. Key đã có trong tin nhắn ghim Telegram.")
-                        else:
-                            send_telegram_alert(
-                                "⛔ Chưa kích hoạt. Hãy thêm đúng key máy vào tin nhắn ghim Telegram rồi thử lại."
-                            )
                         continue
                     if text in ("/reset", "/restart"):
                         requests.get(
@@ -3826,10 +3636,6 @@ if __name__ == "__main__":
     if not acquire_single_instance():
         sys.exit()
     init_db()
-    license_active = initialize_license_enforcement()
-    threading.Thread(
-        target=license_watch_loop, daemon=True, name="LicenseWatcher"
-    ).start()
     threading.Thread(
         target=health_check_loop, daemon=True, name="Watchdog"
     ).start()
@@ -3845,16 +3651,7 @@ if __name__ == "__main__":
     threading.Thread(
         target=start_recording_loop, daemon=True, name="Recorder"
     ).start()
-    if license_active:
-        send_telegram_alert("🚀 Hệ thống CCTV đã khởi động thành công!\n🔐 Bản quyền xem lại: hợp lệ theo tin nhắn ghim.")
-    else:
-        state = get_license_snapshot()
-        send_telegram_alert(
-            "🚀 Hệ thống CCTV đã khởi động; camera vẫn tiếp tục ghi.\n"
-            "⛔ Xem lại đang khóa do bản quyền chưa hợp lệ.\n"
-            f"Key máy: `{state.get('key') or 'N/A'}`\n"
-            "Hãy thêm key này vào tin nhắn ghim Telegram."
-        )
+    send_telegram_alert("🚀 Hệ thống CCTV đã khởi động thành công!")
 
     run_startup = CONFIG.get("run_on_startup", "no").lower() == "yes"
     run_tray = CONFIG.get("run_in_tray", "no").lower() == "yes"

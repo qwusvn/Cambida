@@ -11,13 +11,12 @@
 
 - Khôi phục giao diện xem lại theo HTML thật trích từ `CCTV_1.3.42.exe`, đồng thời giữ backend NVR per-camera và adapter Dahua/Hikvision hiện tại.
 - Trang xem lại NVR chỉ dùng **một nguồn NVR đã cấu hình sẵn**; bỏ hoàn toàn lựa chọn/nhãn `Server 1 / Server 2` khỏi giao diện.
-- Khôi phục cơ chế bản quyền xem lại dựa trên Windows `MachineGuid` + tin nhắn ghim Telegram; khi chưa hợp lệ chỉ khóa replay/list/play/download/cut/merge, không dừng ghi hình, live hoặc admin.
-- Telegram bot có `/license` và `/activate "KEY"`; quyền xem lại chỉ mở khi key máy thực sự có trong tin nhắn ghim.
+- Theo yêu cầu mới nhất, **gỡ hoàn toàn cơ chế bản quyền Telegram ghim**: không còn `MachineGuid`, không còn khóa replay/timeline/cut/download, không còn watcher license và không còn lệnh `/license`/`/activate`; Telegram vẫn giữ cho cảnh báo/trạng thái hệ thống khác.
 - Giữ bản sửa cắt/ghép chính xác tới giây: chỉ lấy phần media giao với khoảng chọn, hỗ trợ nhiều segment, cảnh báo gap và re-encode part để tránh sai mốc do keyframe.
-- Kiểm thử source trước build: `python -m py_compile 1.py` đạt và **34/34 unittest PASS**.
-- Đóng gói `CCTV_2.1.0.exe` bằng PyInstaller 6.16.0 dạng onedir; metadata EXE hiển thị FileVersion/ProductVersion `2.1.0`.
-- Smoke test từ chính EXE với config cách ly: `/` và `/admin` trả HTTP 200; `/replay/cam1` và `/timeline` trả HTTP 403 đúng thiết kế khi cố ý bỏ Telegram license.
-- Artifact phát hành: `D:\1\cambida\release\2.1.0\`; SHA-256 EXE: `136f8386b8efee5eece19f4e788a12f625803894914e8247b2037b5f89fe7e4b`.
+- Kiểm thử source sau khi gỡ bản quyền: `python -m py_compile 1.py` đạt và **31/31 unittest PASS**.
+- Đóng gói lại `CCTV_2.1.0.exe` bằng PyInstaller 6.16.0 dạng onedir; metadata EXE vẫn là FileVersion/ProductVersion `2.1.0`.
+- Smoke test từ chính EXE với config cách ly không có Telegram: `/`, `/admin`, `/replay/cam1` và `/timeline` đều trả HTTP 200.
+- Artifact phát hành: `D:\1\cambida\release\2.1.0\`; SHA-256 EXE: `82bb7a582387e7ec4830ba57bbdecef9975019dcd61da25cc07a08335adbb423`.
 
 ## 2.0.1 - 2026-09-12
 
