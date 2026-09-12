@@ -1592,6 +1592,7 @@ def get_resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
+
 LICENSE_LOCK = threading.RLock()
 LICENSE_ENFORCEMENT_ENABLED = False
 LICENSE_CHECK_INTERVAL_SEC = 60
@@ -1753,7 +1754,6 @@ def enforce_replay_license():
         license_key=key_value,
         reason=reason,
     ), 403
-
 
 def telegram_command_help():
     return (
@@ -3577,9 +3577,15 @@ def merge_video():
             "data: error:Thiếu thông tin\n\n", mimetype="text/event-stream"
         )
     try:
-        req_start = datetime.strptime(start_str, "%Y-%m-%dT%H:%M")
-        req_end = datetime.strptime(end_str, "%Y-%m-%dT%H:%M")
-        if (req_end - req_start).total_seconds() > int(MAX_MERGE_MINUTES) * 60:
+        req_start = datetime.fromisoformat(start_str)
+        req_end = datetime.fromisoformat(end_str)
+        requested_duration = (req_end - req_start).total_seconds()
+        if requested_duration <= 0:
+            return Response(
+                "data: error:Khoảng cắt không hợp lệ\n\n",
+                mimetype="text/event-stream",
+            )
+        if requested_duration > int(MAX_MERGE_MINUTES) * 60:
             return Response(
                 f"data: error:Quá {MAX_MERGE_MINUTES} phút\n\n",
                 mimetype="text/event-stream",
@@ -3588,88 +3594,187 @@ def merge_video():
         files = glob.glob(os.path.join(VIDEO_DIR, f"cam{cam_id}_*.mp4"))
         candidates = []
         for f_path in files:
-            f_start, _ = parse_video_filename(os.path.basename(f_path))
-            if not f_start:
+            metadata = parse_video_metadata(
+                os.path.basename(f_path), known_duration=DURATION
+            )
+            if not metadata:
                 continue
-            f_end = f_start + timedelta(seconds=DURATION + 10)
+            f_start, f_end = metadata["start"], metadata["end"]
             if f_start < req_end and f_end > req_start:
-                candidates.append((f_start, f_path))
-        candidates.sort(key=lambda x: x[0])
+                candidates.append((f_start, f_end, f_path))
+        candidates.sort(key=lambda item: item[0])
         if not candidates:
             return Response(
                 "data: error:Không có video\n\n", mimetype="text/event-stream"
             )
 
-        list_file_path = os.path.join(
-            VIDEO_DIR, f"merge_list_{uuid.uuid4().hex}.txt"
-        )
-        with open(list_file_path, "w", encoding="utf-8") as f:
-            for _, path in candidates:
-                escaped_path = (
-                    os.path.abspath(path)
-                    .replace(chr(92), "/")
-                    .replace(chr(39), chr(39) + chr(92) + chr(39) + chr(39))
-                )
-                f.write(f"file '{escaped_path}'\n")
+        pieces = []
+        cursor = req_start
+        for f_start, f_end, f_path in candidates:
+            piece_start = max(req_start, f_start, cursor)
+            piece_end = min(req_end, f_end)
+            if piece_end <= piece_start:
+                continue
+            pieces.append(
+                {
+                    "path": f_path,
+                    "offset": (piece_start - f_start).total_seconds(),
+                    "duration": (piece_end - piece_start).total_seconds(),
+                }
+            )
+            cursor = piece_end
+            if cursor >= req_end:
+                break
+        if not pieces:
+            return Response(
+                "data: error:Không có video trong khoảng đã chọn\n\n",
+                mimetype="text/event-stream",
+            )
 
+        selected_media_duration = sum(piece["duration"] for piece in pieces)
+        missing_duration = max(0.0, requested_duration - selected_media_duration)
         output_filename = f"merge_cam{cam_id}_{uuid.uuid4().hex[:8]}.mp4"
         output_path = os.path.join(VIDEO_DIR, output_filename)
-        cmd = [
-            FFMPEG_PATH,
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            list_file_path,
-            "-c",
-            "copy",
-        ]
-        cmd.extend(["-progress", "pipe:1", "-nostats", output_path])
 
         def generate_merge_process():
-            total_duration_est = len(candidates) * DURATION
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                creationflags=subprocess.CREATE_NO_WINDOW,
-            )
-            yield "data: 5\n\n"
+            work_dir = tempfile.mkdtemp(prefix=".cambida_merge_", dir=BASE_DIR)
+            part_paths = []
+            completed_duration = 0.0
             try:
-                for line in process.stdout:
-                    if "out_time_ms=" not in line:
-                        continue
-                    try:
-                        ms = int(line.strip().split("=")[1])
-                        percent = int(ms / 1_000_000 / total_duration_est * 100)
-                        yield f"data: {min(percent, 99)}\n\n"
-                    except:
-                        pass
-            except:
-                yield "data: error:Lỗi xử lý\n\n"
-                return
+                yield "data: 5\n\n"
+                if missing_duration >= 1.0:
+                    yield (
+                        "data: notice:Khoảng đã chọn có "
+                        f"{int(round(missing_duration))} giây không có video; "
+                        "file kết quả chỉ gồm phần có sẵn.\n\n"
+                    )
+                for index, piece in enumerate(pieces):
+                    part_path = os.path.join(work_dir, f"part_{index:03d}.mp4")
+                    part_paths.append(part_path)
+                    cmd = [
+                        FFMPEG_PATH,
+                        "-y",
+                        "-ss",
+                        f"{piece['offset']:.3f}",
+                        "-i",
+                        piece["path"],
+                        "-t",
+                        f"{piece['duration']:.3f}",
+                        "-map",
+                        "0:v:0",
+                        "-map",
+                        "0:a?",
+                        "-c:v",
+                        "libx264",
+                        "-preset",
+                        "veryfast",
+                        "-crf",
+                        "20",
+                        "-pix_fmt",
+                        "yuv420p",
+                        "-c:a",
+                        "aac",
+                        "-b:a",
+                        "128k",
+                        "-movflags",
+                        "+faststart",
+                        "-progress",
+                        "pipe:1",
+                        "-nostats",
+                        part_path,
+                    ]
+                    process = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        creationflags=subprocess.CREATE_NO_WINDOW,
+                    )
+                    for line in process.stdout:
+                        if not line.startswith("out_time_ms="):
+                            continue
+                        try:
+                            current_sec = min(
+                                piece["duration"],
+                                int(line.strip().split("=", 1)[1]) / 1_000_000,
+                            )
+                            ratio = (completed_duration + current_sec) / max(
+                                selected_media_duration, 0.001
+                            )
+                            percent = 5 + int(max(0.0, min(1.0, ratio)) * 85)
+                            yield f"data: {min(percent, 90)}\n\n"
+                        except (TypeError, ValueError, ZeroDivisionError):
+                            pass
+                    process.wait()
+                    if process.returncode != 0 or not os.path.isfile(part_path):
+                        yield "data: error:Cắt video thất bại\n\n"
+                        return
+                    completed_duration += piece["duration"]
 
-            process.wait()
-            try:
-                os.remove(list_file_path)
-            except:
-                pass
-            if process.returncode == 0:
+                if len(part_paths) == 1:
+                    shutil.copyfile(part_paths[0], output_path)
+                else:
+                    list_file_path = os.path.join(work_dir, "concat.txt")
+                    with open(list_file_path, "w", encoding="utf-8") as list_file:
+                        for part_path in part_paths:
+                            escaped_path = (
+                                os.path.abspath(part_path)
+                                .replace(chr(92), "/")
+                                .replace(chr(39), chr(39) + chr(92) + chr(39) + chr(39))
+                            )
+                            list_file.write(f"file '{escaped_path}'\n")
+                    yield "data: 95\n\n"
+                    concat_cmd = [
+                        FFMPEG_PATH,
+                        "-y",
+                        "-f",
+                        "concat",
+                        "-safe",
+                        "0",
+                        "-i",
+                        list_file_path,
+                        "-c",
+                        "copy",
+                        "-movflags",
+                        "+faststart",
+                        output_path,
+                    ]
+                    result = subprocess.run(
+                        concat_cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        creationflags=subprocess.CREATE_NO_WINDOW,
+                    )
+                    if result.returncode != 0 or not os.path.isfile(output_path):
+                        logger.error("Ghép các đoạn cắt thất bại: %s", result.stdout[-2000:])
+                        yield "data: error:Ghép các đoạn cắt thất bại\n\n"
+                        return
+                yield "data: 100\n\n"
                 yield f"data: done:{output_filename}\n\n"
-                return
-            yield "data: error:Ghép thất bại\n\n"
+            except Exception:
+                logger.exception("Không thể cắt/ghép video")
+                yield "data: error:Lỗi xử lý video\n\n"
+            finally:
+                shutil.rmtree(work_dir, ignore_errors=True)
 
         return Response(
             stream_with_context(generate_merge_process()),
             mimetype="text/event-stream",
         )
-    except Exception as e:
-        return Response(f"data: error:{str(e)}\n\n", mimetype="text/event-stream")
-
+    except (TypeError, ValueError, OverflowError):
+        return Response(
+            "data: error:Thời gian không hợp lệ\n\n", mimetype="text/event-stream"
+        )
+    except Exception as exc:
+        logger.exception("Lỗi chuẩn bị cắt/ghép video")
+        return Response(
+            f"data: error:{str(exc)}\n\n", mimetype="text/event-stream"
+        )
 
 def set_autostart(enable=True):
     try:
