@@ -400,6 +400,10 @@ RETENTION_DAYS = CONFIG.get("retention_days", 30)
 DURATION = CONFIG.get("record_duration_sec", 300)
 TIMEOUT = CONFIG.get("record_timeout_sec", 330)
 MAX_MERGE_MINUTES = CONFIG.get("max_merge_minutes", 60)
+# Temporary product direction: replay/cut/timeline read only the local MP4 archive
+# produced by RTSP recording. NVR configuration and adapters remain intact so the
+# project can return to recorder playback later without rewriting config.json.
+RTSP_LOCAL_TIMELINE_ONLY = True
 CAM_LAST_SUCCESS = {}
 CAM_LAST_START = {}
 CAM_LAST_ERROR = {}
@@ -579,9 +583,18 @@ def _camera_playback_mode(cam_id, playback=None):
     return "local"
 
 
+def _timeline_playback_mode(cam_id):
+    """Return the active replay source without mutating persistent camera config."""
+    if RTSP_LOCAL_TIMELINE_ONLY:
+        return "local"
+    return _camera_playback_mode(cam_id)
+
+
 def should_record_locally(camera):
     if not isinstance(camera, dict):
         return False
+    if RTSP_LOCAL_TIMELINE_ONLY:
+        return True
     mode = str(camera.get("playback_source", "local")).strip().lower()
     if mode == "nvr":
         return bool(camera.get("backup_local", False))
@@ -2474,8 +2487,8 @@ def replay_cam(cam_id):
     if not 1 <= cam_id <= len(CAMERA_LIST):
         return "Camera không tồn tại", 404
     cam = CAMERA_LIST[cam_id - 1]
-    mode = _camera_playback_mode(cam_id)
-    backup_local = bool(cam.get("backup_local", False)) if mode == "nvr" else False
+    mode = _timeline_playback_mode(cam_id)
+    backup_local = False
     return render_template(
         "index.html",
         cam_id=cam_id,
@@ -2556,10 +2569,12 @@ def list_videos_by_cam(cam_id):
     if not 1 <= cam_id <= len(CAMERA_LIST):
         return jsonify([]), 404
     cam = CAMERA_LIST[cam_id - 1]
-    mode = _camera_playback_mode(cam_id)
+    mode = _timeline_playback_mode(cam_id)
 
     req_source = request.args.get("source", "").strip().lower()
-    if not req_source:
+    if RTSP_LOCAL_TIMELINE_ONLY:
+        target_source = "local"
+    elif not req_source:
         target_source = "nvr" if mode == "nvr" else "local"
     elif req_source in {"server1", "nvr"}:
         target_source = "nvr"
@@ -2615,6 +2630,23 @@ def list_videos_by_cam(cam_id):
             return jsonify([])
 
     prefix = f"cam{cam_id}_"
+    local_window_start = None
+    local_window_end = None
+    date_str = request.args.get("date", "").strip()
+    start_param = request.args.get("start", "").strip()
+    end_param = request.args.get("end", "").strip()
+    try:
+        if start_param and end_param:
+            local_window_start = datetime.fromisoformat(start_param)
+            local_window_end = datetime.fromisoformat(end_param)
+        elif date_str:
+            selected_day = datetime.strptime(date_str, "%Y-%m-%d")
+            local_window_start = selected_day.replace(hour=0, minute=0, second=0, microsecond=0)
+            local_window_end = local_window_start + timedelta(days=1)
+    except ValueError:
+        local_window_start = None
+        local_window_end = None
+
     candidates = []
     if os.path.isdir(VIDEO_DIR):
         try:
@@ -2639,6 +2671,15 @@ def list_videos_by_cam(cam_id):
         }
         metadata = parse_video_metadata(filename, known_duration=DURATION)
         if metadata:
+            if (
+                local_window_start is not None
+                and local_window_end is not None
+                and not (
+                    metadata["start"] < local_window_end
+                    and metadata["end"] > local_window_start
+                )
+            ):
+                continue
             item["format"] = metadata["format"]
             item["started_at"] = metadata["start"].isoformat(timespec="seconds")
             item["end_at"] = metadata["end"].isoformat(timespec="seconds")
@@ -3282,7 +3323,7 @@ def index_untracked_video_files():
 
 def get_timeline_data(window_start, window_end):
     camera_modes = {
-        cam_id: _camera_playback_mode(cam_id)
+        cam_id: _timeline_playback_mode(cam_id)
         for cam_id in range(1, len(CAMERA_LIST) + 1)
     }
     local_camera_ids = {
@@ -3612,7 +3653,7 @@ def merge_video():
                 mimetype="text/event-stream",
             )
 
-        if _camera_playback_mode(cam_id) == "nvr":
+        if _timeline_playback_mode(cam_id) == "nvr":
             return _merge_nvr_response(cam_id, req_start, req_end)
 
         files = glob.glob(os.path.join(VIDEO_DIR, f"cam{cam_id}_*.mp4"))

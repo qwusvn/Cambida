@@ -391,7 +391,7 @@
     if(nowMatch.video)target=now;else if(range)target=new Date(Math.max(range.start.getTime(),range.end.getTime()-1000));
     const sec=range?Math.max(0,(target-range.start)/1000):0;selectVideo(visibleVideos[idx],idx,false,sec);
   }
-  function fetchVideos(){const serial=++fetchSerial;let url=`/list/cam${CAMERA_ID}?source=${encodeURIComponent(getSelectedSource())}`;if($("filterDate").value&&isNvrSource())url+=`&date=${encodeURIComponent($("filterDate").value)}`;fetch(url).then(r=>{if(!r.ok)throw new Error(`Không tải được danh sách video (${r.status}).`);return r.json()}).then(data=>{if(serial!==fetchSerial)return;allVideos=Array.isArray(data)?data:(Array.isArray(data?.videos)?data.videos:[]);updateVisibleVideos();}).catch(e=>{if(serial!==fetchSerial)return;$("watchError").textContent=e.message||"Không tải được danh sách video.";$("watchError").hidden=false;});}
+  function fetchVideos(){const serial=++fetchSerial;let url=`/list/cam${CAMERA_ID}?source=${encodeURIComponent(getSelectedSource())}`;if($("filterDate").value)url+=`&date=${encodeURIComponent($("filterDate").value)}`;fetch(url).then(r=>{if(!r.ok)throw new Error(`Không tải được danh sách video (${r.status}).`);return r.json()}).then(data=>{if(serial!==fetchSerial)return;allVideos=Array.isArray(data)?data:(Array.isArray(data?.videos)?data.videos:[]);updateVisibleVideos();}).catch(e=>{if(serial!==fetchSerial)return;$("watchError").textContent=e.message||"Không tải được danh sách video.";$("watchError").hidden=false;});}
 
   function syncTimelineFromPlayer(){if(!currentVideo)return;syncTimelineForPlayer("replay",$("videoPlayer"));}
   function seekTimelineProgress(context,progress,autoplay=false){

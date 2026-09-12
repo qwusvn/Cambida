@@ -9,6 +9,12 @@
 
 ## 2.1.0 - 2026-09-12
 
+- **Hướng tạm thời mới nhất:** bỏ playback/cắt trực tiếp từ đầu ghi NVR trong luồng chính, tập trung `RTSP -> ghi MP4 local -> replay/cut bằng timeline`. Cấu hình NVR và adapter vẫn giữ nguyên trong source để có thể quay lại sau; `config.json` không bị sửa.
+- Bổ sung runtime `RTSP_LOCAL_TIMELINE_ONLY`: mọi trang replay, `/list`, `/api/timeline` và `/merge` dùng kho file local sinh từ RTSP, kể cả camera đang có `playback_source=nvr`; recorder vẫn dùng RTSP URL hiện có của từng camera/kênh.
+- `/list/camX` trong mode RTSP local lọc theo `date/start/end` ngay ở backend để timeline không phải tải toàn bộ lịch sử; tham số `source=nvr` cũng bị ép về local trong giai đoạn này để tránh phụ thuộc đầu ghi.
+- Timeline UI vẫn giữ kim giữa cố định, coverage xanh/gap trống, không thumbnail và không ô nhập giờ.
+- Kiểm chứng RTSP-local: `/list/cam2?source=nvr&date=...` vẫn trả source=`local`; `/video/...` hỗ trợ HTTP Range `206`; cắt thật 10 giây từ MP4 local cho output H.264 1080p đúng `10.00s`; `/api/timeline` báo toàn bộ camera source=`local`. Source test **35/35 PASS**.
+
 - Khôi phục giao diện xem lại theo HTML thật trích từ `CCTV_1.3.42.exe`, đồng thời giữ backend NVR per-camera và adapter Dahua/Hikvision hiện tại.
 - Trang xem lại NVR chỉ dùng **một nguồn NVR đã cấu hình sẵn**; bỏ hoàn toàn lựa chọn/nhãn `Server 1 / Server 2` khỏi giao diện.
 - Replay chuyển hẳn sang **timeline-only**: bỏ ô nhập giờ và bỏ chế độ chọn giờ cũ; kim thời gian cố định giữa màn hình, kéo thước timeline chạy bên dưới, vùng NVR có bản ghi tô xanh, khoảng trống để trống và không dùng thumbnail.
