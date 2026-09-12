@@ -290,14 +290,24 @@ class NvrPerCameraTests(unittest.TestCase):
             self.assertEqual(first["source"], "nvr")
             self.assertEqual(first["url"], "/nvr/video/tok123")
 
-    def test_nvr_replay_page_selects_segment_containing_requested_time(self):
+    def test_nvr_replay_page_uses_timeline_only_and_exact_nvr_time(self):
         response = self.client.get("/replay/cam2")
         self.assertEqual(response.status_code, 200)
         body = response.get_data(as_text=True)
-        self.assertIn("const containingIndex = visibleVideos.findIndex", body)
-        self.assertIn('appendQueryParam(playUrl, "at", atValue)', body)
-        self.assertIn('appendQueryParam(downloadUrl, "at", atValue)', body)
-        self.assertIn("range.start <= requestedStart && requestedStart < range.end", body)
+        self.assertNotIn('type="time"', body)
+        self.assertNotIn('name="replaySource"', body)
+        self.assertNotIn("Server 1", body)
+        self.assertNotIn("Server 2", body)
+        self.assertNotIn("thumbnail", body.lower())
+        self.assertIn('class="timeline-marker"', body)
+        self.assertIn("left:50%", body)
+        self.assertIn("background:var(--green)", body)
+        self.assertIn("function seekTimelineProgress", body)
+        self.assertIn('appendQueryParam(url,"at",formatLocalSecond(base))', body)
+        self.assertIn("pendingProgress", body)
+        self.assertIn("clipStartAt", body)
+        self.assertIn("selectionWidthMs", body)
+        self.assertNotIn("clipStartSec", body)
 
     def test_prepare_nvr_merge_parts_starts_at_exact_requested_time(self):
         segment = {
