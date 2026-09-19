@@ -104,3 +104,9 @@ Cập nhật: 2026-09-12 +07
 - Runtime sidecar `release\2.1.0\index.html` đã được patch tương ứng nhưng thư mục `release/` đang bị Git ignore, nên artifact này không nằm trong commit source.
 - Tests/gates: Node 4/4, Python 78/78, py_compile, inline JS source+release, git diff --check đều PASS.
 - Không thay config, version, camera transport, fixed-center timeline, exact-time replay hoặc cut flow.
+
+## Replay controls handoff — 2026-09-20
+- Live mode không rời màn hình replay: player đổi sang `/cam<id>?stream=auto...`, timeline vẫn hiển thị và nhảy về thời điểm hiện tại.
+- Toolbar timeline hiện có một nút phát lùi và một nút phát tiến; mỗi nút bắt đầu ở 1x và chu kỳ khi bấm tiếp cùng hướng là 1x -> 2x -> 4x -> 1x.
+- Cụm zoom -/+ nằm trên toolbar cạnh nút hướng tiến; logic zoom cũ không đổi. Cut dùng cùng control model.
+- Regression: `tests/replay_timeline_ui.test.js` 5/5 PASS; full unittest 78/78 PASS; release sidecar đồng nhất byte-for-byte với source trước commit.

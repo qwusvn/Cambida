@@ -128,3 +128,10 @@ Cập nhật: 2026-09-12 +07
 - Source `index.html` và ignored runtime sidecar `release\2.1.0\index.html` đã được cập nhật; `config.json` và `RELEASE_VERSION.txt` không đổi.
 - Verification: Node focused 4/4 PASS; full Python unittest 78/78 PASS; py_compile PASS; inline JS compile source+release PASS; git diff --check PASS.
 - Commit: `bb268a93527b60bfeee4b592a94d3ea69d9ec313`; commit scope chỉ gồm `index.html` và `tests/replay_timeline_ui.test.js`.
+
+## 2026-09-20 — Replay controls refinement
+- Task `cambida-replay-controls-20260920`: live chuyển ngay trong replay và timeline vẫn hiển thị, tự nhảy về ngày/thời điểm hiện tại.
+- Zoom -/+ đã chuyển lên toolbar nhưng giữ nguyên chức năng.
+- Hai nút 2x/4x rời được thay bằng một nút cho mỗi hướng, mặc định 1x và quay vòng 1x -> 2x -> 4x -> 1x khi tiếp tục bấm cùng hướng.
+- Source `index.html`, regression `tests/replay_timeline_ui.test.js`, và ignored sidecar `release\2.1.0\index.html` đã đồng bộ.
+- Gates: Node 5/5, Python 78/78, py_compile, diff-check đều PASS. Config/version/transport không thay đổi.

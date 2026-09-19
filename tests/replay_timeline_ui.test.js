@@ -81,6 +81,8 @@ function loadReplayScript() {
     requestAnimationFrame: () => 0,
     setTimeout: (callback, delay) => { timer = { callback, delay }; return 1; },
     clearTimeout: () => { timer = null; },
+    setInterval: () => 1,
+    clearInterval: () => {},
   };
   vm.createContext(context);
   const source = html
@@ -141,4 +143,51 @@ test('video controls reveal on interaction and auto-hide when idle', () => {
   getTimer().callback();
   assert.equal(frame.classList.contains('is-controls-visible'), false);
   assert.equal(player.paused, true);
+});
+
+test('playback rate controls are single-direction cyclers and zoom sits in the top toolbar', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const { context } = loadReplayScript();
+  assert.equal((html.match(/data-timeline-context="replay" data-direction="reverse"/g) || []).length, 1);
+  assert.equal((html.match(/data-timeline-context="replay" data-direction="forward"/g) || []).length, 1);
+  assert.equal((html.match(/data-timeline-context="cut" data-direction="reverse"/g) || []).length, 1);
+  assert.equal((html.match(/data-timeline-context="cut" data-direction="forward"/g) || []).length, 1);
+  assert.match(html, /data-direction="reverse" data-rate="1"[^>]*>[\s\S]*?<span class="rate-label">1x<\/span>/);
+  assert.match(html, /data-direction="forward" data-rate="1"[^>]*>[\s\S]*?<span class="rate-label">1x<\/span>/);
+  assert.deepEqual([1, 2, 4, 1], [1, context.getNextPlaybackRate(1), context.getNextPlaybackRate(2), context.getNextPlaybackRate(4)]);
+  assert.ok(html.indexOf('id="timelineZoomOut"') < html.indexOf('id="timelineViewport"'));
+  assert.ok(html.indexOf('id="cutTimelineZoomOut"') < html.indexOf('id="cutTimelineViewport"'));
+});
+
+test('live mode keeps timeline visible and jumps it to the current day/time', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const { context, elements } = loadReplayScript();
+  assert.doesNotMatch(html, /\.screen\.is-live \.timeline-wrap/);
+  elements.get('filterDate').value = '2026-09-19';
+  const progress = context.jumpTimelineToNow('replay');
+  assert.equal(elements.get('filterDate').value, context.fmtDateInput(new Date()));
+  assert.equal(elements.get('cutFilterDate').value, elements.get('filterDate').value);
+  assert.ok(progress >= 0 && progress <= 1);
+  assert.equal(vm.runInContext('timelineStates.replay.progress', context), progress);
+});
+
+test('playback direction buttons cycle active speed 1x to 2x to 4x to 1x', () => {
+  const { context, elements } = loadReplayScript();
+  vm.runInContext("currentVideo={started_at:'2026-09-20T00:00:00',end_at:'2026-09-20T00:10:00'}", context);
+  const forward = makeElement('forwardRate');
+  const forwardLabel = makeElement('forwardLabel');
+  forward.dataset = { direction: 'forward', rate: '1' };
+  forward.querySelector = selector => selector === '.rate-label' ? forwardLabel : null;
+  context.setPlaybackRate('replay', 'forward', forward);
+  const player = elements.get('videoPlayer');
+  assert.equal(forward.dataset.rate, '1');
+  assert.equal(player.playbackRate, 1);
+  context.setPlaybackRate('replay', 'forward', forward);
+  assert.equal(forward.dataset.rate, '2');
+  assert.equal(player.playbackRate, 2);
+  context.setPlaybackRate('replay', 'forward', forward);
+  assert.equal(forward.dataset.rate, '4');
+  context.setPlaybackRate('replay', 'forward', forward);
+  assert.equal(forward.dataset.rate, '1');
+  assert.equal(forwardLabel.textContent, '1x');
 });

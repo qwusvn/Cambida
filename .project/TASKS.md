@@ -108,3 +108,13 @@
 - [x] Regression: Node 4/4 PASS; Python unittest 78/78 PASS; py_compile PASS; inline JS source+release PASS; git diff --check PASS.
 - [x] Task-scoped commit: `bb268a93527b60bfeee4b592a94d3ea69d9ec313` (chỉ `index.html` + `tests/replay_timeline_ui.test.js`).
 - Status: COMPLETED.
+
+## Replay live / zoom / playback controls — 2026-09-20
+- task_id: cambida-replay-controls-20260920
+- [x] Nút Xem trực tiếp chuyển player sang live ngay trong replay, giữ timeline hiển thị và đưa ngày/kim timeline tới thời điểm hiện tại.
+- [x] Chuyển cụm zoom -/+ lên hàng toolbar; giữ nguyên logic zoom timeline.
+- [x] Gộp mỗi hướng phát thành một nút: << 1x và 1x >>; khi cùng hướng đang chạy, mỗi lần bấm quay vòng 1x -> 2x -> 4x -> 1x.
+- [x] Áp dụng đồng nhất cho replay và cut; giữ fixed-center playhead, coverage/gap, cut flow và idle controls.
+- [x] Đồng bộ sidecar release\2.1.0\index.html với source; không đổi config/version/camera transport.
+- [x] Verification: replay Node 5/5 PASS; full Python unittest 78/78 PASS; py_compile PASS; git diff --check PASS.
+- Status: COMPLETED sau task-scoped commit.
