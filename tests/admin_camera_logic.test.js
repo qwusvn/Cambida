@@ -109,3 +109,37 @@ test('admin camera renderer isolates NetSDK, RTSP, and zero-camera states', () =
   assert.match(elements.get('cameraList').innerHTML, /Chưa có kênh/);
   assert.match(elements.get('qrGrid').innerHTML, /Chưa có camera/);
 });
+
+test('admin camera normalizes and renders view_stream (auto/main/sub)', () => {
+  const { context, elements } = loadAdminScript();
+
+  // Default fallback is auto
+  const c1 = context.normalizeCamera({ name: 'Cam 1', ip: '1.2.3.4' }, 0);
+  assert.equal(c1.view_stream, 'auto');
+
+  // Explicit values
+  const c2 = context.normalizeCamera({ name: 'Cam 2', ip: '1.2.3.4', view_stream: 'sub' }, 1);
+  assert.equal(c2.view_stream, 'sub');
+
+  const c3 = context.normalizeCamera({ name: 'Cam 3', ip: '1.2.3.4', view_stream: 'main' }, 2);
+  assert.equal(c3.view_stream, 'main');
+
+  // Legacy netsdk_stream mapped if view_stream absent
+  const cLegacy = context.normalizeCamera({ name: 'Cam Legacy', ip: '1.2.3.4', local_transport: 'netsdk', netsdk_stream: 'sub' }, 3);
+  assert.equal(cLegacy.view_stream, 'sub');
+  assert.equal(cLegacy.netsdk_stream, 'sub');
+
+  // NVR camera preserves view_stream
+  const cNvr = context.normalizeCamera({ name: 'NVR Cam', playback_source: 'nvr', host: '1.2.3.5', view_stream: 'sub' }, 4);
+  assert.equal(cNvr.view_stream, 'sub');
+
+  // Markup includes cam-view-stream selector
+  context.setForm({ cameras: [c1, c2, cNvr], tables: [] });
+  const markup = elements.get('cameraList').innerHTML;
+  assert.match(markup, /class="form-select cam-view-stream"/);
+  assert.match(markup, /Luồng xem trực tiếp/);
+  assert.match(markup, /value="auto"/);
+  assert.match(markup, /value="main"/);
+  assert.match(markup, /value="sub"/);
+});
+

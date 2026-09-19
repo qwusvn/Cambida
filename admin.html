@@ -125,6 +125,9 @@
     const legacyUser = normalized.user || normalized.username || 'admin';
     const legacyPass = normalized.pass ?? normalized.password ?? '';
     normalized.playback_source = source;
+    normalized.view_stream = ['auto', 'main', 'sub'].includes(String(normalized.view_stream || '').toLowerCase())
+      ? String(normalized.view_stream).toLowerCase()
+      : (String(normalized.netsdk_stream || '').toLowerCase() === 'sub' ? 'sub' : (String(normalized.netsdk_stream || '').toLowerCase() === 'main' ? 'main' : 'auto'));
     if (source === 'nvr') {
       ['ip','port','local_transport','netsdk_port','netsdk_channel','netsdk_stream','record_path','preview_path','record_rtsp_url','preview_rtsp_url','rtsp_channel','channel','username','password','nvr_vendor','nvr'].forEach(key => delete normalized[key]);
       normalized.vendor = normalized.vendor === 'dahua' ? 'dahua' : 'hikvision';
@@ -154,7 +157,7 @@
       ['port','record_path','preview_path','record_rtsp_url','preview_rtsp_url','vendor','rtsp_channel'].forEach(key => delete normalized[key]);
       normalized.netsdk_port = Number(normalized.netsdk_port || 37777);
       normalized.netsdk_channel = Number(normalized.netsdk_channel || 1);
-      normalized.netsdk_stream = String(normalized.netsdk_stream || 'main').toLowerCase() === 'sub' ? 'sub' : 'main';
+      normalized.netsdk_stream = normalized.view_stream === 'sub' ? 'sub' : 'main';
       return normalized;
     }
 
@@ -176,14 +179,14 @@
       const localTransport = String(cam.local_transport || 'rtsp').toLowerCase() === 'netsdk' ? 'netsdk' : 'rtsp';
 
       const rtspFields = localTransport === 'rtsp' ? `<div class="col-md-4"><label class="form-label small">Preset RTSP camera</label><select class="form-select cam-preset" data-index="${index}"><option value="hikvision" ${preset(cam)==='hikvision'?'selected':''}>Hikvision / chuẩn cũ</option><option value="dahua" ${preset(cam)==='dahua'?'selected':''}>Dahua</option><option value="custom" ${preset(cam)==='custom'?'selected':''}>Tự chỉnh</option></select></div>` : '';
-      const netsdkFields = localTransport === 'netsdk' ? `<div class="col-md-4"><label class="form-label small">NetSDK port</label><input class="form-control cam-netsdk-port" data-index="${index}" type="number" min="1" max="65535" value="${esc(cam.netsdk_port ?? 37777)}"></div><div class="col-md-4"><label class="form-label small">Kênh NetSDK</label><input class="form-control cam-netsdk-channel" data-index="${index}" type="number" min="1" value="${esc(cam.netsdk_channel ?? 1)}"></div><div class="col-md-4"><label class="form-label small">Luồng NetSDK</label><select class="form-select cam-netsdk-stream" data-index="${index}"><option value="main" ${(cam.netsdk_stream||'main')==='main'?'selected':''}>Main</option><option value="sub" ${(cam.netsdk_stream||'')==='sub'?'selected':''}>Sub</option></select></div>` : '';
+      const netsdkFields = localTransport === 'netsdk' ? `<div class="col-md-4"><label class="form-label small">NetSDK port</label><input class="form-control cam-netsdk-port" data-index="${index}" type="number" min="1" max="65535" value="${esc(cam.netsdk_port ?? 37777)}"></div><div class="col-md-4"><label class="form-label small">Kênh NetSDK</label><input class="form-control cam-netsdk-channel" data-index="${index}" type="number" min="1" value="${esc(cam.netsdk_channel ?? 1)}"></div>` : '';
       const localFields = `
         <div class="col-md-4"><label class="form-label small">Kết nối camera</label><select class="form-select cam-local-transport" data-index="${index}"><option value="rtsp" ${localTransport==='rtsp'?'selected':''}>RTSP (554)</option><option value="netsdk" ${localTransport==='netsdk'?'selected':''}>Dahua / Imou NetSDK (37777)</option></select></div>
         ${rtspFields}
+        ${netsdkFields}
         <div class="col-md-4"><label class="form-label small">IP camera</label><input class="form-control cam-ip" data-index="${index}" value="${esc(cam.ip || '')}" placeholder="192.168.1.208"></div>
         <div class="col-md-4"><label class="form-label small">Tài khoản camera</label><input class="form-control cam-user" data-index="${index}" value="${esc(cam.user || '')}"></div>
-        <div class="col-md-4"><label class="form-label small">Mật khẩu camera</label><input class="form-control cam-pass" data-index="${index}" type="password" value="${esc(cam.pass || '')}"></div>
-        ${netsdkFields}`;
+        <div class="col-md-4"><label class="form-label small">Mật khẩu camera</label><input class="form-control cam-pass" data-index="${index}" type="password" value="${esc(cam.pass || '')}"></div>`;
 
       const nvrFields = `
         <div class="col-md-4"><label class="form-label small">Hãng đầu ghi</label><select class="form-select cam-nvr-vendor" data-index="${index}"><option value="hikvision" ${(cam.vendor||'hikvision')==='hikvision'?'selected':''}>Hikvision ISAPI</option><option value="dahua" ${(cam.vendor||'')==='dahua'?'selected':''}>Dahua CGI + RTSP</option></select></div>
@@ -217,6 +220,7 @@
         <div class="row g-2">
           <div class="col-md-4"><label class="form-label small">Tên / bàn</label><input class="form-control cam-name" data-index="${index}" value="${esc(cam.name || `Bàn ${index + 1}`)}"></div>
           <div class="col-md-4"><label class="form-label small">Nguồn kênh</label><select class="form-select cam-playback-source" data-index="${index}"><option value="local" ${playback==='local'?'selected':''}>Local</option><option value="nvr" ${playback==='nvr'?'selected':''}>NVR</option></select></div>
+          <div class="col-md-4"><label class="form-label small">Luồng xem trực tiếp</label><select class="form-select cam-view-stream" data-index="${index}"><option value="auto" ${(cam.view_stream||'auto')==='auto'?'selected':''}>Tự động (Auto)</option><option value="main" ${(cam.view_stream||'')==='main'?'selected':''}>Luồng chính (Main)</option><option value="sub" ${(cam.view_stream||'')==='sub'?'selected':''}>Luồng phụ (Sub)</option></select></div>
           ${isNvr ? nvrFields : localFields}
         </div>
         ${advanced}
@@ -241,6 +245,7 @@
 
     set('.cam-name','name');
     set('.cam-playback-source','playback_source');
+    set('.cam-view-stream','view_stream');
     set('.cam-ip','ip');
     set('.cam-user','user');
     set('.cam-pass','pass');
@@ -300,9 +305,9 @@
     const number = cameraDrafts.length + 1;
     let camera;
     if (source === 'nvr') {
-      camera = {name:`Bàn ${number}`,playback_source:'nvr',vendor:'hikvision',host:'',http_port:80,rtsp_port:554,user:'admin',pass:'',nvr_channel:number,stream:'main',backup_local:false};
+      camera = {name:`Bàn ${number}`,playback_source:'nvr',vendor:'hikvision',host:'',http_port:80,rtsp_port:554,user:'admin',pass:'',nvr_channel:number,stream:'main',backup_local:false,view_stream:'auto'};
     } else {
-      camera = {name:`Bàn ${number}`,playback_source:'local',ip:'',user:'admin',pass:'',local_transport:'rtsp',port:554,record_path:'h264/ch1/main/av_stream',preview_path:'h264/ch1/sub/av_stream'};
+      camera = {name:`Bàn ${number}`,playback_source:'local',ip:'',user:'admin',pass:'',local_transport:'rtsp',port:554,record_path:'h264/ch1/main/av_stream',preview_path:'h264/ch1/sub/av_stream',view_stream:'auto'};
     }
     cameraDrafts.push(camera);
     $('addSourceChooser').classList.add('d-none');
@@ -351,12 +356,21 @@
   });
   $('cameraList').addEventListener('change', event => {
     const sourceSelect = event.target.closest('.cam-playback-source');
+    const viewStreamSelect = event.target.closest('.cam-view-stream');
     const transportSelect = event.target.closest('.cam-local-transport');
     const presetSelect = event.target.closest('.cam-preset');
     const backupSwitch = event.target.closest('.cam-backup-local');
     const vendorSelect = event.target.closest('.cam-nvr-vendor');
-    if (!sourceSelect && !transportSelect && !presetSelect && !backupSwitch && !vendorSelect) return;
+    if (!sourceSelect && !viewStreamSelect && !transportSelect && !presetSelect && !backupSwitch && !vendorSelect) return;
     cameraDrafts = cameraValues();
+    if (viewStreamSelect) {
+      const camera = cameraDrafts[Number(viewStreamSelect.dataset.index)];
+      if (camera && camera.local_transport === 'netsdk') {
+        camera.netsdk_stream = camera.view_stream === 'sub' ? 'sub' : 'main';
+      }
+      renderCameras();
+      return;
+    }
     if (sourceSelect) {
       const camera = cameraDrafts[Number(sourceSelect.dataset.index)];
       const val = sourceSelect.value.toLowerCase() === 'nvr' ? 'nvr' : 'local';

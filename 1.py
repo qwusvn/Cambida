@@ -166,9 +166,21 @@ def _normalise_camera_entry(camera, index):
 
     source = str(camera.get("playback_source", "local")).strip().lower()
     source = source if source in {"local", "nvr"} else "local"
-    nested_nvr = camera.get("nvr") if isinstance(camera.get("nvr"), dict) else {}
     result = {key: camera[key] for key in _CAMERA_IDENTITY_KEYS if key in camera}
     result["playback_source"] = source
+    view_stream = str(
+        camera.get("view_stream")
+        or camera.get("preview_stream")
+        or ""
+    ).strip().lower()
+    if view_stream not in {"auto", "main", "sub"}:
+        legacy_netsdk = str(camera.get("netsdk_stream") or "").strip().lower()
+        if legacy_netsdk in {"main", "sub"}:
+            view_stream = legacy_netsdk
+        else:
+            view_stream = "auto"
+    result["view_stream"] = view_stream
+    nested_nvr = camera.get("nvr") if isinstance(camera.get("nvr"), dict) else {}
 
     if source == "nvr":
         vendor = str(
@@ -304,7 +316,7 @@ def _normalise_camera_entry(camera, index):
                     1, _coerce_int(camera.get("netsdk_channel") or 1, 1)
                 ),
                 "netsdk_stream": "sub"
-                if str(camera.get("netsdk_stream") or "main").strip().lower() == "sub"
+                if (view_stream == "sub" or str(camera.get("netsdk_stream") or "").strip().lower() == "sub")
                 else "main",
             }
         )
@@ -1585,6 +1597,8 @@ def validate_config(candidate):
             return f"Camera {index}: chế độ Hybrid đã bị loại bỏ. Chỉ chọn Local hoặc NVR."
         if mode not in {"local", "nvr"}:
             return f"Camera {index}: nguồn chỉ được chọn Local hoặc NVR."
+        if "view_stream" in camera and str(camera.get("view_stream", "")).strip().lower() not in {"auto", "main", "sub"}:
+            return f"Camera {index}: view_stream chi nhan auto, main hoac sub."
         if mode == "local":
             if not all(camera.get(key) for key in ("ip", "user", "pass")):
                 return f"Camera {index} cần có ip, user và pass cho luồng Local."
@@ -1748,9 +1762,58 @@ def admin_required(view):
     return wrapped
 
 
+def resolve_view_stream(camera, requested_stream=None, context=None):
+    """Resolve viewing/preview stream to either 'main' or 'sub'.
+
+    Recording is ALWAYS Main stream and NEVER calls this function.
+    Deterministic resolution rules:
+    1. If requested_stream is explicitly 'main' or 'sub', return it.
+    2. If requested_stream is 'auto' or None:
+       - If camera's configured view_stream is 'main', return 'main'.
+       - If camera's configured view_stream is 'sub', return 'sub'.
+       - If camera's configured view_stream is 'auto' (or unspecified):
+         * When context is 'grid' (e.g. multi-camera /live preview), return 'sub'
+           to keep bandwidth and CPU usage lightweight.
+         * When context is 'single' (e.g. single-camera /replay page), return 'main'
+           for high quality.
+         * If context cannot be determined, return 'sub' as safe documented default.
+    """
+    if isinstance(camera, int):
+        cam = CAMERA_LIST[camera - 1] if 1 <= camera <= len(CAMERA_LIST) else {}
+    elif isinstance(camera, dict):
+        cam = camera
+    else:
+        cam = {}
+
+    req = str(requested_stream or "").strip().lower()
+    if req in {"main", "sub"}:
+        return req
+
+    cfg_stream = str(cam.get("view_stream") or "").strip().lower()
+    if cfg_stream not in {"auto", "main", "sub"}:
+        legacy_netsdk = str(cam.get("netsdk_stream") or "").strip().lower()
+        if legacy_netsdk in {"main", "sub"}:
+            cfg_stream = legacy_netsdk
+        else:
+            cfg_stream = "auto"
+
+    if cfg_stream in {"main", "sub"}:
+        return cfg_stream
+
+    ctx = str(context or "").strip().lower()
+    if ctx in {"grid", "multi", "live_all"}:
+        return "sub"
+    if ctx in {"single", "replay", "fullscreen"}:
+        return "main"
+
+    return "sub"
+
+
 LOCAL_RTSP_DEFAULT_PATHS = {
     "record": "h264/ch1/main/av_stream",
     "preview": "h264/ch1/sub/av_stream",
+    "main": "h264/ch1/main/av_stream",
+    "sub": "h264/ch1/sub/av_stream",
 }
 
 
@@ -1824,14 +1887,19 @@ def _local_rtsp_url(camera, path, add_timeout=True):
 
 
 def _local_profile_path(camera, stream, profile):
-    default_path = LOCAL_RTSP_DEFAULT_PATHS[stream]
+    canonical_stream = "main" if stream in {"record", "main"} else "sub"
+    default_path = LOCAL_RTSP_DEFAULT_PATHS[canonical_stream]
     if profile == "configured":
-        configured = camera.get(f"{stream}_path")
+        configured = (
+            camera.get("record_path")
+            if canonical_stream == "main"
+            else camera.get("preview_path")
+        )
         return str(configured if configured not in (None, "") else default_path).lstrip("/")
     if profile in {"legacy"}:
         return default_path
     if profile in {"imou", "dahua", "imou_onvif", "dahua_onvif"}:
-        subtype = 0 if stream == "record" else 1
+        subtype = 0 if canonical_stream == "main" else 1
         path = (
             f"cam/realmonitor?channel={_local_rtsp_channel(camera)}"
             f"&subtype={subtype}"
@@ -1847,13 +1915,22 @@ def _local_rtsp_candidates(camera, stream):
     if stream not in LOCAL_RTSP_DEFAULT_PATHS:
         raise ValueError(f"Unsupported local RTSP stream: {stream}")
 
+    canonical_stream = "main" if stream in {"record", "main"} else "sub"
     direct_url = camera.get(f"{stream}_rtsp_url")
+    if not direct_url and canonical_stream == "main":
+        direct_url = camera.get("record_rtsp_url")
+    elif not direct_url and canonical_stream == "sub":
+        direct_url = camera.get("preview_rtsp_url")
     if direct_url:
         return [{"profile": "direct", "url": str(direct_url)}]
 
-    configured = camera.get(f"{stream}_path")
+    configured = (
+        camera.get("record_path")
+        if canonical_stream == "main"
+        else camera.get("preview_path")
+    )
     configured_path = str(
-        configured if configured not in (None, "") else LOCAL_RTSP_DEFAULT_PATHS[stream]
+        configured if configured not in (None, "") else LOCAL_RTSP_DEFAULT_PATHS[canonical_stream]
     ).lstrip("/")
     is_legacy_configured = configured_path == LOCAL_RTSP_DEFAULT_PATHS[stream]
     vendor = str(camera.get("vendor") or "").strip().lower()
@@ -1903,10 +1980,15 @@ def get_rtsp_candidates(camera, stream):
     mode = str(camera.get("playback_source", "local")).strip().lower()
     if mode == "nvr":
         return [{"profile": "nvr", "url": build_rtsp_url(camera, stream)}]
+    canonical_stream = "main" if stream in {"record", "main"} else "sub"
     direct_url = camera.get(f"{stream}_rtsp_url")
+    if not direct_url and canonical_stream == "main":
+        direct_url = camera.get("record_rtsp_url")
+    elif not direct_url and canonical_stream == "sub":
+        direct_url = camera.get("preview_rtsp_url")
     if direct_url:
         return [{"profile": "direct", "url": str(direct_url)}]
-    return _local_rtsp_candidates(camera, stream)
+    return _local_rtsp_candidates(camera, canonical_stream)
 
 
 def _rtsp_error_text(value):
@@ -2008,10 +2090,15 @@ def build_rtsp_url(camera, stream):
             track_chan = int(channel) * 100 + stream_idx
             return f"rtsp://{user}:{pwd}@{host}:{port}/Streaming/Channels/{track_chan}"
 
+    canonical_stream = "main" if stream in {"record", "main"} else "sub"
     direct_url = camera.get(f"{stream}_rtsp_url")
+    if not direct_url and canonical_stream == "main":
+        direct_url = camera.get("record_rtsp_url")
+    elif not direct_url and canonical_stream == "sub":
+        direct_url = camera.get("preview_rtsp_url")
     if direct_url:
         return str(direct_url)
-    candidates = _local_rtsp_candidates(camera, stream)
+    candidates = _local_rtsp_candidates(camera, canonical_stream)
     return candidates[0]["url"] if candidates else None
 
 
@@ -2273,9 +2360,14 @@ def _run_recording_attempt(cam_id, rtsp_url, temp_filepath, stop_event):
 
 
 def _run_netsdk_recording_attempt(cam_id, camera, temp_filepath, stop_event):
-    """Record one segment through Dahua/Imou private TCP 37777."""
+    """Record one segment through Dahua/Imou private TCP 37777.
+    Recording stream is ALWAYS Main stream (Dahua RealPlay type 0)."""
     try:
-        adapter = Dahua37777Adapter.from_camera(camera, base_dir=_netsdk_base_dir())
+        rec_camera = dict(camera)
+        rec_camera["netsdk_stream"] = "main"
+        rec_camera["stream"] = "main"
+        rec_camera["view_stream"] = "main"
+        adapter = Dahua37777Adapter.from_camera(rec_camera, base_dir=_netsdk_base_dir())
         result = adapter.record_segment(
             temp_filepath,
             duration=DURATION,
@@ -3006,19 +3098,22 @@ def _log_download_after(response):
     return response
 
 
-def get_rtsp_url(cam_id, stream="sub"):
+def get_rtsp_url(cam_id, stream=None, context=None):
     if 1 <= cam_id <= len(CAMERA_LIST):
         cam = CAMERA_LIST[cam_id - 1]
         if str(cam.get("playback_source", "local")).strip().lower() == "local" and _local_transport(cam) == "netsdk":
             return None
-        return build_rtsp_url(cam, "record" if stream == "main" else "preview")
+        target_stream = resolve_view_stream(cam, stream, context=context)
+        return build_rtsp_url(cam, target_stream)
     return None
 
 
-def gen_netsdk_frames(camera, stream="sub"):
+def gen_netsdk_frames(camera, stream=None, context=None):
     """Stream JPEG frames from Dahua/Imou 37777 without RTSP fallback."""
+    target_stream = resolve_view_stream(camera, stream, context=context)
     private_camera = dict(camera)
-    private_camera["netsdk_stream"] = "main" if stream == "main" else "sub"
+    private_camera["netsdk_stream"] = target_stream
+    private_camera["stream"] = target_stream
     while True:
         frames = None
         try:
@@ -3104,6 +3199,7 @@ def replay_cam(cam_id):
         cam_id=cam_id,
         camera_name=get_camera_name(cam_id),
         camera_mode=mode,
+        camera_view_stream=cam.get("view_stream", "auto"),
         backup_local=backup_local,
         site=get_site_config(),
         max_merge_minutes=MAX_MERGE_MINUTES,
@@ -3113,8 +3209,12 @@ def replay_cam(cam_id):
 @app.route("/live")
 def live_all_cameras():
     cameras = [
-        {"id": cam_id, "name": get_camera_name(cam_id)}
-        for cam_id in range(1, len(CAMERA_LIST) + 1)
+        {
+            "id": cam_id,
+            "name": get_camera_name(cam_id),
+            "view_stream": cam.get("view_stream", "auto"),
+        }
+        for cam_id, cam in enumerate(CAMERA_LIST, start=1)
     ]
     return render_template("live_all.html", site=get_site_config(), cameras=cameras)
 
@@ -3130,17 +3230,28 @@ def timeline_page():
 
 @app.route("/cam<int:cam_id>")
 def stream_cam(cam_id):
-    stream = request.args.get("stream", "sub").lower()
-    if stream not in {"sub", "main"}:
-        return "Luồng không hợp lệ", 400
+    raw_stream = request.args.get("stream")
+    if raw_stream is not None:
+        raw_stream = raw_stream.lower()
+        if raw_stream not in {"sub", "main", "auto"}:
+            return "Luồng không hợp lệ", 400
     if not 1 <= cam_id <= len(CAMERA_LIST):
         return "Camera not found", 404
     camera = CAMERA_LIST[cam_id - 1]
+    context = request.args.get("context") or request.args.get("view")
+    if not context:
+        referrer = request.referrer or ""
+        if "/live" in referrer:
+            context = "grid"
+        elif "/replay" in referrer:
+            context = "single"
+    target_stream = resolve_view_stream(camera, raw_stream, context=context)
     if str(camera.get("playback_source", "local")).strip().lower() == "local" and _local_transport(camera) == "netsdk":
         return Response(
-            gen_netsdk_frames(camera, stream), mimetype="multipart/x-mixed-replace; boundary=frame"
+            gen_netsdk_frames(camera, target_stream, context=context),
+            mimetype="multipart/x-mixed-replace; boundary=frame",
         )
-    rtsp_url = get_rtsp_url(cam_id, stream)
+    rtsp_url = get_rtsp_url(cam_id, target_stream, context=context)
     if not rtsp_url:
         return "Camera không tồn tại", 404
     return Response(
@@ -3152,15 +3263,26 @@ def stream_cam(cam_id):
 def camera_snapshot(cam_id):
     """Return one JPEG frame so the all-camera page does not consume 12
     permanent browser connections (most desktop browsers cap this at 6)."""
-    stream = request.args.get("stream", "sub").lower()
-    if stream not in {"sub", "main"}:
-        return "Invalid stream", 400
+    raw_stream = request.args.get("stream")
+    if raw_stream is not None:
+        raw_stream = raw_stream.lower()
+        if raw_stream not in {"sub", "main", "auto"}:
+            return "Invalid stream", 400
     if not 1 <= cam_id <= len(CAMERA_LIST):
         return "Camera not found", 404
     camera = CAMERA_LIST[cam_id - 1]
+    context = request.args.get("context") or request.args.get("view")
+    if not context:
+        referrer = request.referrer or ""
+        if "/live" in referrer:
+            context = "grid"
+        elif "/replay" in referrer:
+            context = "single"
+    target_stream = resolve_view_stream(camera, raw_stream, context=context)
     if str(camera.get("playback_source", "local")).strip().lower() == "local" and _local_transport(camera) == "netsdk":
         private_camera = dict(camera)
-        private_camera["netsdk_stream"] = "main" if stream == "main" else "sub"
+        private_camera["netsdk_stream"] = target_stream
+        private_camera["stream"] = target_stream
         try:
             adapter = Dahua37777Adapter.from_camera(private_camera, base_dir=_netsdk_base_dir())
             jpeg = adapter.capture_jpeg(FFMPEG_PATH, timeout=12.0)
@@ -3170,9 +3292,7 @@ def camera_snapshot(cam_id):
         except Exception as exc:
             logger.warning("[NetSDK Snapshot Cam %s] %s", cam_id, exc)
             return "NetSDK snapshot unavailable", 503
-    if stream not in {"sub", "main"}:
-        return "Luồng không hợp lệ", 400
-    rtsp_url = get_rtsp_url(cam_id, stream)
+    rtsp_url = get_rtsp_url(cam_id, target_stream, context=context)
     if not rtsp_url:
         return "Camera không tồn tại", 404
     cap = None

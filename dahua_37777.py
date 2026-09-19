@@ -408,7 +408,7 @@ class Dahua37777Adapter:
             password=camera.get("pass") if camera.get("pass") is not None else camera.get("password", ""),
             port=camera.get("netsdk_port") or camera.get("private_port") or 37777,
             channel=channel,
-            stream=camera.get("netsdk_stream") or camera.get("stream") or "main",
+            stream=camera.get("netsdk_stream") or camera.get("view_stream") or camera.get("stream") or "main",
             sdk_dir=find_netsdk_dir(base_dir),
         )
 
@@ -434,8 +434,9 @@ class Dahua37777Adapter:
         # Dahua enum: 0 = main realplay, 3 = sub stream 1.
         return 3 if self.stream in {"sub", "extra", "extra1", "1"} else 0
 
-    def _open_realplay(self, login_handle: int) -> int:
-        real = int(self.dll.CLIENT_RealPlayEx(LLONG(login_handle), self.channel, None, self._realplay_type()))
+    def _open_realplay(self, login_handle: int, real_type: Optional[int] = None) -> int:
+        rtype = self._realplay_type() if real_type is None else int(real_type)
+        real = int(self.dll.CLIENT_RealPlayEx(LLONG(login_handle), self.channel, None, rtype))
         if not real:
             code, name = _sdk_error(self.dll)
             raise Dahua37777Error(f"NetSDK RealPlay that bai: {name} (0x{code:08X}).")
@@ -663,7 +664,8 @@ class Dahua37777Adapter:
         started = time.monotonic()
         try:
             login, _ = self._login()
-            real = self._open_realplay(login)
+            # Recording stream is ALWAYS Main stream (Dahua RealPlay type 0).
+            real = self._open_realplay(login, real_type=0)
             try:
                 os.remove(dav_path)
             except OSError:
