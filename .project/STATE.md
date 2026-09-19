@@ -121,3 +121,10 @@ Cập nhật: 2026-09-12 +07
 - Packaging: PyInstaller 6.16.0 onedir PASS from CCTV_2.1.0.spec; 10 NetSDK DLLs present in each final onedir bundle; source EXE smoke and final release EXE smoke returned /, /admin/login, /timeline = HTTP 200 with owned process cleanup PASS.
 - Final artifacts: D:\1\cambida\release\2.1.0\CCTV_2.1.0.exe and nested compatibility copy; both SHA-256 E5F23EE373665FED3149569C7AB764CC7545321F0D2D1CFAF2314B5F834BC83B.
 - Release root/nested config hashes and the five existing cctv_videos media files were preserved during deployment. Generated build/ and dist/ were removed after packaging; no camera credential was persisted or printed.
+## 2026-09-20 — Replay timeline/overlay fix
+- Task `cambida-timeline-overlay-fix-20260920` status: COMPLETED.
+- Timeline coverage chỉ gộp phần hiển thị khi khoảng cách giữa hai segment <= 2000 ms; dữ liệu video/backend không bị thay đổi và gap lớn vẫn hiện đúng.
+- Custom player controls mặc định ẩn; pointer/touch/keyboard/focus làm hiện controls và timer 2400 ms tự ẩn khi idle. Fullscreen/accessibility/fixed-center playhead/exact-time flow được giữ nguyên.
+- Source `index.html` và ignored runtime sidecar `release\2.1.0\index.html` đã được cập nhật; `config.json` và `RELEASE_VERSION.txt` không đổi.
+- Verification: Node focused 4/4 PASS; full Python unittest 78/78 PASS; py_compile PASS; inline JS compile source+release PASS; git diff --check PASS.
+- Commit: `bb268a93527b60bfeee4b592a94d3ea69d9ec313`; commit scope chỉ gồm `index.html` và `tests/replay_timeline_ui.test.js`.

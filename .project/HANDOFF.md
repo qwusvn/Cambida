@@ -98,3 +98,9 @@ Cập nhật: 2026-09-12 +07
 - Final distributable: `D:\1\cambida\release\2.1.0\CCTV_2.1.0.exe`; nested compatibility copy is also updated. SHA-256 for both: `E5F23EE373665FED3149569C7AB764CC7545321F0D2D1CFAF2314B5F834BC83B`.
 - EXE smoke from final release returned HTTP 200 for `/`, `/admin/login`, `/timeline`; owned process cleanup passed. Config and existing media were preserved.
 - Live private NetSDK media remains unverified; do not bump to 3.x without accepted credential plus snapshot/live frame and MP4/ffprobe evidence.
+
+## Replay timeline/overlay handoff — 2026-09-20
+- Commit `bb268a93527b60bfeee4b592a94d3ea69d9ec313` sửa replay page: jitter segment <= 2 giây được vẽ liền mạch, gap thật vẫn tách; player controls tự ẩn sau 2,4 giây idle và hiện lại khi người dùng tương tác/focus.
+- Runtime sidecar `release\2.1.0\index.html` đã được patch tương ứng nhưng thư mục `release/` đang bị Git ignore, nên artifact này không nằm trong commit source.
+- Tests/gates: Node 4/4, Python 78/78, py_compile, inline JS source+release, git diff --check đều PASS.
+- Không thay config, version, camera transport, fixed-center timeline, exact-time replay hoặc cut flow.

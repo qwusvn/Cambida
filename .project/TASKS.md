@@ -99,3 +99,12 @@
 - [x] Bảo toàn config và năm media files hiện có; artifact SHA-256: `E5F23EE373665FED3149569C7AB764CC7545321F0D2D1CFAF2314B5F834BC83B`.
 - [x] Stage/review/commit và hậu kiểm working tree thuộc parent task.
 - Status: COMPLETED.
+
+## Replay timeline + idle overlay fix — 2026-09-20
+- task_id: cambida-timeline-overlay-fix-20260920
+- [x] Gộp hiển thị các đoạn ghi hình sát nhau khi khoảng lệch phân đoạn <= 2 giây; khoảng trống thật vẫn giữ nguyên.
+- [x] Ẩn cụm điều khiển video khi không thao tác; hiện lại khi tương tác/focus và tự ẩn sau 2,4 giây.
+- [x] Đồng bộ thay đổi vào source `index.html` và sidecar `release\2.1.0\index.html` mà không thay config/version/camera transport.
+- [x] Regression: Node 4/4 PASS; Python unittest 78/78 PASS; py_compile PASS; inline JS source+release PASS; git diff --check PASS.
+- [x] Task-scoped commit: `bb268a93527b60bfeee4b592a94d3ea69d9ec313` (chỉ `index.html` + `tests/replay_timeline_ui.test.js`).
+- Status: COMPLETED.
