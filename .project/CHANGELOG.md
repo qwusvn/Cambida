@@ -53,3 +53,113 @@
 - Ghi nhận screenshot kiểm chứng `ui_cdp_replay.png` và `ui_cdp_cut.png`; chưa commit.
 - Xóa TODO lỗi chọn ngày/kéo-thả timeline đã lỗi thời vì phần này đã được hoàn thiện và retest.
 
+
+## 2026-09-12 — Khôi phục HTML 1.3.42 + single NVR + Telegram pin license
+- Trích trực tiếp `index.html` từ `CCTV_1.3.42.exe` bằng PyInstaller archive reader; SHA-256 HTML gốc `82a96edded553dbda4eb6da1fab82609f05dd60427639cbd764a834361230cef`.
+- Khôi phục giao diện 1.3.42 và chỉ ghép lớp dữ liệu cần thiết để đọc metadata NVR hiện tại (`started_at`, `end_at`, `duration_sec`, `url`, `download_url`).
+- Chốt theo yêu cầu mới nhất: một NVR duy nhất đã cấu hình; bỏ toàn bộ selector/nhãn Server 1/Server 2 khỏi replay UI.
+- Khôi phục license dựa trên Windows `MachineGuid` và tin nhắn ghim Telegram; fail-closed cho replay nhưng không dừng recorder/live/admin.
+- Thêm `/license`, `/activate "KEY"` và watcher kiểm tra pin định kỳ.
+- Verify: Python compile, JavaScript syntax, diff-check đạt; unittest 34/34 đạt.
+- Commit riêng đúng scope: `0a13a5af560fc9539b9fa815ae37dcd11b44b567`. Thay đổi `/merge` và `PROJECT_SYNC_PROTOCOL.md` có sẵn từ trước không bị đưa vào commit.
+
+## 2026-09-12 — Release 2.1.0
+- Người dùng yêu cầu phát hành trực tiếp bản **2.1.0**; cập nhật `RELEASE_VERSION.txt`, `CCTV_2.1.0.spec` và `version_info_2_1_0.txt`.
+- Release dùng source hiện tại, bao gồm logic `/merge` cắt chính xác tới giây đã được kiểm chứng trước đó; phần này được đưa vào commit release để binary khớp source.
+- PyInstaller 6.16.0 onedir build thành công; artifact tại `D:\1\cambida\release\2.1.0\`.
+- Metadata `CCTV_2.1.0.exe`: FileVersion/ProductVersion `2.1.0`; SHA-256 `136f8386b8efee5eece19f4e788a12f625803894914e8247b2037b5f89fe7e4b`.
+- Kiểm chứng trước build: py_compile PASS, unittest 34/34 PASS.
+- Smoke EXE config cách ly: `/`, `/admin`, `/admin/login` = HTTP 200; replay/timeline = HTTP 403 đúng license fail-closed khi không cấu hình Telegram.
+- Tiến trình smoke đã dừng đúng PID, cổng test đã đóng; thư mục build/smoke tạm đã dọn.
+- Commit release: `5420e54`.
+
+## 2026-09-12 — Gỡ bản quyền khỏi 2.1.0
+- Loại bỏ hoàn toàn cơ chế license Telegram ghim và MachineGuid khỏi `1.py`.
+- Xóa LicenseWatcher, gate replay/timeline/cut/download và lệnh `/license`, `/activate`; Telegram vẫn giữ cảnh báo/lệnh hệ thống khác.
+- Thay test license cũ bằng regression test xác nhận replay không còn bị khóa; py_compile PASS, unittest 31/31 PASS.
+- Rebuild `CCTV_2.1.0.exe`; smoke config không Telegram: `/`, `/admin`, `/replay/cam1`, `/timeline` đều HTTP 200.
+- SHA-256 EXE mới: `82bb7a582387e7ec4830ba57bbdecef9975019dcd61da25cc07a08335adbb423`.
+- Commit: `111d403`.
+
+## 2026-09-12 — Sửa thời gian và cắt NVR chính xác
+- Test trực tiếp NVR Dahua cho thấy đồng hồ PC/NVR chỉ lệch khoảng 6 giây, không có lỗi timezone lớn.
+- Xác định root cause UI: sau khi lọc theo giờ, danh sách giữ thứ tự mới nhất trước và luôn chọn index 0; mốc 22:09 vì vậy nhảy sang segment 22:30:18.
+- Sửa frontend để chọn segment chứa đúng mốc giờ; playback/download NVR dùng `at=YYYY-MM-DDTHH:MM:SS`.
+- Mở rộng `/merge` để camera NVR cắt trực tiếp từ NVR theo exact start/end; Dahua dùng loadfile.cgi và chunk theo playback_chunk_sec.
+- Test thật Cam 2: 22:09:00 thuộc segment 22:00:00–22:29:02; cắt 22:09:00→22:09:10 trả MP4 H.264 1080p duration 10.00s.
+- 34/34 unittest PASS, py_compile PASS, JS node --check PASS.
+- Commit: `f16d752`.
+- Deploy production 2.1.0 hoàn tất; EXE SHA-256 `f88eb22570632843f32db103598cc014fcb2595dc82a9463f2536e68c3689bbc`; localhost:8004 PASS.
+
+## 2026-09-12 — Timeline-only replay + bảo vệ config
+- Theo yêu cầu mới nhất, replay chuyển hoàn toàn sang timeline; bỏ nhập giờ và bỏ mode chọn giờ cũ.
+- Playhead cố định ở giữa, timeline/ruler kéo bên dưới; NVR coverage màu xanh, gap trống, không thumbnail.
+- Timeline dùng StartTime/EndTime NVR; playback/download dùng `at=` đúng mốc dưới kim sau khi thả kéo.
+- Cut dùng hai mốc datetime tuyệt đối trên toàn ngày, có thể đi qua nhiều segment/gap; backend `/merge` giữ cơ chế báo gap và ghép phần có dữ liệu.
+- GUI Computer Use phát hiện và sau đó xác nhận đã sửa regression Cut→Hủy→Replay làm mất coverage/ruler.
+- Commit chính: `5efc105`; commit regression fix: `338a842`.
+- Kiểm chứng: py_compile PASS, JS node --check PASS, 34/34 unittest PASS, GUI final PASS.
+- Cross-segment Cam 2 `22:28:55→22:30:25`: gap 76s, output phần có dữ liệu H.264 1080p duration 13.21s.
+- Production 8004 deploy bằng cách chỉ thay `release\2.1.0\index.html`; không thay EXE/config.
+- Config workspace giữ SHA `ee7b820bea42c423acb05f15cd548c33706a6e0c981409ad320fec1085d0c8c3`; release config giữ SHA `d0dc0fff575bdc5dc1b3068d0e45861cc92cf56c2370c872fa6fd36672161a98`.
+
+
+## 2026-09-13 +07 ? Direct Imou camera RTSP support
+- Backed up prior source/version states to `backup/source_versions/` before resuming 2.x development.
+- Added local RTSP profiles for Imou/Dahua main/sub (`cam/realmonitor`), optional ONVIF query variant, configured/custom path and legacy fallback.
+- Added non-secret in-memory profile selection cache; successful recording/test profile drives preview URL selection.
+- Refactored local recording to retry RTSP profiles using the real recording attempt, without an extra preflight per segment.
+- Added network/auth/path failure classification and Imou Safety Code guidance without returning RTSP URLs or secrets.
+- Hardened NVR isolation, RTSP error redaction, profile-cache invalidation and video-stream probe (`0:v:0`).
+- Added camera tests; full suite now 46/46 PASS.
+- `config.json` unchanged; no commit.
+
+
+## 2026-09-13 12:20 +07 ? Imou live transport diagnosis
+- Live tested the supplied Imou DDNS endpoint without persisting credentials.
+- Confirmed public TCP reachability including 554/37777, but RTSP 554 resets authenticated main/sub/ONVIF sessions with WinSock `-10054` before RTSP auth/media response.
+- Added RTSP reset classification and user-facing guidance for forward-port/RTSP/TLS/firewall/NAT checks.
+- Added regression test; full suite increased to 47/47 PASS.
+- Config unchanged; no commit.
+
+## 2026-09-13 - Separate Dahua/Imou NetSDK/DVRIP 37777 adapter (implementation ready, live auth blocked)
+- Added dahua_37777.py with official Dahua NetSDK x64 loading, secure high-level login, RealPlay media probe, DHAV recording conversion to MP4, RealData callback preview/snapshot, and normal DVRIP challenge-auth diagnostics.
+- Added vendor/dahua_netsdk runtime DLL set from Dahua support.
+- Integrated local_transport=netsdk into config validation/cleaning, admin camera UI, connection test endpoint, recorder, live MJPEG and snapshot routes while preserving RTSP/NVR isolation.
+- Added regression coverage; full suite is now 56/56 PASS. Python compile, admin JavaScript syntax and git diff checks pass. config.json remains byte-for-byte hash-identical.
+- Live target answers native Dahua 37777 but rejects the current configured credential through both NetSDK and DVRIP. 3.x release intentionally not created until real media succeeds end-to-end.
+
+## 2026-09-19 - NetSDK/DVRIP 37777 retest
+- Corrected the adapter loader so the integrated path accepts an already-resolved SDK directory and loads the official DLL.
+- Retested the existing credential without persisting it: TCP 37777/native DVRIP is reachable but returns `01000100` / `001b0002`; NetSDK returns `0x80000064` password error.
+- Full local gates pass at 57/57 unittest, py_compile, rendered/admin JavaScript syntax; config remains byte-for-byte unchanged.
+- Live media, snapshot, live MJPEG and MP4/ffprobe remain blocked by private authentication rejection; no 3.x artifact or commit created.
+
+- [2026-09-13 13:17:24 +07:00] COMPLETED remove-license-2.1.0: rebuilt from backup/source_versions/2.1.0_pre_restore with license gate bypassed; replaced root+nested CCTV_2.1.0.exe; functional tests skipped per user; commit NONE.
+
+
+## 2026-09-19 - Camera transport cleanup
+- Implemented canonical, transport-disjoint camera configuration for Local NetSDK, Local RTSP, and NVR; removed implicit RTSP fallback from explicit NetSDK paths and aligned replay/list/recording source routing.
+- Added backend/frontend regressions for mode switching, mixed payload rejection, add/remove, zero cameras, reload, NVR isolation, and rendered admin field visibility.
+- Backed up and cleared all camera/table entries in the active workspace/release config copies at backup/camera-config-clean-20260919-141258; preserved global settings, videos, and separate NVR configuration.
+- Local verification: 63/63 unittest, rendered admin JS 1/1, py_compile, diff-check, and authenticated source-runtime 8004 zero-channel smoke PASS. No live media proof or 3.x bump.
+
+## 2026-09-19 - Final status
+- Camera transport cleanup implementation and verification completed, including zero-channel active-config cleanup and restricted backup.
+- Status: COMPLETED after the task-scoped commit. No 3.x release/version bump and no unrelated process termination.
+
+## 2026-09-19 — Đồng bộ quy tắc toàn cục
+
+- Thay AGENTS.md cũ bằng hướng dẫn dự án tham chiếu nguồn toàn cục duy nhất `D:\1\gptagycodex.md` và FAST BOOT.
+- Bỏ quy tắc direct AGY/Codex MCP, tự fallback, timeout/hủy vì im lặng, và Telegram liên kết hội thoại; áp dụng confirmation/comma bypass, strict tool gate, CLI-only, checkpoint 15 phút, verified parent terminal.
+- Cập nhật PROJECT, DECISIONS, STATE, TASKS, HANDOFF; bảo toàn mọi source/config/release và những thay đổi chưa commit đã tồn tại.
+- Kiểm tra diff-check đạt; commit riêng AGENTS.md: `f7a5246`. Các tệp `.project` còn thay đổi cũ nên không commit gộp.
+
+## 2026-09-19 — Finalize all completed camera/Imou/NetSDK work
+
+- Hoàn tất tích hợp dirty product work về canonical camera transports, Imou/Dahua RTSP và adapter Dahua/Imou NetSDK/DVRIP 37777; giữ source, tests, admin UI và vendor runtime assets cùng một commit final.
+- Cập nhật PyInstaller spec 2.1.0 để bundle 10 DLL NetSDK trong `_internal/vendor/dahua_netsdk`; UI HTML và FFmpeg vẫn phát hành cạnh EXE theo convention hiện hành.
+- Verification: py_compile PASS; full unittest **63/63 PASS**; rendered/admin JavaScript **1/1 PASS**; diff-check PASS.
+- PyInstaller 6.16.0 onedir và smoke từ chính EXE PASS; final release smoke `/`, `/admin/login`, `/timeline` đều HTTP 200, cleanup PASS.
+- Artifact `D:\1\cambida\release\2.1.0\CCTV_2.1.0.exe` cùng nested copy có SHA-256 `E5F23EE373665FED3149569C7AB764CC7545321F0D2D1CFAF2314B5F834BC83B`.
+- Giữ version 2.1.0 vì live private NetSDK media chưa có bằng chứng credential hợp lệ/snapshot/frame/MP4; config và media hiện có được bảo toàn.

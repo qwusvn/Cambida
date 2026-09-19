@@ -15,8 +15,23 @@ class NoLicenseGateTests(unittest.TestCase):
         self.assertFalse(hasattr(APP, "refresh_license_state"))
 
     def test_replay_is_not_blocked_by_license(self):
-        response = APP.app.test_client().get("/replay/cam1")
-        self.assertEqual(response.status_code, 200)
+        original_camera_list = APP.CAMERA_LIST
+        APP.CAMERA_LIST = [
+            {
+                "name": "Synthetic camera",
+                "playback_source": "local",
+                "local_transport": "rtsp",
+                "ip": "127.0.0.1",
+                "user": "unit-user",
+                "pass": "unit-pass",
+                "port": 554,
+            }
+        ]
+        try:
+            response = APP.app.test_client().get("/replay/cam1")
+            self.assertEqual(response.status_code, 200)
+        finally:
+            APP.CAMERA_LIST = original_camera_list
 
 
 if __name__ == "__main__":

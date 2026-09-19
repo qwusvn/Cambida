@@ -150,7 +150,7 @@ class NvrPerCameraTests(unittest.TestCase):
 
         local_cam = cleaned["cameras"][0]
         self.assertEqual(local_cam["playback_source"], "local")
-        self.assertNotIn("vendor", local_cam)
+        self.assertEqual(local_cam["vendor"], "dahua")
         self.assertNotIn("host", local_cam)
         self.assertNotIn("nvr_channel", local_cam)
         self.assertNotIn("backup_local", local_cam)
@@ -227,15 +227,15 @@ class NvrPerCameraTests(unittest.TestCase):
         url_hik_sub = APP.build_rtsp_url(hik_cam, "record")
         self.assertIn("/Streaming/Channels/302", url_hik_sub)
 
-    def test_rtsp_timeline_mode_records_all_cameras_locally(self):
-        self.assertTrue(APP.RTSP_LOCAL_TIMELINE_ONLY)
+    def test_source_mode_records_nvr_only_without_local_backup(self):
+        self.assertFalse(APP.RTSP_LOCAL_TIMELINE_ONLY)
         self.assertTrue(APP.should_record_locally({"playback_source": "local"}))
-        self.assertTrue(APP.should_record_locally({"playback_source": "nvr", "backup_local": False}))
+        self.assertFalse(APP.should_record_locally({"playback_source": "nvr", "backup_local": False}))
         self.assertTrue(APP.should_record_locally({"playback_source": "nvr", "backup_local": True}))
 
-    def test_rtsp_timeline_mode_does_not_mutate_persistent_camera_source(self):
+    def test_timeline_mode_follows_persistent_camera_source(self):
         self.assertEqual(APP.CAMERA_LIST[1]["playback_source"], "nvr")
-        self.assertEqual(APP._timeline_playback_mode(2), "local")
+        self.assertEqual(APP._timeline_playback_mode(2), "nvr")
         self.assertEqual(APP.CAMERA_LIST[1]["playback_source"], "nvr")
 
     def test_local_camera_replay_does_not_show_source_selector(self):
@@ -246,7 +246,7 @@ class NvrPerCameraTests(unittest.TestCase):
         self.assertNotIn('id="srcServer1"', body)
         self.assertNotIn("Server 1 - NVR", body)
 
-    def test_nvr_configured_camera_replay_is_forced_to_local_rtsp_timeline(self):
+    def test_nvr_configured_camera_replay_uses_nvr_timeline(self):
         response = self.client.get("/replay/cam2")
         self.assertEqual(response.status_code, 200)
         body = response.get_data(as_text=True)
@@ -254,9 +254,9 @@ class NvrPerCameraTests(unittest.TestCase):
         self.assertNotIn('name="replaySource"', body)
         self.assertNotIn("Server 1 - NVR", body)
         self.assertNotIn("Server 2 - Local", body)
-        self.assertIn('const CAMERA_MODE = "local";', body)
+        self.assertIn('const CAMERA_MODE = "nvr";', body)
 
-    def test_nvr_backup_camera_replay_is_also_forced_to_local_rtsp_timeline(self):
+    def test_nvr_backup_camera_replay_keeps_nvr_as_primary_source(self):
         response = self.client.get("/replay/cam3")
         self.assertEqual(response.status_code, 200)
         body = response.get_data(as_text=True)
@@ -264,9 +264,9 @@ class NvrPerCameraTests(unittest.TestCase):
         self.assertNotIn('name="replaySource"', body)
         self.assertNotIn("Server 1 - NVR", body)
         self.assertNotIn("Server 2 - Local", body)
-        self.assertIn('const CAMERA_MODE = "local";', body)
+        self.assertIn('const CAMERA_MODE = "nvr";', body)
 
-    def test_list_videos_forces_local_rtsp_archive_even_when_nvr_is_requested(self):
+    def test_list_videos_allows_backup_local_but_keeps_nvr_isolated(self):
         filename = "cam3_10-00-00_to_10-05-00_(11-09-2026).mp4"
         other_day = "cam3_10-00-00_to_10-05-00_(12-09-2026).mp4"
         self.touch(filename)
@@ -278,20 +278,28 @@ class NvrPerCameraTests(unittest.TestCase):
         self.assertIn(filename, names)
         self.assertNotIn(other_day, names)
 
-        with patch.object(APP, "_search_hikvision_camera") as nvr_search:
+        segment = {
+            "filename": "nvr_cam3_10-00-00",
+            "play_url": "/nvr/video/token-3",
+            "download_url": "/nvr/download/token-3",
+            "started_at": "2026-09-11T10:00:00",
+            "end_at": "2026-09-11T10:05:00",
+            "duration_sec": 300,
+        }
+        with patch.object(APP, "_search_hikvision_camera", return_value=[segment]) as nvr_search:
             res_nvr = self.client.get("/list/cam3?source=nvr&date=2026-09-11")
         self.assertEqual(res_nvr.status_code, 200)
-        nvr_search.assert_not_called()
+        nvr_search.assert_called_once()
         items = res_nvr.get_json()
-        self.assertEqual([item["name"] for item in items], [filename])
-        self.assertEqual(items[0]["source"], "local")
-        self.assertTrue(items[0]["url"].startswith("/video/"))
+        self.assertEqual([item["name"] for item in items], [segment["filename"]])
+        self.assertEqual(items[0]["source"], "nvr")
+        self.assertTrue(items[0]["url"].startswith("/nvr/video/"))
 
-    def test_rtsp_replay_page_keeps_timeline_only_ui(self):
+    def test_nvr_replay_page_keeps_timeline_only_ui(self):
         response = self.client.get("/replay/cam2")
         self.assertEqual(response.status_code, 200)
         body = response.get_data(as_text=True)
-        self.assertIn('const CAMERA_MODE = "local";', body)
+        self.assertIn('const CAMERA_MODE = "nvr";', body)
         self.assertNotIn('type="time"', body)
         self.assertNotIn('name="replaySource"', body)
         self.assertNotIn("Server 1", body)
@@ -339,16 +347,16 @@ class NvrPerCameraTests(unittest.TestCase):
         self.assertEqual(parts[1]["start"], datetime.fromisoformat("2026-09-12T22:14:00"))
         self.assertEqual(parts[1]["end"], datetime.fromisoformat("2026-09-12T22:19:00"))
 
-    def test_merge_route_uses_local_archive_while_rtsp_timeline_mode_is_active(self):
+    def test_merge_route_uses_nvr_when_camera_source_is_nvr(self):
         with patch.object(APP, "_camera_playback_mode", return_value="nvr"), patch.object(
-            APP, "_merge_nvr_response"
+            APP, "_merge_nvr_response", return_value=APP.Response("nvr", status=200)
         ) as merge_nvr, patch.object(APP.glob, "glob", return_value=[]):
             response = self.client.get(
                 "/merge?cam_id=2&start=2026-09-12T22:09:00&end=2026-09-12T22:10:00"
             )
         self.assertEqual(response.status_code, 200)
-        merge_nvr.assert_not_called()
-        self.assertIn("error:", response.get_data(as_text=True))
+        merge_nvr.assert_called_once()
+        self.assertEqual(response.get_data(as_text=True), "nvr")
 
 
 if __name__ == "__main__":

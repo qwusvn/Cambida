@@ -52,6 +52,8 @@ from flask import (
 )
 from PIL import Image, ImageDraw
 
+from dahua_37777 import Dahua37777Adapter, Dahua37777Error, netsdk_available
+
 try:
     import qrcode
 except ImportError:
@@ -103,6 +105,231 @@ def _ensure_first_run_files():
 _ensure_first_run_files()
 
 
+_CAMERA_IDENTITY_KEYS = ("name", "id", "camera_id", "uuid")
+_LOCAL_RTSP_ONLY_KEYS = frozenset(
+    {
+        "port",
+        "record_path",
+        "preview_path",
+        "record_rtsp_url",
+        "preview_rtsp_url",
+        "vendor",
+        "rtsp_channel",
+        "channel",
+    }
+)
+_LOCAL_NETSDK_ONLY_KEYS = frozenset(
+    {"netsdk_port", "netsdk_channel", "netsdk_stream"}
+)
+_NVR_ONLY_KEYS = frozenset(
+    {
+        "host",
+        "http_port",
+        "rtsp_port",
+        "nvr_channel",
+        "stream",
+        "backup_local",
+        "timezone_offset_minutes",
+        "connect_timeout_sec",
+        "read_timeout_sec",
+        "playback_chunk_sec",
+        "max_search_pages",
+        "use_https",
+        "verify_tls",
+        "nvr_vendor",
+        "nvr",
+    }
+)
+_LEGACY_CAMERA_KEYS = frozenset({"username", "password", "channel", "nvr_vendor", "nvr"})
+
+
+def _coerce_int(value, default):
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+
+
+def _camera_value_present(camera, key):
+    return key in camera and camera.get(key) not in (None, "")
+
+
+def _normalise_camera_entry(camera, index):
+    """Return one canonical, transport-disjoint camera entry.
+
+    This is intentionally a whitelist rather than an in-place cleanup. A mode
+    switch must not carry fields owned by the previous transport into the next
+    saved payload or runtime object.
+    """
+    if not isinstance(camera, dict):
+        return None
+
+    source = str(camera.get("playback_source", "local")).strip().lower()
+    source = source if source in {"local", "nvr"} else "local"
+    nested_nvr = camera.get("nvr") if isinstance(camera.get("nvr"), dict) else {}
+    result = {key: camera[key] for key in _CAMERA_IDENTITY_KEYS if key in camera}
+    result["playback_source"] = source
+
+    if source == "nvr":
+        vendor = str(
+            camera.get("vendor")
+            or camera.get("nvr_vendor")
+            or nested_nvr.get("vendor")
+            or "hikvision"
+        ).strip().lower()
+        if vendor not in {"hikvision", "dahua"}:
+            vendor = "hikvision"
+        host = str(
+            camera.get("host")
+            or camera.get("ip")
+            or nested_nvr.get("host")
+            or ""
+        ).strip()
+        username = str(
+            camera.get("user")
+            or camera.get("username")
+            or nested_nvr.get("username")
+            or ""
+        ).strip()
+        if camera.get("pass") is not None:
+            password = str(camera.get("pass"))
+        elif camera.get("password") is not None:
+            password = str(camera.get("password"))
+        else:
+            password = str(nested_nvr.get("password") or "")
+        channel = _coerce_int(
+            camera.get("nvr_channel")
+            or camera.get("channel")
+            or nested_nvr.get("channel")
+            or index,
+            index,
+        )
+        result.update(
+            {
+                "vendor": vendor,
+                "host": host,
+                "http_port": _coerce_int(
+                    camera.get("http_port")
+                    or nested_nvr.get("http_port")
+                    or (81 if vendor == "dahua" else 80),
+                    81 if vendor == "dahua" else 80,
+                ),
+                "rtsp_port": _coerce_int(
+                    camera.get("rtsp_port")
+                    or camera.get("port")
+                    or nested_nvr.get("rtsp_port")
+                    or 554,
+                    554,
+                ),
+                "user": username,
+                "pass": password,
+                "nvr_channel": max(1, channel),
+                "stream": "sub"
+                if str(camera.get("stream") or nested_nvr.get("stream") or "main").strip().lower()
+                == "sub"
+                else "main",
+                "backup_local": bool(camera.get("backup_local", False)),
+                "timezone_offset_minutes": _coerce_int(
+                    camera.get("timezone_offset_minutes")
+                    or nested_nvr.get("timezone_offset_minutes")
+                    or 420,
+                    420,
+                ),
+                "connect_timeout_sec": max(
+                    1,
+                    _coerce_int(
+                        camera.get("connect_timeout_sec")
+                        or nested_nvr.get("connect_timeout_sec")
+                        or 5,
+                        5,
+                    ),
+                ),
+                "read_timeout_sec": max(
+                    5,
+                    _coerce_int(
+                        camera.get("read_timeout_sec")
+                        or nested_nvr.get("read_timeout_sec")
+                        or 30,
+                        30,
+                    ),
+                ),
+                "playback_chunk_sec": max(
+                    30,
+                    min(
+                        3600,
+                        _coerce_int(
+                            camera.get("playback_chunk_sec")
+                            or nested_nvr.get("playback_chunk_sec")
+                            or 300,
+                            300,
+                        ),
+                    ),
+                ),
+                "use_https": bool(camera.get("use_https", nested_nvr.get("use_https", False))),
+                "verify_tls": bool(camera.get("verify_tls", nested_nvr.get("verify_tls", False))),
+            }
+        )
+        if "max_search_pages" in camera or "max_search_pages" in nested_nvr:
+            result["max_search_pages"] = max(
+                1,
+                min(
+                    50,
+                    _coerce_int(
+                        camera.get("max_search_pages")
+                        or nested_nvr.get("max_search_pages")
+                        or 12,
+                        12,
+                    ),
+                ),
+            )
+        return result
+
+    result["ip"] = str(camera.get("ip") or camera.get("host") or "").strip()
+    result["user"] = str(camera.get("user") or camera.get("username") or "").strip()
+    if camera.get("pass") is not None:
+        result["pass"] = str(camera.get("pass"))
+    elif camera.get("password") is not None:
+        result["pass"] = str(camera.get("password"))
+    else:
+        result["pass"] = ""
+
+    transport = str(camera.get("local_transport", "rtsp") or "rtsp").strip().lower()
+    transport = transport if transport in {"rtsp", "netsdk"} else "rtsp"
+    result["local_transport"] = transport
+    if transport == "netsdk":
+        result.update(
+            {
+                "netsdk_port": _coerce_int(camera.get("netsdk_port") or 37777, 37777),
+                "netsdk_channel": max(
+                    1, _coerce_int(camera.get("netsdk_channel") or 1, 1)
+                ),
+                "netsdk_stream": "sub"
+                if str(camera.get("netsdk_stream") or "main").strip().lower() == "sub"
+                else "main",
+            }
+        )
+        return result
+
+    result["port"] = _coerce_int(camera.get("port") or camera.get("rtsp_port") or 554, 554)
+    result["record_path"] = str(
+        camera.get("record_path") or "h264/ch1/main/av_stream"
+    ).strip()
+    result["preview_path"] = str(
+        camera.get("preview_path") or "h264/ch1/sub/av_stream"
+    ).strip()
+    for key in ("record_rtsp_url", "preview_rtsp_url"):
+        if _camera_value_present(camera, key):
+            result[key] = str(camera[key]).strip()
+    if _camera_value_present(camera, "vendor"):
+        result["vendor"] = str(camera["vendor"]).strip().lower()
+    rtsp_channel = camera.get("rtsp_channel")
+    if rtsp_channel in (None, ""):
+        rtsp_channel = camera.get("channel")
+    if rtsp_channel not in (None, ""):
+        result["rtsp_channel"] = _coerce_int(rtsp_channel, 1)
+    return result
+
+
 def migrate_config_data(raw_config):
     if not isinstance(raw_config, dict):
         return raw_config
@@ -117,7 +344,6 @@ def migrate_config_data(raw_config):
         migrated_cameras = []
         for index, cam in enumerate(cameras, start=1):
             if not isinstance(cam, dict):
-                migrated_cameras.append(cam)
                 continue
             cam_entry = dict(cam)
             explicit_mode = str(cam_entry.get("playback_source", "")).strip().lower()
@@ -141,10 +367,6 @@ def migrate_config_data(raw_config):
             if cam_entry["playback_source"] == "nvr":
                 if not cam_entry.get("nvr_channel"):
                     cam_entry["nvr_channel"] = global_channel_map.get(str(index), index)
-                try:
-                    cam_entry["nvr_channel"] = int(cam_entry["nvr_channel"])
-                except (TypeError, ValueError):
-                    cam_entry["nvr_channel"] = index
 
                 legacy_shared_nvr = bool(global_nvr.get("host")) and not str(cam.get("host") or "").strip()
                 if not cam_entry.get("host") and global_nvr.get("host"):
@@ -171,9 +393,10 @@ def migrate_config_data(raw_config):
                     cam_entry["stream"] = global_nvr.get("stream")
                 if "backup_local" not in cam_entry:
                     cam_entry["backup_local"] = False
-                cam_entry.pop("ip", None)
-                cam_entry.pop("port", None)
-            migrated_cameras.append(cam_entry)
+
+            canonical = _normalise_camera_entry(cam_entry, index)
+            if canonical is not None:
+                migrated_cameras.append(canonical)
         cfg["cameras"] = migrated_cameras
     cfg.pop("playback_source", None)
     return cfg
@@ -183,51 +406,12 @@ def clean_config_for_saving(candidate):
     cfg = dict(candidate)
     cfg.pop("retention_days", None)
     cfg.pop("playback_source", None)
-
     cameras = cfg.get("cameras", [])
-    clean_cameras = []
-    for index, cam in enumerate(cameras, start=1):
-        if not isinstance(cam, dict):
-            continue
-        c = dict(cam)
-        source = str(c.get("playback_source", "local")).strip().lower()
-        if source not in {"local", "nvr"}:
-            source = "local"
-        c["playback_source"] = source
-        if source == "local":
-            for k in (
-                "backup_local", "nvr_channel", "http_port", "rtsp_port", "host", "vendor",
-                "timezone_offset_minutes", "connect_timeout_sec", "read_timeout_sec",
-                "playback_chunk_sec", "use_https", "verify_tls", "stream",
-            ):
-                c.pop(k, None)
-            c["port"] = int(c.get("port", 554) or 554)
-            c["record_path"] = c.get("record_path", "h264/ch1/main/av_stream")
-            c["preview_path"] = c.get("preview_path", "h264/ch1/sub/av_stream")
-        else:
-            c["backup_local"] = bool(c.get("backup_local", False))
-            vendor = str(c.get("vendor", "hikvision")).strip().lower()
-            c["vendor"] = vendor if vendor in {"hikvision", "dahua"} else "hikvision"
-            c["host"] = str(c.get("host") or c.get("ip") or "").strip()
-            c["http_port"] = int(c.get("http_port", 80 if c["vendor"] == "hikvision" else 81) or 80)
-            c["rtsp_port"] = int(c.get("rtsp_port") or c.get("port", 554) or 554)
-            c["user"] = str(c.get("user") or c.get("username") or "admin").strip()
-            c["pass"] = str(c.get("pass") if c.get("pass") is not None else c.get("password", ""))
-            try:
-                c["nvr_channel"] = int(c.get("nvr_channel") or index)
-            except (TypeError, ValueError):
-                c["nvr_channel"] = index
-            c["stream"] = str(c.get("stream", "main")).strip().lower() or "main"
-            # NVR cards are self-contained. Local camera RTSP fields must never
-            # leak into NVR backup recording; backup is built from this NVR card.
-            for k in ("record_path", "preview_path", "record_rtsp_url", "preview_rtsp_url"):
-                c.pop(k, None)
-            c.pop("username", None)
-            c.pop("password", None)
-            c.pop("ip", None)
-            c.pop("port", None)
-        clean_cameras.append(c)
-    cfg["cameras"] = clean_cameras
+    cfg["cameras"] = [
+        canonical
+        for index, camera in enumerate(cameras if isinstance(cameras, list) else [], start=1)
+        if (canonical := _normalise_camera_entry(camera, index)) is not None
+    ]
     return cfg
 
 
@@ -400,10 +584,12 @@ RETENTION_DAYS = CONFIG.get("retention_days", 30)
 DURATION = CONFIG.get("record_duration_sec", 300)
 TIMEOUT = CONFIG.get("record_timeout_sec", 330)
 MAX_MERGE_MINUTES = CONFIG.get("max_merge_minutes", 60)
-# Temporary product direction: replay/cut/timeline read only the local MP4 archive
-# produced by RTSP recording. NVR configuration and adapters remain intact so the
-# project can return to recorder playback later without rewriting config.json.
-RTSP_LOCAL_TIMELINE_ONLY = True
+# Keep this legacy flag for callers that still inspect it, but source selection is
+# now always derived from each camera. NVR cameras must not be silently rewritten
+# to the local RTSP archive.
+RTSP_LOCAL_TIMELINE_ONLY = False
+RTSP_PROFILE_CACHE = {}
+RTSP_PROFILE_LOCK = threading.RLock()
 CAM_LAST_SUCCESS = {}
 CAM_LAST_START = {}
 CAM_LAST_ERROR = {}
@@ -585,16 +771,12 @@ def _camera_playback_mode(cam_id, playback=None):
 
 def _timeline_playback_mode(cam_id):
     """Return the active replay source without mutating persistent camera config."""
-    if RTSP_LOCAL_TIMELINE_ONLY:
-        return "local"
     return _camera_playback_mode(cam_id)
 
 
 def should_record_locally(camera):
     if not isinstance(camera, dict):
         return False
-    if RTSP_LOCAL_TIMELINE_ONLY:
-        return True
     mode = str(camera.get("playback_source", "local")).strip().lower()
     if mode == "nvr":
         return bool(camera.get("backup_local", False))
@@ -1406,7 +1588,45 @@ def validate_config(candidate):
         if mode == "local":
             if not all(camera.get(key) for key in ("ip", "user", "pass")):
                 return f"Camera {index} cần có ip, user và pass cho luồng Local."
-            if "port" in camera:
+            transport = str(camera.get("local_transport", "rtsp")).strip().lower()
+            if transport not in {"rtsp", "netsdk"}:
+                return f"Camera {index}: local_transport chi nhan rtsp hoac netsdk."
+            if transport == "netsdk":
+                mixed_keys = sorted(
+                    key
+                    for key in (_LOCAL_RTSP_ONLY_KEYS | _NVR_ONLY_KEYS)
+                    if key in camera
+                )
+                if mixed_keys:
+                    return (
+                        f"Camera {index}: NetSDK không nhận trường RTSP/NVR cũ: "
+                        + ", ".join(mixed_keys)
+                        + "."
+                    )
+                try:
+                    private_port = int(camera.get("netsdk_port", 37777) or 37777)
+                    private_channel = int(camera.get("netsdk_channel", 1) or 1)
+                except (TypeError, ValueError):
+                    return f"Camera {index}: cau hinh NetSDK 37777 khong hop le."
+                if not 1 <= private_port <= 65535:
+                    return f"Camera {index}: netsdk_port nam ngoai pham vi 1-65535."
+                if private_channel < 1:
+                    return f"Camera {index}: netsdk_channel phai tu 1 tro len."
+                if str(camera.get("netsdk_stream", "main")).strip().lower() not in {"main", "sub"}:
+                    return f"Camera {index}: netsdk_stream chi nhan main hoac sub."
+            else:
+                mixed_keys = sorted(
+                    key
+                    for key in (_LOCAL_NETSDK_ONLY_KEYS | _NVR_ONLY_KEYS | _LEGACY_CAMERA_KEYS)
+                    if key in camera
+                )
+                if mixed_keys:
+                    return (
+                        f"Camera {index}: RTSP không nhận trường NetSDK/NVR cũ: "
+                        + ", ".join(mixed_keys)
+                        + "."
+                    )
+            if transport == "rtsp" and "port" in camera:
                 try:
                     port = int(camera["port"])
                     if not 1 <= port <= 65535:
@@ -1414,6 +1634,22 @@ def validate_config(candidate):
                 except (TypeError, ValueError):
                     return f"Camera {index}: port camera không hợp lệ."
         elif mode == "nvr":
+            mixed_keys = sorted(
+                key
+                for key in (
+                    (_LOCAL_RTSP_ONLY_KEYS - {"vendor"})
+                    | _LOCAL_NETSDK_ONLY_KEYS
+                    | {"ip", "local_transport"}
+                    | _LEGACY_CAMERA_KEYS
+                )
+                if key in camera
+            )
+            if mixed_keys:
+                return (
+                    f"Camera {index} (NVR) không nhận trường Local cũ: "
+                    + ", ".join(mixed_keys)
+                    + "."
+                )
             host = str(camera.get("host") or camera.get("ip") or "").strip()
             user = str(camera.get("user") or camera.get("username") or "").strip()
             if not host or not user:
@@ -1512,11 +1748,243 @@ def admin_required(view):
     return wrapped
 
 
-def build_rtsp_url(camera, stream):
-    """Build an RTSP URL or use a per-camera direct URL override."""
+LOCAL_RTSP_DEFAULT_PATHS = {
+    "record": "h264/ch1/main/av_stream",
+    "preview": "h264/ch1/sub/av_stream",
+}
+
+
+def _camera_profile_cache_key(camera):
+    """Return a non-secret identity/config key for a local camera profile."""
+    if not isinstance(camera, dict):
+        return None
+    host = str(camera.get("ip") or camera.get("host") or "").strip().casefold()
+    if not host:
+        return None
+    identity = camera.get("id") or camera.get("camera_id") or camera.get("uuid")
+    port = str(camera.get("port", 554) or 554).strip()
+    channel = camera.get("rtsp_channel")
+    if channel in (None, ""):
+        channel = camera.get("channel")
+    channel = str(channel if channel not in (None, "") else 1).strip()
+    vendor = str(camera.get("vendor") or "").strip().lower()
+    record_path = str(camera.get("record_path") or "").strip()
+    preview_path = str(camera.get("preview_path") or "").strip()
+    return (
+        str(identity).strip() if identity is not None else "",
+        host,
+        port,
+        channel,
+        vendor,
+        record_path,
+        preview_path,
+    )
+
+
+def _get_cached_rtsp_profile(camera):
+    cache_key = _camera_profile_cache_key(camera)
+    if cache_key is None:
+        return None
+    with RTSP_PROFILE_LOCK:
+        return RTSP_PROFILE_CACHE.get(cache_key)
+
+
+def _remember_rtsp_profile(camera, profile):
+    """Remember only a profile label; never persist or cache an RTSP URL."""
+    if not profile or profile in {"direct", "nvr"}:
+        return
+    cache_key = _camera_profile_cache_key(camera)
+    if cache_key is None:
+        return
+    with RTSP_PROFILE_LOCK:
+        RTSP_PROFILE_CACHE[cache_key] = str(profile)
+
+
+def _local_rtsp_channel(camera):
+    for key in ("rtsp_channel", "channel"):
+        value = camera.get(key) if isinstance(camera, dict) else None
+        if value not in (None, ""):
+            return quote(str(value).strip(), safe="")
+    return "1"
+
+
+def _local_rtsp_url(camera, path, add_timeout=True):
+    path = str(path or "").lstrip("/")
+    if add_timeout:
+        path_without_fragment, fragment_sep, fragment = path.partition("#")
+        if not re.search(r"(?:[?&])timeout=", path_without_fragment, re.IGNORECASE):
+            separator = "&" if "?" in path_without_fragment else "?"
+            path_without_fragment += f"{separator}timeout=20000000"
+        path = path_without_fragment + (f"#{fragment}" if fragment_sep else "")
+    user = quote(str(camera.get("user", "") or ""), safe="")
+    password = quote(str(camera.get("pass", "") or ""), safe="")
+    host = camera.get("ip") or camera.get("host") or ""
+    port = camera.get("port", 554) or 554
+    return f"rtsp://{user}:{password}@{host}:{port}/{path}"
+
+
+def _local_profile_path(camera, stream, profile):
+    default_path = LOCAL_RTSP_DEFAULT_PATHS[stream]
+    if profile == "configured":
+        configured = camera.get(f"{stream}_path")
+        return str(configured if configured not in (None, "") else default_path).lstrip("/")
+    if profile in {"legacy"}:
+        return default_path
+    if profile in {"imou", "dahua", "imou_onvif", "dahua_onvif"}:
+        subtype = 0 if stream == "record" else 1
+        path = (
+            f"cam/realmonitor?channel={_local_rtsp_channel(camera)}"
+            f"&subtype={subtype}"
+        )
+        if profile in {"imou_onvif", "dahua_onvif"}:
+            path += "&unicast=true&proto=Onvif"
+        return path
+    return None
+
+
+def _local_rtsp_candidates(camera, stream):
+    """Return ordered local candidates without changing persistent config."""
+    if stream not in LOCAL_RTSP_DEFAULT_PATHS:
+        raise ValueError(f"Unsupported local RTSP stream: {stream}")
+
     direct_url = camera.get(f"{stream}_rtsp_url")
     if direct_url:
-        return str(direct_url)
+        return [{"profile": "direct", "url": str(direct_url)}]
+
+    configured = camera.get(f"{stream}_path")
+    configured_path = str(
+        configured if configured not in (None, "") else LOCAL_RTSP_DEFAULT_PATHS[stream]
+    ).lstrip("/")
+    is_legacy_configured = configured_path == LOCAL_RTSP_DEFAULT_PATHS[stream]
+    vendor = str(camera.get("vendor") or "").strip().lower()
+    is_dahua_family = vendor in {"imou", "dahua"}
+    standard_profile = "dahua" if vendor == "dahua" else "imou"
+    onvif_profile = "dahua_onvif" if vendor == "dahua" else "imou_onvif"
+    cached_profile = _get_cached_rtsp_profile(camera)
+
+    candidates = []
+    seen_urls = set()
+
+    def add_profile(profile):
+        path = _local_profile_path(camera, stream, profile)
+        if path is None:
+            return
+        # Keep the historical timeout query only for legacy/custom camera paths.
+        # Dahua/Imou realmonitor URLs should stay in their documented form.
+        add_timeout = profile in {"configured", "legacy"} and not path.lower().startswith("cam/realmonitor?")
+        url = _local_rtsp_url(camera, path, add_timeout=add_timeout)
+        if url in seen_urls:
+            return
+        seen_urls.add(url)
+        candidates.append({"profile": profile, "url": url})
+
+    if cached_profile:
+        add_profile(cached_profile)
+
+    # Explicit Imou/Dahua cards prefer the family profile. A legacy default
+    # without a vendor is also promoted so existing Imou cameras work without
+    # rewriting their saved path.
+    if is_dahua_family or (not vendor or vendor == "auto") and is_legacy_configured:
+        add_profile(standard_profile)
+        add_profile(onvif_profile)
+        if not is_legacy_configured:
+            add_profile("configured")
+    else:
+        add_profile("configured")
+        add_profile(standard_profile)
+        add_profile(onvif_profile)
+
+    add_profile("legacy")
+    return candidates
+
+
+def get_rtsp_candidates(camera, stream):
+    """Return generated candidates; NVR always stays on its single recorder URL."""
+    mode = str(camera.get("playback_source", "local")).strip().lower()
+    if mode == "nvr":
+        return [{"profile": "nvr", "url": build_rtsp_url(camera, stream)}]
+    direct_url = camera.get(f"{stream}_rtsp_url")
+    if direct_url:
+        return [{"profile": "direct", "url": str(direct_url)}]
+    return _local_rtsp_candidates(camera, stream)
+
+
+def _rtsp_error_text(value):
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value or "")
+
+
+def _sanitize_rtsp_error(value, camera=None):
+    """Remove RTSP userinfo and configured credentials before logs/alerts."""
+    text = _rtsp_error_text(value)
+    text = re.sub(r"(?i)\b(rtsps?://)([^/\s@]+)@", r"\1***:***@", text)
+    if isinstance(camera, dict):
+        for key in ("user", "username", "pass", "password"):
+            secret = camera.get(key)
+            if secret in (None, ""):
+                continue
+            secret = str(secret)
+            text = text.replace(secret, "***")
+            encoded = quote(secret, safe="")
+            if encoded != secret:
+                text = text.replace(encoded, "***")
+    return text
+
+
+def _rtsp_error_kind(error_text):
+    error_text = _rtsp_error_text(error_text).lower()
+    if any(word in error_text for word in (
+        "401", "unauthorized", "authentication failed", "invalid credentials",
+        "access denied", "forbidden",
+    )):
+        return "auth"
+    if any(word in error_text for word in (
+        "connection reset", "forcibly closed by the remote host", "error number -10054",
+        "winerror 10054", "wsaeconnreset",
+    )):
+        return "reset"
+    if any(word in error_text for word in (
+        "connection refused", "failed to connect", "timed out", "timeout",
+        "network is unreachable", "no route", "connection timed out",
+        "could not resolve host", "name or service not known", "unreachable",
+    )):
+        return "network"
+    if any(word in error_text for word in (
+        "404", "not found", "invalid data found", "method not allowed",
+        "no such file", "server returned 400", "unsupported protocol",
+    )):
+        return "path"
+    return "stream"
+
+
+def _rtsp_failure_message(kind, camera, attempted_profiles):
+    if kind == "auth":
+        imou_attempted = (
+            str(camera.get("vendor") or "").strip().lower() == "imou"
+            or any(profile in {"imou", "imou_onvif"} for profile in attempted_profiles)
+        )
+        if imou_attempted:
+            return (
+                "Kết nối thất bại: sai tài khoản hoặc mật khẩu. Với Imou, "
+                "thường dùng admin + Safety Code (Mã an toàn) của thiết bị, "
+                "không phải mật khẩu tài khoản Imou."
+            )
+        return "Kết nối thất bại: sai tài khoản hoặc mật khẩu."
+    if kind == "reset":
+        return (
+            "Kết nối thất bại: camera/router đã reset phiên RTSP. "
+            "Kiểm tra forward port 554, RTSP/TLS và firewall/NAT."
+        )
+    if kind == "network":
+        return "Kết nối thất bại: không truy cập được IP/port camera."
+    if kind == "path":
+        return "Kết nối thất bại: sai đường dẫn RTSP hoặc camera không hỗ trợ luồng này."
+    return "Kết nối thất bại: camera không trả về luồng video."
+
+
+def build_rtsp_url(camera, stream):
+    """Build an RTSP URL, preferring a known local profile."""
     mode = str(camera.get("playback_source", "local")).strip().lower()
     if mode == "nvr":
         rec = get_camera_recorder_config(camera)
@@ -1540,24 +2008,63 @@ def build_rtsp_url(camera, stream):
             track_chan = int(channel) * 100 + stream_idx
             return f"rtsp://{user}:{pwd}@{host}:{port}/Streaming/Channels/{track_chan}"
 
-    default_paths = {
-        "record": "h264/ch1/main/av_stream",
-        "preview": "h264/ch1/sub/av_stream",
-    }
-    path = str(camera.get(f"{stream}_path", default_paths[stream])).lstrip("/")
-    separator = "&" if "?" in path else "?"
-    return (
-        f"rtsp://{quote(str(camera.get('user', '')), safe='')}:{quote(str(camera.get('pass', '')), safe='')}"
-        f"@{camera.get('ip', '')}:{camera.get('port', 554)}/{path}{separator}timeout=20000000"
-    )
+    direct_url = camera.get(f"{stream}_rtsp_url")
+    if direct_url:
+        return str(direct_url)
+    candidates = _local_rtsp_candidates(camera, stream)
+    return candidates[0]["url"] if candidates else None
+
+
+def _local_transport(camera):
+    value = str(camera.get("local_transport", "rtsp") or "rtsp").strip().lower()
+    return "netsdk" if value in {"netsdk", "dahua37777", "37777"} else "rtsp"
+
+
+def _netsdk_base_dir():
+    if netsdk_available(BUNDLE_DIR):
+        return BUNDLE_DIR
+    return BASE_DIR
 
 
 def test_camera_connection(camera):
-    """Probe the configured recording stream without creating a video file."""
+    """Probe the selected local transport without returning a URL or secret."""
+    if _local_transport(camera) == "netsdk":
+        try:
+            result = Dahua37777Adapter.from_camera(camera, base_dir=_netsdk_base_dir()).probe(
+                require_media=True,
+                media_seconds=3.0,
+            )
+            return {
+                "ok": bool(result.ok and result.media_ok),
+                "message": result.message,
+                "profile": "netsdk37777",
+                "transport": "netsdk",
+                "channels": result.channels,
+                "sdk_error": f"0x{result.sdk_error:08X}" if result.sdk_error else None,
+            }
+        except Exception as exc:
+            logger.warning("[CamTest] NetSDK 37777 failed: %s", exc)
+            return {
+                "ok": False,
+                "message": f"NetSDK 37777: {exc}",
+                "profile": "netsdk37777",
+                "transport": "netsdk",
+            }
+
     if not os.path.exists(FFMPEG_PATH):
         return {"ok": False, "message": "Không tìm thấy ffmpeg.exe cạnh ứng dụng."}
+
     try:
-        rtsp_url = build_rtsp_url(camera, "record")
+        candidates = get_rtsp_candidates(camera, "record")
+    except Exception as exc:
+        logger.warning("[CamTest] Không tạo được candidate RTSP: %s", exc)
+        return {"ok": False, "message": "Cấu hình đường dẫn RTSP không hợp lệ."}
+
+    attempted_profiles = []
+    last_kind = "stream"
+    for candidate in candidates:
+        profile = candidate["profile"]
+        attempted_profiles.append(profile)
         cmd = [
             FFMPEG_PATH,
             "-hide_banner",
@@ -1568,40 +2075,55 @@ def test_camera_connection(camera):
             "-rtsp_flags",
             "prefer_tcp",
             "-i",
-            rtsp_url,
+            candidate["url"],
+            "-map",
+            "0:v:0",
             "-t",
             "3",
             "-f",
             "null",
             "-",
         ]
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            timeout=12,
-            creationflags=subprocess.CREATE_NO_WINDOW,
-            encoding="utf-8",
-            errors="replace",
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                timeout=12,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                encoding="utf-8",
+                errors="replace",
+            )
+        except subprocess.TimeoutExpired:
+            last_kind = "network"
+            break
+        except Exception as exc:
+            logger.warning("[CamTest] Lỗi kiểm tra camera: %s", exc)
+            return {"ok": False, "message": "Không thể chạy kiểm tra kết nối trên máy này."}
+
         if result.returncode == 0:
-            return {"ok": True, "message": "Kết nối thành công, đã nhận được luồng video."}
-        error_text = (result.stderr or "").lower()
-        if any(word in error_text for word in ("401", "unauthorized", "authentication failed", "invalid credentials")):
-            message = "Kết nối thất bại: sai tài khoản hoặc mật khẩu."
-        elif any(word in error_text for word in ("connection refused", "failed to connect", "timed out", "timeout", "network is unreachable", "no route", "connection reset")):
-            message = "Kết nối thất bại: không truy cập được IP/port camera."
-        elif any(word in error_text for word in ("404", "not found", "invalid data found", "method not allowed")):
-            message = "Kết nối thất bại: sai đường dẫn RTSP hoặc camera không hỗ trợ luồng này."
-        else:
-            message = "Kết nối thất bại: camera không trả về luồng video."
-        logger.warning("[CamTest] FFmpeg kiểm tra camera thất bại (mã %s).", result.returncode)
-        return {"ok": False, "message": message}
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "message": "Kết nối thất bại: camera phản hồi quá chậm (timeout)."}
-    except Exception as exc:
-        logger.warning("[CamTest] Lỗi kiểm tra camera: %s", exc)
-        return {"ok": False, "message": "Không thể chạy kiểm tra kết nối trên máy này."}
+            _remember_rtsp_profile(camera, profile)
+            return {
+                "ok": True,
+                "message": "Kết nối thành công, đã nhận được luồng video.",
+                "profile": profile,
+            }
+
+        last_kind = _rtsp_error_kind(result.stderr)
+        logger.warning(
+            "[CamTest] Profile RTSP %s thất bại (mã %s).",
+            profile,
+            result.returncode,
+        )
+        # A dead host/port or rejected credentials cannot be fixed by trying
+        # more paths. Path/media errors do use the ordered fallback list.
+        if last_kind in {"network", "reset", "auth"}:
+            break
+
+    return {
+        "ok": False,
+        "message": _rtsp_failure_message(last_kind, camera, attempted_profiles),
+    }
 
 
 def get_real_video_path():
@@ -1680,6 +2202,96 @@ def _stop_process(cam_id):
         logger.warning(f"[Cam {cam_id}] Không thể dừng FFmpeg: {e}")
 
 
+def _run_recording_attempt(cam_id, rtsp_url, temp_filepath, stop_event):
+    """Run one real recording attempt; candidate fallback is not a preflight."""
+    cmd = [
+        FFMPEG_PATH,
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-thread_queue_size",
+        "1024",
+        "-rtsp_transport",
+        "tcp",
+        "-rtsp_flags",
+        "prefer_tcp",
+        "-fflags",
+        "+genpts",
+        "-use_wallclock_as_timestamps",
+        "1",
+        "-rtbufsize",
+        "500M",
+        "-i",
+        rtsp_url,
+        "-t",
+        str(DURATION),
+    ]
+    # Giữ nguyên cơ chế ghi: copy trực tiếp luồng camera vào MP4, không
+    # chuyển mã và không thay đổi tốc độ/độ phân giải.
+    cmd.extend(["-vcodec", "copy", "-f", "mp4", temp_filepath])
+    proc = None
+    last_err = ""
+    timed_out = False
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            encoding="utf-8",
+            errors="replace",
+        )
+        with CAMERA_LOCK:
+            CAM_PROCESSES[cam_id] = proc
+        started = time.monotonic()
+        while proc.poll() is None and not stop_event.wait(0.5):
+            if time.monotonic() - started > TIMEOUT:
+                timed_out = True
+                logger.warning(f"[Cam {cam_id}] FFmpeg quá {TIMEOUT} giây, đang dừng tiến trình.")
+                _stop_process(cam_id)
+                break
+        if stop_event.is_set() and proc.poll() is None:
+            _stop_process(cam_id)
+        try:
+            _, stderr = proc.communicate(timeout=10)
+            last_err = (_rtsp_error_text(stderr).strip().splitlines()[-1:] or [""])[0]
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            _, stderr = proc.communicate()
+            last_err = _rtsp_error_text(stderr).strip()[-500:]
+    except Exception as exc:
+        last_err = _rtsp_error_text(exc)
+        logger.exception(f"[Cam {cam_id}] Không thể chạy FFmpeg")
+    finally:
+        with CAMERA_LOCK:
+            if CAM_PROCESSES.get(cam_id) is proc:
+                CAM_PROCESSES.pop(cam_id, None)
+
+    rc = proc.returncode if proc else -1
+    return rc, last_err, timed_out
+
+
+def _run_netsdk_recording_attempt(cam_id, camera, temp_filepath, stop_event):
+    """Record one segment through Dahua/Imou private TCP 37777."""
+    try:
+        adapter = Dahua37777Adapter.from_camera(camera, base_dir=_netsdk_base_dir())
+        result = adapter.record_segment(
+            temp_filepath,
+            duration=DURATION,
+            ffmpeg_path=FFMPEG_PATH,
+            stop_event=stop_event,
+        )
+        if result.get("ok"):
+            return 0, "", False
+        return -1, "NetSDK 37777 khong tao duoc video hop le.", False
+    except Dahua37777Error as exc:
+        return -1, str(exc), False
+    except Exception as exc:
+        logger.exception("[Cam %s] NetSDK 37777 recording failed", cam_id)
+        return -1, f"NetSDK 37777: {exc}", False
+
+
 def record_camera(cam_id, camera, stop_event):
     """Record one camera. The supervisor guarantees a single worker per camera."""
     last_alert_time = 0
@@ -1692,115 +2304,79 @@ def record_camera(cam_id, camera, stop_event):
         filepath = os.path.join(VIDEO_DIR, filename)
         temp_filepath = f"{filepath}.part"
         if mode == "nvr":
-            rtsp_url = build_rtsp_url(camera, "record")
+            # NVR recording deliberately remains a single generated URL.
+            candidates = [{"profile": "nvr", "url": build_rtsp_url(camera, "record"), "transport": "rtsp"}]
+        elif _local_transport(camera) == "netsdk":
+            candidates = [{"profile": "netsdk37777", "transport": "netsdk"}]
         else:
-            configured_record_path = camera.get("record_path")
-            if camera.get("record_rtsp_url") or (
-                configured_record_path
-                and configured_record_path != "h264/ch1/main/av_stream"
-            ):
-                rtsp_url = build_rtsp_url(camera, "record")
-            else:
-                user = quote(str(camera.get("user", "")), safe="")
-                password = quote(str(camera.get("pass", "")), safe="")
-                ip = camera.get("ip", "")
-                port = camera.get("port", 554)
-                rtsp_url = (
-                    f"rtsp://{user}:{password}@{ip}:{port}/"
-                    "h264/ch1/main/av_stream?timeout=20000000"
-                )
-        cmd = [
-            FFMPEG_PATH,
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-thread_queue_size",
-            "1024",
-            "-rtsp_transport",
-            "tcp",
-            "-rtsp_flags",
-            "prefer_tcp",
-            "-fflags",
-            "+genpts",
-            "-use_wallclock_as_timestamps",
-            "1",
-            "-rtbufsize",
-            "500M",
-            "-i",
-            rtsp_url,
-            "-t",
-            str(DURATION),
-        ]
-        # Giữ nguyên cơ chế ghi của bản 1.2 đầu tiên: copy trực tiếp luồng
-        # camera vào MP4, không chuyển mã và không thay đổi tốc độ/độ phân giải.
-        # Ghi vào .part trước. Sau khi FFmpeg kết thúc thành công, file mới
-        # được đổi tên sang .mp4 để trang xem lại chỉ thấy video hoàn chỉnh.
-        cmd.extend(["-vcodec", "copy", "-f", "mp4", temp_filepath])
-        proc = None
+            candidates = [dict(item, transport="rtsp") for item in get_rtsp_candidates(camera, "record")]
+
+        segment_succeeded = False
         last_err = ""
         timed_out = False
-        try:
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                text=True,
-                creationflags=subprocess.CREATE_NO_WINDOW,
-                encoding="utf-8",
-                errors="replace",
-            )
-            with CAMERA_LOCK:
-                CAM_PROCESSES[cam_id] = proc
-            started = time.monotonic()
-            while proc.poll() is None and not stop_event.wait(0.5):
-                if time.monotonic() - started > TIMEOUT:
-                    timed_out = True
-                    logger.warning(f"[Cam {cam_id}] FFmpeg quá {TIMEOUT} giây, đang dừng tiến trình.")
-                    _stop_process(cam_id)
+        for candidate in candidates:
+            if stop_event.is_set():
+                break
+            if candidate.get("transport") == "netsdk":
+                rc, attempt_err, attempt_timed_out = _run_netsdk_recording_attempt(
+                    cam_id,
+                    camera,
+                    temp_filepath,
+                    stop_event,
+                )
+            else:
+                rc, attempt_err, attempt_timed_out = _run_recording_attempt(
+                    cam_id,
+                    candidate["url"],
+                    temp_filepath,
+                    stop_event,
+                )
+            attempt_err = _sanitize_rtsp_error(attempt_err, camera)
+            last_err = attempt_err or last_err
+            timed_out = timed_out or attempt_timed_out
+            valid_file = os.path.exists(temp_filepath) and os.path.getsize(temp_filepath) > 0
+            if rc == 0 and valid_file and not stop_event.is_set():
+                try:
+                    os.replace(temp_filepath, filepath)
+                except OSError as exc:
+                    valid_file = False
+                    last_err = f"Không thể hoàn tất file video: {exc}"
+                if valid_file:
+                    if mode != "nvr" and candidate.get("transport") == "rtsp":
+                        _remember_rtsp_profile(camera, candidate["profile"])
+                    size_mb = os.path.getsize(filepath) / 1_048_576
+                    logger.info(f"[Cam {cam_id}] Ghi xong: {filename} ({size_mb:.1f} MB)")
+                    try:
+                        # Chỉ ghi chỉ mục từ metadata đã biết; không ffprobe hàng loạt.
+                        upsert_video_index(filepath, validate=False, known_duration=DURATION)
+                    except Exception as exc:
+                        logger.warning(f"[Cam {cam_id}] Không cập nhật được chỉ mục video: {exc}")
+                    segment_succeeded = True
                     break
-            if stop_event.is_set() and proc.poll() is None:
-                _stop_process(cam_id)
-            try:
-                _, stderr = proc.communicate(timeout=10)
-                last_err = (stderr or "").strip().splitlines()[-1:] or [""]
-                last_err = last_err[0]
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                _, stderr = proc.communicate()
-                last_err = (stderr or "").strip()[-500:]
-        except Exception as e:
-            last_err = str(e)
-            logger.exception(f"[Cam {cam_id}] Không thể chạy FFmpeg")
-        finally:
-            with CAMERA_LOCK:
-                if CAM_PROCESSES.get(cam_id) is proc:
-                    CAM_PROCESSES.pop(cam_id, None)
 
-        rc = proc.returncode if proc else -1
-        valid_file = os.path.exists(temp_filepath) and os.path.getsize(temp_filepath) > 0
-        if rc == 0 and valid_file and not stop_event.is_set():
-            try:
-                os.replace(temp_filepath, filepath)
-            except OSError as exc:
-                valid_file = False
-                last_err = f"Không thể hoàn tất file video: {exc}"
-        if rc == 0 and valid_file and not stop_event.is_set():
-            size_mb = os.path.getsize(filepath) / 1_048_576
-            logger.info(f"[Cam {cam_id}] Ghi xong: {filename} ({size_mb:.1f} MB)")
-            try:
-                # Chỉ ghi chỉ mục từ metadata đã biết; không ffprobe hàng loạt.
-                upsert_video_index(filepath, validate=False, known_duration=DURATION)
-            except Exception as exc:
-                logger.warning(f"[Cam {cam_id}] Không cập nhật được chỉ mục video: {exc}")
-            CAM_LAST_SUCCESS[cam_id] = time.time()
-            CAM_LAST_ERROR.pop(cam_id, None)
-            retry_delay = 1
-        else:
             try:
                 if os.path.exists(temp_filepath):
                     os.remove(temp_filepath)
             except OSError as exc:
                 logger.warning(f"[Cam {cam_id}] Không thể xóa file tạm: {exc}")
+            if stop_event.is_set():
+                break
+
+            failure_kind = _rtsp_error_kind(attempt_err)
+            if len(candidates) > 1 and failure_kind not in {"network", "reset", "auth"}:
+                logger.warning(
+                    "[Cam %s] Profile RTSP %s thất bại; thử profile dự phòng.",
+                    cam_id,
+                    candidate["profile"],
+                )
+                continue
+            break
+
+        if segment_succeeded:
+            CAM_LAST_SUCCESS[cam_id] = time.time()
+            CAM_LAST_ERROR.pop(cam_id, None)
+            retry_delay = 1
+        else:
             if stop_event.is_set():
                 break
             err_msg = (
@@ -2433,8 +3009,42 @@ def _log_download_after(response):
 def get_rtsp_url(cam_id, stream="sub"):
     if 1 <= cam_id <= len(CAMERA_LIST):
         cam = CAMERA_LIST[cam_id - 1]
+        if str(cam.get("playback_source", "local")).strip().lower() == "local" and _local_transport(cam) == "netsdk":
+            return None
         return build_rtsp_url(cam, "record" if stream == "main" else "preview")
     return None
+
+
+def gen_netsdk_frames(camera, stream="sub"):
+    """Stream JPEG frames from Dahua/Imou 37777 without RTSP fallback."""
+    private_camera = dict(camera)
+    private_camera["netsdk_stream"] = "main" if stream == "main" else "sub"
+    while True:
+        frames = None
+        try:
+            adapter = Dahua37777Adapter.from_camera(private_camera, base_dir=_netsdk_base_dir())
+            frames = adapter.iter_jpeg_frames(FFMPEG_PATH, fps=10.0, frame_timeout=12.0)
+            for frame in frames:
+                yield (
+                    b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"
+                    + frame
+                    + b"\r\n"
+                )
+        except GeneratorExit:
+            if frames is not None:
+                try:
+                    frames.close()
+                except Exception:
+                    pass
+            return
+        except Exception as exc:
+            logger.warning("[NetSDK Preview] %s", exc)
+            if frames is not None:
+                try:
+                    frames.close()
+                except Exception:
+                    pass
+            time.sleep(3)
 
 
 def gen_frames(rtsp_url):
@@ -2523,6 +3133,13 @@ def stream_cam(cam_id):
     stream = request.args.get("stream", "sub").lower()
     if stream not in {"sub", "main"}:
         return "Luồng không hợp lệ", 400
+    if not 1 <= cam_id <= len(CAMERA_LIST):
+        return "Camera not found", 404
+    camera = CAMERA_LIST[cam_id - 1]
+    if str(camera.get("playback_source", "local")).strip().lower() == "local" and _local_transport(camera) == "netsdk":
+        return Response(
+            gen_netsdk_frames(camera, stream), mimetype="multipart/x-mixed-replace; boundary=frame"
+        )
     rtsp_url = get_rtsp_url(cam_id, stream)
     if not rtsp_url:
         return "Camera không tồn tại", 404
@@ -2536,6 +3153,23 @@ def camera_snapshot(cam_id):
     """Return one JPEG frame so the all-camera page does not consume 12
     permanent browser connections (most desktop browsers cap this at 6)."""
     stream = request.args.get("stream", "sub").lower()
+    if stream not in {"sub", "main"}:
+        return "Invalid stream", 400
+    if not 1 <= cam_id <= len(CAMERA_LIST):
+        return "Camera not found", 404
+    camera = CAMERA_LIST[cam_id - 1]
+    if str(camera.get("playback_source", "local")).strip().lower() == "local" and _local_transport(camera) == "netsdk":
+        private_camera = dict(camera)
+        private_camera["netsdk_stream"] = "main" if stream == "main" else "sub"
+        try:
+            adapter = Dahua37777Adapter.from_camera(private_camera, base_dir=_netsdk_base_dir())
+            jpeg = adapter.capture_jpeg(FFMPEG_PATH, timeout=12.0)
+            response = Response(jpeg, mimetype="image/jpeg")
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+            return response
+        except Exception as exc:
+            logger.warning("[NetSDK Snapshot Cam %s] %s", cam_id, exc)
+            return "NetSDK snapshot unavailable", 503
     if stream not in {"sub", "main"}:
         return "Luồng không hợp lệ", 400
     rtsp_url = get_rtsp_url(cam_id, stream)
@@ -2572,15 +3206,16 @@ def list_videos_by_cam(cam_id):
     mode = _timeline_playback_mode(cam_id)
 
     req_source = request.args.get("source", "").strip().lower()
-    if RTSP_LOCAL_TIMELINE_ONLY:
-        target_source = "local"
-    elif not req_source:
-        target_source = "nvr" if mode == "nvr" else "local"
-    elif req_source in {"server1", "nvr"}:
-        target_source = "nvr"
-    elif req_source in {"server2", "local"}:
-        target_source = "local"
+    if mode == "nvr":
+        # A local archive is an optional backup of an NVR card. It can never
+        # become the default or be used when the card has no local backup.
+        target_source = (
+            "local"
+            if req_source in {"server2", "local"} and bool(cam.get("backup_local"))
+            else "nvr"
+        )
     else:
+        # A local card has no NVR source merely because a stale query asks for it.
         target_source = "local"
 
     if target_source == "nvr":
@@ -2949,6 +3584,18 @@ def admin_test_camera():
     mode = str(camera.get("playback_source", "local")).strip().lower()
     if mode not in {"local", "nvr"}:
         return jsonify({"ok": False, "message": "Nguồn camera chỉ được chọn Local hoặc NVR."}), 400
+    if mode == "nvr":
+        raw_channel = camera.get("nvr_channel")
+        if raw_channel is None:
+            raw_channel = camera.get("channel")
+        if raw_channel is None:
+            return jsonify({"ok": False, "mode": "nvr", "message": "Chưa chọn Kênh NVR."}), 400
+        try:
+            if int(raw_channel) < 1:
+                raise ValueError
+        except (TypeError, ValueError, OverflowError):
+            return jsonify({"ok": False, "mode": "nvr", "message": "Kênh NVR phải từ 1 trở lên."}), 400
+    camera = _normalise_camera_entry(camera, 1) or {}
 
     if mode == "local":
         if not all(camera.get(key) for key in ("ip", "user", "pass")):
@@ -2960,7 +3607,10 @@ def admin_test_camera():
             }), 400
         try:
             local_camera = dict(camera)
-            local_camera["port"] = int(local_camera.get("port", 554) or 554)
+            if _local_transport(local_camera) == "rtsp":
+                local_camera["port"] = int(local_camera.get("port", 554) or 554)
+            else:
+                local_camera.pop("port", None)
             local_result = test_camera_connection(local_camera)
             ok = bool(local_result.get("ok"))
             msg = local_result.get("message") or ("Kết nối thành công" if ok else "Kết nối thất bại")
@@ -3931,4 +4581,3 @@ if __name__ == "__main__":
             run_server()
     else:
         run_server()
-

@@ -1,37 +1,101 @@
 # TASKS — Cambida
 
 ## DONE
-
-- [x] 2026-09-12 — Đồng bộ lại quy chuẩn điều phối mới nhất vào `AGENTS.md` và `.project`: bổ sung thứ tự ưu tiên khi xung đột, vai trò CodeGraph, ưu tiên công cụ, Codex/AGY MCP trực tiếp, Yato system/recovery, `task_id`, timeout/recovery và checkpoint.
-- [x] 2026-09-12 — Xác nhận workspace `D:\1\cambida`.
-- [x] 2026-09-12 — Loại bỏ chuẩn điều phối cũ khỏi `AGENTS.md` và `PROJECT_SYNC_PROTOCOL.md`.
-- [x] 2026-09-12 — Chuyển `SYNC_STATE.json` thành compatibility tombstone.
-- [x] 2026-09-12 — Khởi tạo bộ nhớ dự án `.project` theo chuẩn mới.
-- [x] 2026-09-12 — Rework cấu trúc chính `index.html` theo mockup màn Xem lại/Cắt video.
-- [x] 2026-09-12 — Sửa luồng cắt chính xác tới giây ở frontend và backend `/merge`.
-- [x] 2026-09-12 — Kiểm chứng cắt 1 segment, nhiều segment có khoảng trống và tải file kết quả.
-- [x] 2026-09-12 — Sửa regression hiển thị nguồn NVR sau redesign.
-- [x] 2026-09-12 — Hoàn thiện lỗi chọn ngày/kéo-thả timeline từ vòng Codex dang dở và retest trình duyệt.
-- [x] 2026-09-12 — Hoàn thiện UX/UI theo mockup mới: header/source selector, badge mode, live in-place, timeline scrub/zoom, tua 2×/4×, pinch zoom/pan video.
-- [x] 2026-09-12 — Kiểm tra Jinja/render và JavaScript syntax: đạt.
-- [x] 2026-09-12 — Chạy toàn bộ `unittest`: **29/29 đạt**.
-- [x] 2026-09-12 — `python -m py_compile 1.py` và `git diff --check -- index.html`: đạt.
-- [x] 2026-09-12 — CDP browser verify viewport 430×900: live/source/timeline/cut interactions đạt, không console error/exception.
-- [x] 2026-09-12 — Chụp và đăng ký screenshot kiểm chứng `ui_cdp_replay.png` và `ui_cdp_cut.png`.
-- [x] 2026-09-12 — Sửa riêng timeline theo yêu cầu mới: kim giữa cố định, kéo track bên dưới kim, bỏ thumbnail, tô xanh đúng các khoảng có video và để trống các khoảng không có video; Chromium interaction verify + 29/29 unittest đạt.
-- [x] 2026-09-12 — Cập nhật luật Git: mọi task chỉ được `COMPLETED` sau khi tạo commit riêng đúng scope; commit hash bắt buộc trong báo cáo hoàn tất.
-- [x] 2026-09-12 — Thêm nút chuyển `Timeline ↔ Chọn giờ`: timeline mới vẫn là mặc định; chế độ cũ dùng giờ bắt đầu + danh sách đoạn video, dùng chung ngày/nguồn/player. Chromium 430×900, JavaScript syntax, `git diff --check` và unittest 29/29 đều đạt.
+- [x] Khôi phục replay UI từ HTML thật 1.3.42, giữ backend NVR hiện tại.
+- [x] Dùng một nguồn NVR đã cấu hình; bỏ Server 1/Server 2.
+- [x] Gỡ license gate khỏi replay/timeline/cut/download.
+- [x] Sửa NVR exact time + `/merge` cắt trực tiếp NVR (`f16d752`).
+- [x] 2026-09-12 — Chuyển replay sang **timeline-only**: bỏ nhập giờ; playhead cố định giữa; kéo timeline bên dưới; coverage xanh, gap trống, không thumbnail (`5efc105`).
+- [x] 2026-09-12 — Cut timeline dùng mốc datetime tuyệt đối trên toàn ngày, hỗ trợ khoảng qua nhiều segment/gap.
+- [x] 2026-09-12 — Sửa Cut → Hủy → replay bị mất coverage/ruler (`338a842`).
+- [x] GUI final PASS; overlay và NVR `at=` khớp tại `23:25:50`.
+- [x] Cross-segment NVR cut test PASS; gap 76s được báo đúng, output phần có dữ liệu 13.21s.
+- [x] py_compile PASS, JS syntax PASS, **34/34 unittest PASS**.
+- [x] Deploy `release\2.1.0\index.html` và restart production 8004; config workspace/release giữ nguyên SHA-256.
 
 ## DOING
-
-- Không có.
+- Không có task thuộc batch hiện tại.
 
 ## TODO
-
-- [ ] Khi cần phát hành bản chạy mới: build/package theo quy trình release riêng và kiểm thử trên dữ liệu/camera production trước khi triển khai.
-- [ ] Chỉ dọn các profile/screenshot/helper kiểm chứng cũ còn lại khi xác định rõ không phải artifact cần giữ; không xóa hàng loạt ngoài scope.
-- [ ] Nếu cần độ khớp thị giác tuyệt đối với mockup, thực hiện thêm pixel-diff/visual comparison trực tiếp với ảnh nguồn.
+- [ ] Theo dõi trải nghiệm timeline thực tế trên máy khách/Cốc Cốc với các ngày có nhiều gap và các ca cắt dài.
+- [ ] Chỉ dọn artifact/profile cũ khi xác định rõ là file tạm.
 
 ## BLOCKED
+- Không có blocker.
 
-- Không có blocker hiện tại.
+
+## Imou direct RTSP (2026-09-13 +07)
+- [x] Backup source 1.3.42 clean, 1.3.5 WIP, 2.x pre-restore, 1.3.4 reference before continuing development.
+- [x] Restore active 2.x baseline `9b2a164` byte-for-byte before Imou work.
+- [x] Add Imou/Dahua direct RTSP candidate + ONVIF + legacy/custom fallback without rewriting config.
+- [x] Add RAM-only working-profile cache shared by recording/preview.
+- [x] Preserve NVR behavior and prevent stale local direct URL from overriding NVR mode.
+- [x] Redact RTSP credentials from recording errors/log/Telegram.
+- [x] Add focused tests and full regression verification: 46/46 PASS.
+- [ ] Live E2E Imou verification once camera RTSP TCP 554 is reachable from the Cambida host.
+
+
+## Imou DDNS live validation (2026-09-13 12:20 +07)
+- [x] Resolve DDNS and verify exposed ports.
+- [x] Probe authenticated main/sub/ONVIF RTSP without persisting credentials.
+- [x] Distinguish authentication/path failure from transport reset.
+- [x] Add regression handling for Windows RTSP reset `-10054`; full suite 47/47 PASS.
+- [ ] Fix/verify external port 554 forwarding or camera RTSP service, then rerun live E2E media probe.
+- [ ] If direct video must use port 37777 instead of RTSP 554, evaluate a separate Dahua NetSDK/DVRIP adapter; do not treat 37777 as an RTSP port.
+
+## Dahua/Imou private 37777 adapter (2026-09-13)
+- [x] Add separate x64 Dahua NetSDK backend; do not treat 37777 as RTSP.
+- [x] Add normal DVRIP realm/random challenge authentication diagnostic.
+- [x] Add private 37777 media probe requiring actual RealPlay data.
+- [x] Add recorder path: NetSDK RealPlay/SaveRealData -> DHAV -> FFmpeg MP4.
+- [x] Add direct 37777 live MJPEG and snapshot paths via RealData callback + FFmpeg DHAV demuxer.
+- [x] Add admin local_transport selector and NetSDK port/channel/main-sub fields.
+- [x] Preserve RTSP/NVR behavior and prevent automatic RTSP fallback for NetSDK-selected cameras.
+- [x] Verify source: 56/56 unittest PASS, py_compile PASS, admin JS syntax PASS, diff-check PASS, config hash unchanged.
+- [ ] BLOCKED: obtain/confirm the device credential accepted by native TCP 37777; current configured credential returns NetSDK password error and DVRIP 0100 auth failure.
+- [ ] After valid auth: live media probe, snapshot, live MJPEG, 5-10 second MP4 + ffprobe; only then package/bump to 3.x.
+
+## Dahua/Imou private 37777 retest (2026-09-19)
+- [x] Fix the resolved NetSDK directory handoff so the official DLL is loaded by the integrated adapter.
+- [x] Retest the existing configured credential without persisting or exposing it; TCP/native protocol and NetSDK both reach authentication.
+- [x] Record precise rejection evidence: DVRIP `01000100` / `001b0002`, NetSDK `0x80000064` / `detail=1`.
+- [x] Run local gates: py_compile PASS, full unittest 57/57 PASS, rendered/admin JS syntax PASS.
+- [ ] BLOCKED: private credential is rejected before media; snapshot/live frame/MP4/ffprobe remain unverified. Do not bump to 3.x.
+
+- [2026-09-13 13:17:24 +07:00] COMPLETED remove-license-2.1.0: rebuilt from backup/source_versions/2.1.0_pre_restore with license gate bypassed; replaced root+nested CCTV_2.1.0.exe; functional tests skipped per user; commit NONE.
+
+
+## Camera transport cleanup (2026-09-19)
+- task_id: cambida-camera-transport-clean-20260919
+- [x] Canonicalize and validate Local NetSDK, Local RTSP, and NVR payloads with no stale cross-transport fields or implicit RTSP fallback.
+- [x] Route test/live/snapshot/recording/replay/list by the selected camera source; preserve explicit RTSP and isolate NVR.
+- [x] Add mode-switch, add/remove, zero-camera, reload, and rendered-admin regressions.
+- [x] Back up and clear all active workspace/release camera lists and legacy per-camera entries without changing global settings or video data.
+- [x] Verify source runtime over port 8004 with zero-channel admin/API state.
+- [x] Create the task-scoped Git commit; live device snapshot/MP4/ffprobe remains unverified and 3.x remains gated.
+
+## Camera transport cleanup final status
+- [x] Implementation and verification complete.
+- Status: COMPLETED after the task-scoped Git commit.
+
+## Đồng bộ quy tắc toàn cục — 2026-09-19
+- task_id: cambida-global-rules-sync-20260919
+- [x] Đọc FAST BOOT trong global spec và xác định workspace Cambida.
+- [x] Kiểm tra kết nối Yato, `.project`, Git và quy tắc cũ trong AGENTS.md.
+- [x] Thay AGENTS.md cũ bằng quy tắc dự án tham chiếu nguồn toàn cục duy nhất.
+- [x] Ghi nhận quyết định và quy tắc mới trong `.project`.
+- [ ] Kiểm tra diff đúng phạm vi, tạo commit task và xác minh kết quả.
+- [x] Kiểm tra `git diff --check` không có lỗi; commit riêng AGENTS.md: `f7a5246`.
+- Status: COMPLETED đối với cập nhật tài liệu điều phối. Các tệp `.project` vốn đã dirty được giữ nguyên trạng thái, không commit gộp thay đổi cũ.
+
+## Finalize all completed camera/Imou/NetSDK work — 2026-09-19
+
+- task_id: `cambida-finalize-all-20260919`
+- [x] Kiểm kê dirty worktree và phân loại source/product với probe, preview, cache, runtime và release junk.
+- [x] Tích hợp source, tests, `.project` memory, PyInstaller spec và 10 vendor DLL NetSDK cần cho runtime.
+- [x] Giữ release line 2.1.0; không bump 3.x khi live NetSDK media proof còn thiếu.
+- [x] `py_compile` PASS; full unittest **63/63 PASS**; rendered/admin JS **1/1 PASS**; `git diff --check` PASS.
+- [x] PyInstaller 6.16.0 onedir build PASS; source and final release EXE smoke PASS (`/`, `/admin/login`, `/timeline` đều 200); process/temp cleanup PASS.
+- [x] Bảo toàn config và năm media files hiện có; artifact SHA-256: `E5F23EE373665FED3149569C7AB764CC7545321F0D2D1CFAF2314B5F834BC83B`.
+- [x] Stage/review/commit và hậu kiểm working tree thuộc parent task.
+- Status: COMPLETED.

@@ -7,7 +7,9 @@ datas = [
     (r'D:\1\cambida\config.json', '.'),
 ]
 
-binaries = []
+binaries = [
+    (r'D:\1\cambida\vendor\dahua_netsdk\*.dll', 'vendor/dahua_netsdk'),
+]
 hiddenimports = []
 
 tmp_ret = collect_all('qrcode')

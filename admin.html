@@ -119,18 +119,71 @@
   const isDahua = camera => String(camera.record_path || '').includes('cam/realmonitor');
   const preset = camera => camera.record_rtsp_url || camera.preview_rtsp_url ? 'custom' : isDahua(camera) ? 'dahua' : 'hikvision';
 
+  function normalizeCamera(camera, index=0) {
+    const normalized = {...(camera || {})};
+    const source = String(normalized.playback_source || '').toLowerCase() === 'nvr' ? 'nvr' : 'local';
+    const legacyUser = normalized.user || normalized.username || 'admin';
+    const legacyPass = normalized.pass ?? normalized.password ?? '';
+    normalized.playback_source = source;
+    if (source === 'nvr') {
+      ['ip','port','local_transport','netsdk_port','netsdk_channel','netsdk_stream','record_path','preview_path','record_rtsp_url','preview_rtsp_url','rtsp_channel','channel','username','password','nvr_vendor','nvr'].forEach(key => delete normalized[key]);
+      normalized.vendor = normalized.vendor === 'dahua' ? 'dahua' : 'hikvision';
+      normalized.host = String(normalized.host || '').trim();
+      normalized.http_port = Number(normalized.http_port || (normalized.vendor === 'dahua' ? 81 : 80));
+      normalized.rtsp_port = Number(normalized.rtsp_port || 554);
+      normalized.user = String(legacyUser).trim();
+      normalized.pass = legacyPass;
+      normalized.nvr_channel = Number(normalized.nvr_channel || index + 1);
+      normalized.stream = String(normalized.stream || 'main').toLowerCase() === 'sub' ? 'sub' : 'main';
+      normalized.backup_local = Boolean(normalized.backup_local);
+      normalized.timezone_offset_minutes = Number(normalized.timezone_offset_minutes ?? 420);
+      normalized.connect_timeout_sec = Number(normalized.connect_timeout_sec || 5);
+      normalized.read_timeout_sec = Number(normalized.read_timeout_sec || 30);
+      normalized.playback_chunk_sec = Number(normalized.playback_chunk_sec || 300);
+      normalized.use_https = Boolean(normalized.use_https);
+      normalized.verify_tls = Boolean(normalized.verify_tls);
+      return normalized;
+    }
+
+    ['host','http_port','rtsp_port','nvr_channel','stream','backup_local','timezone_offset_minutes','connect_timeout_sec','read_timeout_sec','playback_chunk_sec','use_https','verify_tls','username','password','channel','nvr_vendor','nvr'].forEach(key => delete normalized[key]);
+    normalized.ip = String(normalized.ip || '').trim();
+    normalized.user = String(legacyUser).trim();
+    normalized.pass = legacyPass;
+    normalized.local_transport = String(normalized.local_transport || 'rtsp').toLowerCase() === 'netsdk' ? 'netsdk' : 'rtsp';
+    if (normalized.local_transport === 'netsdk') {
+      ['port','record_path','preview_path','record_rtsp_url','preview_rtsp_url','vendor','rtsp_channel'].forEach(key => delete normalized[key]);
+      normalized.netsdk_port = Number(normalized.netsdk_port || 37777);
+      normalized.netsdk_channel = Number(normalized.netsdk_channel || 1);
+      normalized.netsdk_stream = String(normalized.netsdk_stream || 'main').toLowerCase() === 'sub' ? 'sub' : 'main';
+      return normalized;
+    }
+
+    ['netsdk_port','netsdk_channel','netsdk_stream'].forEach(key => delete normalized[key]);
+    normalized.port = Number(normalized.port || 554);
+    normalized.record_path = normalized.record_path || 'h264/ch1/main/av_stream';
+    normalized.preview_path = normalized.preview_path || 'h264/ch1/sub/av_stream';
+    ['record_rtsp_url','preview_rtsp_url'].forEach(key => { if (!normalized[key]) delete normalized[key]; });
+    return normalized;
+  }
+
   function renderCameras() {
+    cameraDrafts = cameraDrafts.map((camera, index) => normalizeCamera(camera, index));
     $('cameraList').innerHTML = cameraDrafts.map((cam, index) => {
       const rawPlayback = String(cam.playback_source || '').toLowerCase();
       const playback = rawPlayback === 'nvr' ? 'nvr' : 'local';
       const isLocal = playback === 'local';
       const isNvr = playback === 'nvr';
+      const localTransport = String(cam.local_transport || 'rtsp').toLowerCase() === 'netsdk' ? 'netsdk' : 'rtsp';
 
+      const rtspFields = localTransport === 'rtsp' ? `<div class="col-md-4"><label class="form-label small">Preset RTSP camera</label><select class="form-select cam-preset" data-index="${index}"><option value="hikvision" ${preset(cam)==='hikvision'?'selected':''}>Hikvision / chuẩn cũ</option><option value="dahua" ${preset(cam)==='dahua'?'selected':''}>Dahua</option><option value="custom" ${preset(cam)==='custom'?'selected':''}>Tự chỉnh</option></select></div>` : '';
+      const netsdkFields = localTransport === 'netsdk' ? `<div class="col-md-4"><label class="form-label small">NetSDK port</label><input class="form-control cam-netsdk-port" data-index="${index}" type="number" min="1" max="65535" value="${esc(cam.netsdk_port ?? 37777)}"></div><div class="col-md-4"><label class="form-label small">Kênh NetSDK</label><input class="form-control cam-netsdk-channel" data-index="${index}" type="number" min="1" value="${esc(cam.netsdk_channel ?? 1)}"></div><div class="col-md-4"><label class="form-label small">Luồng NetSDK</label><select class="form-select cam-netsdk-stream" data-index="${index}"><option value="main" ${(cam.netsdk_stream||'main')==='main'?'selected':''}>Main</option><option value="sub" ${(cam.netsdk_stream||'')==='sub'?'selected':''}>Sub</option></select></div>` : '';
       const localFields = `
-        <div class="col-md-4"><label class="form-label small">Preset RTSP camera</label><select class="form-select cam-preset" data-index="${index}"><option value="hikvision" ${preset(cam)==='hikvision'?'selected':''}>Hikvision / chuẩn cũ</option><option value="dahua" ${preset(cam)==='dahua'?'selected':''}>Dahua</option><option value="custom" ${preset(cam)==='custom'?'selected':''}>Tự chỉnh</option></select></div>
+        <div class="col-md-4"><label class="form-label small">Kết nối camera</label><select class="form-select cam-local-transport" data-index="${index}"><option value="rtsp" ${localTransport==='rtsp'?'selected':''}>RTSP (554)</option><option value="netsdk" ${localTransport==='netsdk'?'selected':''}>Dahua / Imou NetSDK (37777)</option></select></div>
+        ${rtspFields}
         <div class="col-md-4"><label class="form-label small">IP camera</label><input class="form-control cam-ip" data-index="${index}" value="${esc(cam.ip || '')}" placeholder="192.168.1.208"></div>
         <div class="col-md-4"><label class="form-label small">Tài khoản camera</label><input class="form-control cam-user" data-index="${index}" value="${esc(cam.user || '')}"></div>
-        <div class="col-md-4"><label class="form-label small">Mật khẩu camera</label><input class="form-control cam-pass" data-index="${index}" type="password" value="${esc(cam.pass || '')}"></div>`;
+        <div class="col-md-4"><label class="form-label small">Mật khẩu camera</label><input class="form-control cam-pass" data-index="${index}" type="password" value="${esc(cam.pass || '')}"></div>
+        ${netsdkFields}`;
 
       const nvrFields = `
         <div class="col-md-4"><label class="form-label small">Hãng đầu ghi</label><select class="form-select cam-nvr-vendor" data-index="${index}"><option value="hikvision" ${(cam.vendor||'hikvision')==='hikvision'?'selected':''}>Hikvision ISAPI</option><option value="dahua" ${(cam.vendor||'')==='dahua'?'selected':''}>Dahua CGI + RTSP</option></select></div>
@@ -149,7 +202,7 @@
           </div>
         </div>`;
 
-      const advanced = isLocal
+      const advanced = isLocal && localTransport === 'rtsp'
         ? `<details class="mt-3"><summary>Chỉnh luồng RTSP camera nâng cao</summary><div class="row g-2 mt-1"><div class="col-md-2"><label class="form-label small">Port RTSP</label><input class="form-control cam-port" data-index="${index}" type="number" value="${esc(cam.port || 554)}"></div><div class="col-md-5"><label class="form-label small">Luồng ghi</label><input class="form-control cam-record-path" data-index="${index}" value="${esc(cam.record_path || 'h264/ch1/main/av_stream')}"></div><div class="col-md-5"><label class="form-label small">Luồng xem trực tiếp</label><input class="form-control cam-preview-path" data-index="${index}" value="${esc(cam.preview_path || 'h264/ch1/sub/av_stream')}"></div><div class="col-md-6"><label class="form-label small">URL RTSP ghi đầy đủ (ghi đè, tùy chọn)</label><input class="form-control cam-record-url" data-index="${index}" value="${esc(cam.record_rtsp_url || '')}" placeholder="rtsp://..."></div><div class="col-md-6"><label class="form-label small">URL RTSP xem đầy đủ (ghi đè, tùy chọn)</label><input class="form-control cam-preview-url" data-index="${index}" value="${esc(cam.preview_rtsp_url || '')}" placeholder="rtsp://..."></div></div></details>`
         : `<details class="mt-3"><summary>Cấu hình đầu ghi nâng cao (Timezone, Timeout, HTTPS)</summary><div class="row g-2 mt-1"><div class="col-md-3"><label class="form-label small">UTC offset (phút)</label><input class="form-control cam-nvr-timezone" data-index="${index}" type="number" min="-840" max="840" value="${esc(cam.timezone_offset_minutes ?? 420)}"><div class="form-text">Việt Nam = 420.</div></div><div class="col-md-3"><label class="form-label small">Timeout kết nối (giây)</label><input class="form-control cam-nvr-connect-timeout" data-index="${index}" type="number" min="1" value="${esc(cam.connect_timeout_sec ?? 5)}"></div><div class="col-md-3"><label class="form-label small">Timeout đọc (giây)</label><input class="form-control cam-nvr-read-timeout" data-index="${index}" type="number" min="5" value="${esc(cam.read_timeout_sec ?? 30)}"></div><div class="col-md-3"><label class="form-label small">Mỗi lần phát (giây)</label><input class="form-control cam-nvr-playback-chunk" data-index="${index}" type="number" min="30" max="3600" value="${esc(cam.playback_chunk_sec ?? 300)}"><div class="form-text">Độ dài đoạn phát Dahua</div></div><div class="col-md-3"><label class="form-label small">HTTPS</label><div class="pt-2"><label><input class="cam-nvr-https" data-index="${index}" type="checkbox" ${cam.use_https ? 'checked' : ''}> Dùng HTTPS</label></div></div></div></details>`;
 
@@ -191,6 +244,10 @@
     set('.cam-ip','ip');
     set('.cam-user','user');
     set('.cam-pass','pass');
+    set('.cam-local-transport','local_transport');
+    set('.cam-netsdk-port','netsdk_port',true);
+    set('.cam-netsdk-channel','netsdk_channel',true);
+    set('.cam-netsdk-stream','netsdk_stream');
     set('.cam-port','port',true);
     set('.cam-record-path','record_path');
     set('.cam-preview-path','preview_path');
@@ -212,23 +269,7 @@
     set('.cam-nvr-playback-chunk','playback_chunk_sec',true);
     setBool('.cam-nvr-https','use_https');
 
-    values.forEach(camera => {
-      const raw = String(camera.playback_source || '').toLowerCase();
-      const source = raw === 'nvr' ? 'nvr' : 'local';
-      camera.playback_source = source;
-      if (source === 'nvr') {
-        ['record_rtsp_url','preview_rtsp_url'].forEach(key => delete camera[key]);
-        if (!camera.backup_local) {
-          delete camera.record_path;
-          delete camera.preview_path;
-        }
-      } else {
-        ['nvr_channel','vendor','host','http_port','rtsp_port','backup_local','stream',
-         'timezone_offset_minutes','connect_timeout_sec','read_timeout_sec','playback_chunk_sec','use_https'
-        ].forEach(key => delete camera[key]);
-      }
-    });
-    return values;
+    return values.map((camera, index) => normalizeCamera(camera, index));
   }
   function tablesForCameras(cameras) {
     const previous = Array.isArray(currentConfig.tables) ? currentConfig.tables : [];
@@ -240,26 +281,7 @@
     cameraDrafts = (config.cameras || []).map((camera, index) => {
       const explicit = String(camera.playback_source || '').toLowerCase();
       const playback = explicit === 'nvr' ? 'nvr' : 'local';
-      const draft = {...camera, playback_source: playback};
-      if (playback === 'nvr') {
-        draft.vendor = draft.vendor || 'hikvision';
-        draft.host = draft.host || draft.ip || '';
-        draft.http_port = draft.http_port || (draft.vendor === 'dahua' ? 81 : 80);
-        draft.rtsp_port = draft.rtsp_port || draft.port || 554;
-        draft.user = draft.user || draft.username || 'admin';
-        draft.pass = draft.pass ?? draft.password ?? '';
-        draft.nvr_channel = draft.nvr_channel ?? (index + 1);
-        draft.stream = draft.stream || 'main';
-        draft.backup_local = Boolean(draft.backup_local);
-      } else {
-        draft.ip = draft.ip || draft.host || '';
-        draft.user = draft.user || 'admin';
-        draft.pass = draft.pass || '';
-        draft.port = draft.port || 554;
-        draft.record_path = draft.record_path || 'h264/ch1/main/av_stream';
-        draft.preview_path = draft.preview_path || 'h264/ch1/sub/av_stream';
-      }
-      return draft;
+      return normalizeCamera({...camera, playback_source: playback}, index);
     });
     const site=config.site||{}, theme=site.theme||{};
     $('siteName').value=site.name||'HỆ THỐNG CCTV'; $('siteTagline').value=site.tagline||''; $('themeBackground').value=theme.background||'#2c0b0b'; $('themeSurface').value=theme.surface||'#660000'; $('themePrimary').value=theme.primary||'#c1121f'; $('themeAccent').value=theme.accent||'#ffa500'; $('serverPort').value=config.server_port||8000; $('diskLimit').value=config.disk_limit_gb||400; $('recordDuration').value=config.record_duration_sec||300; $('recordTimeout').value=config.record_timeout_sec||330; $('maxMergeMinutes').value=config.max_merge_minutes||60; $('cameraStall').value=config.camera_stall_sec||600; $('maxJobs').value=config.max_concurrent_jobs||1; $('minFreeDisk').value=config.minimum_free_disk_gb||10; $('minRecordingRatio').value=config.minimum_recording_ratio||0.9; $('publicBaseUrl').value=config.public_base_url||''; $('runOnStartup').checked=asYesNo(config.run_on_startup); $('runInTray').checked=asYesNo(config.run_in_tray); $('telegramToken').value=config.telegram_token||''; $('telegramChatId').value=config.telegram_chat_id||''; $('rawConfig').value=pretty(config);
@@ -280,7 +302,7 @@
     if (source === 'nvr') {
       camera = {name:`Bàn ${number}`,playback_source:'nvr',vendor:'hikvision',host:'',http_port:80,rtsp_port:554,user:'admin',pass:'',nvr_channel:number,stream:'main',backup_local:false};
     } else {
-      camera = {name:`Bàn ${number}`,playback_source:'local',ip:'',user:'admin',pass:'',port:554,record_path:'h264/ch1/main/av_stream',preview_path:'h264/ch1/sub/av_stream'};
+      camera = {name:`Bàn ${number}`,playback_source:'local',ip:'',user:'admin',pass:'',local_transport:'rtsp',port:554,record_path:'h264/ch1/main/av_stream',preview_path:'h264/ch1/sub/av_stream'};
     }
     cameraDrafts.push(camera);
     $('addSourceChooser').classList.add('d-none');
@@ -329,10 +351,11 @@
   });
   $('cameraList').addEventListener('change', event => {
     const sourceSelect = event.target.closest('.cam-playback-source');
+    const transportSelect = event.target.closest('.cam-local-transport');
     const presetSelect = event.target.closest('.cam-preset');
     const backupSwitch = event.target.closest('.cam-backup-local');
     const vendorSelect = event.target.closest('.cam-nvr-vendor');
-    if (!sourceSelect && !presetSelect && !backupSwitch && !vendorSelect) return;
+    if (!sourceSelect && !transportSelect && !presetSelect && !backupSwitch && !vendorSelect) return;
     cameraDrafts = cameraValues();
     if (sourceSelect) {
       const camera = cameraDrafts[Number(sourceSelect.dataset.index)];
@@ -355,6 +378,17 @@
         camera.port = Number(camera.port || camera.rtsp_port || 554);
         camera.record_path = camera.record_path || 'h264/ch1/main/av_stream';
         camera.preview_path = camera.preview_path || 'h264/ch1/sub/av_stream';
+      }
+      renderCameras();
+      return;
+    }
+    if (transportSelect) {
+      const camera = cameraDrafts[Number(transportSelect.dataset.index)];
+      camera.local_transport = transportSelect.value === 'netsdk' ? 'netsdk' : 'rtsp';
+      if (camera.local_transport === 'netsdk') {
+        camera.netsdk_port = Number(camera.netsdk_port || 37777);
+        camera.netsdk_channel = Number(camera.netsdk_channel || 1);
+        camera.netsdk_stream = camera.netsdk_stream || 'main';
       }
       renderCameras();
       return;
@@ -407,4 +441,3 @@
 </script>
 </body>
 </html>
-

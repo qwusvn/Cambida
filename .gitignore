@@ -5,9 +5,15 @@ __pycache__/
 *.db
 logs/
 cctv_videos/
+nvr_cache/*.mp4
+nvr_cache/*.dav
+nvr_cache/*.part
 test_data/
 backup/
 release/
+
+# CodeGraph generated index/cache
+.codegraph/
 
 # Local secrets / machine-specific config
 config.json
