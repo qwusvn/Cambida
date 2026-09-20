@@ -461,6 +461,7 @@ DEFAULT_SITE = {
         "primary": "#c1121f",
         "accent": "#ffa500",
         "text": "#ffffff",
+        "segment_boundary": "#ffd166",
     },
 }
 
@@ -540,9 +541,8 @@ def acquire_single_instance():
     """Prevent duplicate recorder processes before workers and FFmpeg start."""
     if _try_take_instance_mutex():
         return True
-    # A second double-click reuses the running server and opens its existing
-    # web entry point.  Never start a second recorder or kill the live one.
-    _open_server_page()
+    # The tray icon owns opening the web UI. Starting the executable again must
+    # not launch a browser, another recorder, or disturb the running instance.
     return False
 
 
@@ -4957,12 +4957,25 @@ def on_quit(icon, item):
     os._exit(0)
 
 
+def on_open(icon, item):
+    """Default tray action (double-click on Windows): open/focus the web UI."""
+    _open_server_page()
+
+
+def create_tray_menu():
+    return pystray.Menu(
+        pystray.MenuItem("Mở Cambida", on_open, default=True),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("Thoát", on_quit),
+    )
+
+
 def setup_tray():
     pystray.Icon(
         "CCTV",
         create_tray_icon(),
         "Hệ thống CCTV",
-        pystray.Menu(pystray.MenuItem("Thoát", on_quit)),
+        create_tray_menu(),
     ).run()
 
 
@@ -5007,7 +5020,6 @@ if __name__ == "__main__":
         name="WebServer",
     )
     server_thread.start()
-    _open_server_page(server_port)
     if run_tray:
         try:
             setup_tray()
