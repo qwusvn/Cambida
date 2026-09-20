@@ -252,3 +252,21 @@ Cập nhật: 2026-09-12 +07
   - Probe luồng: `/cam1?stream=sub&view=live_preview` trả về `200 OK` (multipart/x-mixed-replace), frame JPEG đầu tiên trong 1.39s - 2.2s.
   - Luồng ghi hình tiếp tục hoạt động liên tục, xuất file `cam1_04-24-50_to_04-25-50_(21-09-2026).mp4` (2.4 MB) đầy đủ 60s.
 - Status: COMPLETED.
+
+## 2026-09-21 - Ultra-low live latency 0.5s & Fix frame overflow 4:3 contain (cambida-live-opt-contain-20260921)
+- Scope:
+  1. Tối ưu độ trễ mở luồng xem trực tiếp xuống mức tức thì (~0.5s thay vì ~2s).
+  2. Khắc phục ảnh live bị quá khung hình/cắt xén phần trên dưới do tỷ lệ 4:3 của sub stream bị `object-fit: cover` phóng to.
+  3. Cập nhật thông điệp loading từ "Đang mở trực tiếp..." thành "Đang tải...".
+- Xử lý:
+  - `dahua_37777.py`: Đổi tham số FFmpeg sang `-probesize 4096` và xuất khung hình theo nhịp gốc trực tiếp (bỏ bộ lọc `-vf fps` gây đệm frame). Độ trễ mở luồng giảm xuống còn **0.53s** (nhanh gấp ~15 lần so với ban đầu 8.5s).
+  - `index.html`: Đổi CSS `.player video, .player .live-stream` sang `object-fit: contain;` giúp thu trọn vẹn 100% trường nhìn của camera (chuẩn 640x480 tỷ lệ 4:3), không còn bị mất hay tràn góc trên/dưới.
+  - Sửa text nhãn chờ trong `#liveLoading` và `#cutLiveLoading` thành `Đang tải...`.
+  - Đồng bộ `release/2.1.0/index.html`.
+  - Khởi động lại dịch vụ máy chủ web sạch sẽ (PID 16440).
+- Kiểm chứng:
+  - Node tests: 19/19 PASS.
+  - Python tests: 92/92 PASS.
+  - Probe thực tế: `/replay/cam1` trả về `object-fit:contain` và `Đang tải...`.
+  - Probe luồng: Mở luồng live trong 0.53s - 0.55s.
+- Status: COMPLETED.

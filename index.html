@@ -58,7 +58,7 @@
     .live-badge.is-live .live-dot{background:#18c968;box-shadow:0 0 0 2px rgba(24,201,104,.08)}
 
     .player{position:relative;overflow:hidden;width:100%;aspect-ratio:1.66;border-radius:12px;background:#101820;box-shadow:0 1px 0 rgba(0,0,0,.05);touch-action:none}
-    .player video,.player .live-stream{width:100%;height:100%;display:block;object-fit:cover;background:#101820;transform:translate3d(0,0,0) scale(1);transform-origin:center;will-change:transform;user-select:none;-webkit-user-select:none;touch-action:none}
+    .player video,.player .live-stream{width:100%;height:100%;display:block;object-fit:contain;background:#101820;transform:translate3d(0,0,0) scale(1);transform-origin:center;will-change:transform;user-select:none;-webkit-user-select:none;touch-action:none}
     .player .live-stream{object-position:center}
     .live-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(16,24,32,.76);backdrop-filter:blur(4px);color:#fff;z-index:9;pointer-events:none;transition:opacity .2s ease}
     .live-loading[hidden]{display:none}
@@ -161,7 +161,7 @@
     <div class="player" id="playerFrame">
       <video id="videoPlayer" playsinline preload="metadata" poster="/snapshot/cam{{ cam_id }}?view=single"></video>
       <img id="liveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
-      <div id="liveLoading" class="live-loading" hidden><div class="live-spinner"></div><span class="live-loading-text">Đang mở trực tiếp...</span></div>
+      <div id="liveLoading" class="live-loading" hidden><div class="live-spinner"></div><span class="live-loading-text">Đang tải...</span></div>
       <button id="fullscreenButton" class="video-overlay-button" type="button" aria-label="Toàn màn hình" title="Toàn màn hình"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
     </div>
 
@@ -210,7 +210,7 @@
     <div class="player" id="cutPlayerFrame">
       <video id="cutPlayer" playsinline preload="metadata" poster="/snapshot/cam{{ cam_id }}?view=single"></video>
       <img id="cutLiveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
-      <div id="cutLiveLoading" class="live-loading" hidden><div class="live-spinner"></div><span class="live-loading-text">Đang mở trực tiếp...</span></div>
+      <div id="cutLiveLoading" class="live-loading" hidden><div class="live-spinner"></div><span class="live-loading-text">Đang tải...</span></div>
       <button id="cutFullscreenButton" class="video-overlay-button" type="button" aria-label="Toàn màn hình" title="Toàn màn hình"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
     </div>
 
