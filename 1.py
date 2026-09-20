@@ -648,6 +648,7 @@ app = Flask(__name__, template_folder=TEMPLATE_DIR)
 app.secret_key = CONFIG.get("admin_session_secret") or hashlib.sha256(
     (BASE_DIR + str(CONFIG.get("admin_auth", {}).get("password", ""))).encode()
 ).hexdigest()
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 
 def _safe_hex(value, fallback):
@@ -3869,21 +3870,29 @@ def restart_server():
         logger.info("[Server] Đang khởi động lại hệ thống theo yêu cầu...")
         _release_single_instance()
         if getattr(sys, "frozen", False):
-            cmd = [sys.executable] + sys.argv[1:]
+            exe_path = sys.executable
+            args_str = " ".join(f'"{arg}"' for arg in sys.argv[1:])
+            target_cmd = f'"{exe_path}" {args_str}'.strip()
         else:
-            cmd = [sys.executable, os.path.abspath(sys.argv[0])] + sys.argv[1:]
+            exe_path = sys.executable
+            script_path = os.path.abspath(sys.argv[0])
+            args_str = " ".join(f'"{arg}"' for arg in sys.argv[1:])
+            target_cmd = f'"{exe_path}" "{script_path}" {args_str}'.strip()
+
         try:
-            creationflags = 0
             if sys.platform == "win32":
+                restart_wrapper = f'timeout /t 1 /nobreak >nul & {target_cmd}'
                 creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
-            subprocess.Popen(cmd, cwd=BASE_DIR, close_fds=True, creationflags=creationflags)
+                subprocess.Popen(f'cmd.exe /c "{restart_wrapper}"', cwd=BASE_DIR, shell=False, creationflags=creationflags)
+            else:
+                subprocess.Popen(target_cmd, cwd=BASE_DIR, shell=True)
         except Exception as exc:
             logger.error(f"[Server] Lỗi khi tạo tiến trình mới: {exc}")
             try:
                 os.execl(sys.executable, sys.executable, *sys.argv)
             except Exception:
                 pass
-        time.sleep(0.3)
+        time.sleep(0.2)
         os._exit(0)
 
     threading.Thread(target=_do_restart, daemon=True).start()
@@ -5039,12 +5048,22 @@ if __name__ == "__main__":
     logger.info(f"🌐 Máy chủ web đang chạy tại http://0.0.0.0:{server_port}")
 
     def run_server():
-        try:
-            from waitress import serve
+        for attempt in range(20):
+            try:
+                from waitress import serve
 
-            serve(app, host="0.0.0.0", port=server_port, threads=16)
-        except ImportError:
-            app.run(host="0.0.0.0", port=server_port, debug=False)
+                serve(app, host="0.0.0.0", port=server_port, threads=16)
+                break
+            except OSError as e:
+                if attempt < 19 and ("10048" in str(e) or getattr(e, "winerror", None) == 10048):
+                    logger.warning(f"Cổng {server_port} đang bận, thử lại sau 0.5s (lần {attempt + 1}/20)...")
+                    time.sleep(0.5)
+                    continue
+                logger.error(f"Lỗi khởi động WebServer: {e}")
+                break
+            except ImportError:
+                app.run(host="0.0.0.0", port=server_port, debug=False)
+                break
 
     server_thread = threading.Thread(
         target=run_server,
