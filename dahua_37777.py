@@ -166,6 +166,9 @@ def _configure_api(dll):
     dll.CLIENT_SaveRealData.argtypes = [LLONG, C.c_char_p]
     dll.CLIENT_StopSaveRealData.restype = BOOL
     dll.CLIENT_StopSaveRealData.argtypes = [LLONG]
+    if hasattr(dll, "CLIENT_MakeKeyFrame"):
+        dll.CLIENT_MakeKeyFrame.restype = BOOL
+        dll.CLIENT_MakeKeyFrame.argtypes = [LLONG, C.c_int, C.c_int]
 
 
 def _load_runtime(base_dir: Optional[str] = None):
@@ -585,12 +588,12 @@ class Dahua37777Adapter:
 
         try:
             login, _ = self._login()
-            real = self._open_realplay(login)
             command = [
                 ffmpeg_path,
                 "-hide_banner",
                 "-loglevel", "error",
-                "-fflags", "+nobuffer",
+                "-probesize", "16384",
+                "-analyzeduration", "0",
                 "-flags", "low_delay",
                 "-f", "dhav",
                 "-i", "pipe:0",
@@ -609,9 +612,6 @@ class Dahua37777Adapter:
                 bufsize=0,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
-            if not self.dll.CLIENT_SetRealDataCallBackEx2(LLONG(real), on_data, None, 0x1F):
-                code, name = _sdk_error(self.dll)
-                raise Dahua37777Error(f"NetSDK callback RealPlay that bai: {name} (0x{code:08X}).")
 
             worker_threads = [
                 threading.Thread(target=writer, name="netsdk-dhav-writer", daemon=True),
@@ -619,6 +619,18 @@ class Dahua37777Adapter:
             ]
             for thread in worker_threads:
                 thread.start()
+
+            real = self._open_realplay(login)
+            if not self.dll.CLIENT_SetRealDataCallBackEx2(LLONG(real), on_data, None, 0x1F):
+                code, name = _sdk_error(self.dll)
+                raise Dahua37777Error(f"NetSDK callback RealPlay that bai: {name} (0x{code:08X}).")
+
+            if hasattr(self.dll, "CLIENT_MakeKeyFrame"):
+                sub_channel = 1 if self.stream in {"sub", "extra", "extra1", "1"} else 0
+                try:
+                    self.dll.CLIENT_MakeKeyFrame(LLONG(login), self.channel, sub_channel)
+                except Exception:
+                    pass
 
             while True:
                 try:
