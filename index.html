@@ -296,6 +296,7 @@
   };
   const playbackStates = new WeakMap();
   const playerRequestSerials = new WeakMap();
+  const autoplayWaiters = new WeakMap();
   const gestureStates = new WeakMap();
 
   function getSelectedSource(){ return CAMERA_MODE === "nvr" ? "nvr" : "local"; }
@@ -334,8 +335,19 @@
   function getTimelineContext(player){return player?.id==="cutPlayer"?"cut":"replay";}
   function getTimelinePlayer(context){return $(context==="cut"?"cutPlayer":"videoPlayer");}
   function getMediaDuration(player){const duration=Number(player?.duration);return Number.isFinite(duration)&&duration>0?duration:getDuration(currentVideo);}
-  function nextPlayerRequest(player){if(!player)return 0;const next=(playerRequestSerials.get(player)||0)+1;playerRequestSerials.set(player,next);return next;}
+  function clearAutoplayWaiter(player){const waiter=autoplayWaiters.get(player);if(!waiter)return;waiter.cleanup();autoplayWaiters.delete(player);}
+  function nextPlayerRequest(player){if(!player)return 0;clearAutoplayWaiter(player);const next=(playerRequestSerials.get(player)||0)+1;playerRequestSerials.set(player,next);return next;}
   function isCurrentPlayerRequest(player,serial){return Boolean(player&&serial&&playerRequestSerials.get(player)===serial);}
+  function playPlayerWhenReady(player,requestSerial){
+    if(!player||!isCurrentPlayerRequest(player,requestSerial))return;
+    clearAutoplayWaiter(player);
+    let active=true;
+    const retry=()=>{if(!active||!isCurrentPlayerRequest(player,requestSerial)){cleanup();return;}let result;try{result=player.play();}catch(_){return;}if(result&&typeof result.then==="function"){result.then(cleanup,()=>{if(!active||!isCurrentPlayerRequest(player,requestSerial))cleanup();});}else if(!player.paused)cleanup();};
+    const cleanup=()=>{if(!active)return;active=false;["loadedmetadata","loadeddata","canplay","canplaythrough"].forEach(type=>player.removeEventListener?.(type,retry));if(autoplayWaiters.get(player)?.cleanup===cleanup)autoplayWaiters.delete(player);};
+    autoplayWaiters.set(player,{cleanup});
+    ["loadedmetadata","loadeddata","canplay","canplaythrough"].forEach(type=>player.addEventListener(type,retry));
+    retry();
+  }
   function getPlayerProgress(player){const duration=getMediaDuration(player);return duration?clamp((Number(player?.currentTime)||0)/duration,0,1):0;}
   function getTimelineProgressForPlayer(player){const base=getPlayerBaseDate(player);if(!base)return timelineStates[getTimelineContext(player)]?.progress??0;return getTimelineProgressForDate(new Date(base.getTime()+(Number(player?.currentTime)||0)*1000));}
   function getTimelineProgressAt(context,clientX){const state=timelineStates[context],viewport=$(state.viewportId);if(!viewport)return 0;const rect=viewport.getBoundingClientRect(),width=Math.max(1,rect.width),trackWidth=width*state.zoom;return clamp((clientX-rect.left-state.offset)/trackWidth,0,1);}
@@ -387,7 +399,7 @@
     setAnchor($("downloadOriginalBtn"),downloadUrl,getVideoName(v));$("cutButton").disabled=false;$("watchError").hidden=true;
     if(range){$("overlayTimestamp").textContent=`${fmtDate(targetDate)} ${fmtTime(targetDate)}`;$("cutOverlayTimestamp").textContent=`${fmtDate(targetDate)} ${fmtTime(targetDate)}`;updateRuler("ruler");updateRuler("cutRuler");}
     if(seekSec!==null&&!isNvrVideo(v)){const player=$("videoPlayer"),apply=()=>{if(!isCurrentPlayerRequest(player,loadSerial))return;const max=getMediaDuration(player);player.currentTime=clamp(targetSec,0,max);};if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});}
-    configureClipRange(targetDate);const dayProgress=getTimelineProgressForDate(targetDate);renderTimeline("replay",dayProgress);renderTimeline("cut",dayProgress);checkCodec(v);if(autoplay)$("videoPlayer").play().catch(()=>{});
+    configureClipRange(targetDate);const dayProgress=getTimelineProgressForDate(targetDate);renderTimeline("replay",dayProgress);renderTimeline("cut",dayProgress);checkCodec(v);if(autoplay)playPlayerWhenReady($("videoPlayer"),loadSerial);return loadSerial;
   }
 
   function checkCodec(v){ [$("codecWarning"),$("cutCodecWarning")].forEach(el=>{el.hidden=true}); if(!v||isNvrSource()||v.source==="nvr"||getPlayUrl(v).startsWith("/nvr/"))return;fetch(`/api/video-codec/${encodeURIComponent(getVideoName(v))}`).then(r=>r.ok?r.json():null).then(info=>{if(info?.is_h265&&currentVideo&&getVideoName(currentVideo)===getVideoName(v)){ $("codecWarning").hidden=false;$("cutCodecWarning").hidden=false; }}).catch(()=>{}); }
@@ -419,12 +431,12 @@
     if(context==="replay"){$("cutButton").disabled=false;$("watchError").hidden=true;}
     const range=getVideoRange(match.video),sec=range?Math.max(0,(targetDate-range.start)/1000):0,same=currentVideo&&getVideoName(currentVideo)===getVideoName(match.video);
     if(!same){
-      if(context==="cut"){currentVideo=match.video;currentVideoIndex=match.index;loadPlayer($("cutPlayer"),match.video,targetDate);checkCodec(match.video);if(autoplay)$("cutPlayer")?.play().catch(()=>{});return;}
-      selectVideo(match.video,match.index,false,sec);if(autoplay)getTimelinePlayer(context)?.play().catch(()=>{});return;
+      if(context==="cut"){currentVideo=match.video;currentVideoIndex=match.index;const loadSerial=loadPlayer($("cutPlayer"),match.video,targetDate);checkCodec(match.video);if(autoplay)playPlayerWhenReady($("cutPlayer"),loadSerial);return;}
+      const loadSerial=selectVideo(match.video,match.index,false,sec);if(autoplay)playPlayerWhenReady(getTimelinePlayer(context),loadSerial);return;
     }
-    if(isNvrVideo(match.video)){loadPlayer(player,match.video,targetDate);if(context==="replay"){let downloadUrl=getDownloadUrl(match.video);downloadUrl=appendQueryParam(downloadUrl,"at",formatLocalSecond(targetDate));setAnchor($("downloadOriginalBtn"),downloadUrl,getVideoName(match.video));}syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"),$(context==="cut"?"cutOverlayTimestamp":"overlayTimestamp"));if(autoplay)player.play().catch(()=>{});return;}
+    if(isNvrVideo(match.video)){const loadSerial=loadPlayer(player,match.video,targetDate);if(context==="replay"){let downloadUrl=getDownloadUrl(match.video);downloadUrl=appendQueryParam(downloadUrl,"at",formatLocalSecond(targetDate));setAnchor($("downloadOriginalBtn"),downloadUrl,getVideoName(match.video));}syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"),$(context==="cut"?"cutOverlayTimestamp":"overlayTimestamp"));if(autoplay)playPlayerWhenReady(player,loadSerial);return;}
     const apply=()=>{if(!isCurrentPlayerRequest(player,requestSerial))return;const max=getMediaDuration(player);player.currentTime=clamp(sec,0,max);syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"),$(context==="cut"?"cutOverlayTimestamp":"overlayTimestamp"));};
-    if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});if(autoplay)player.play().catch(()=>{});
+    if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});if(autoplay)playPlayerWhenReady(player,requestSerial);
   }
   function updateCutFromPointer(context,clientX){
     if(!timelineDrag||!clipStartAt||!clipEndAt)return;

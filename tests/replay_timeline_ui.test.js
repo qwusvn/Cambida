@@ -36,6 +36,10 @@ function makeElement(id = '') {
       current.push(handler);
       listeners.set(type, current);
     },
+    removeEventListener(type, handler) {
+      const current = listeners.get(type) || [];
+      listeners.set(type, current.filter(candidate => candidate !== handler));
+    },
     dispatch(type, event = {}) {
       for (const handler of listeners.get(type) || []) handler({ type, target: this, ...event });
     },
@@ -218,6 +222,34 @@ test('manual replay scrub selects the exact recording and starts playback', () =
   const player = elements.get('videoPlayer');
   assert.equal(player.paused, false);
   assert.match(player.src, /at=2026-09-20T12%3A00%3A00/);
+});
+
+test('manual scrub retries autoplay after the selected media becomes playable', async () => {
+  const { context, elements } = loadReplayScript();
+  vm.runInContext(`visibleVideos = [
+    { name: 'cam1', started_at: '2026-09-20T00:00:00', end_at: '2026-09-20T23:59:59' }
+  ]; currentVideo = null;`, context);
+
+  vm.runInContext("document.getElementById('videoPlayer')", context);
+  const player = elements.get('videoPlayer');
+  let playAttempts = 0;
+  player.play = () => {
+    playAttempts += 1;
+    if (player.readyState < 3) return Promise.reject(new Error('media not ready'));
+    player.paused = false;
+    return Promise.resolve();
+  };
+
+  context.seekTimelineProgress('replay', 0.5, true, true);
+  await Promise.resolve();
+  assert.equal(player.paused, true);
+  assert.equal(playAttempts, 1);
+
+  player.readyState = 3;
+  player.dispatch('canplay');
+  await Promise.resolve();
+  assert.equal(player.paused, false);
+  assert.equal(playAttempts, 2);
 });
 
 test('stale loadedmetadata callbacks cannot override the latest scrub target', () => {
