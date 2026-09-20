@@ -362,12 +362,15 @@ test('live stream shows loading indicator while connecting and hides it on load'
 
   context.setScreenLive('replay', true);
   assert.equal(loading.hidden, false);
+  assert.equal(stream.hidden, true);
 
   assert.equal(typeof stream.onload, 'function');
   stream.onload();
   assert.equal(loading.hidden, true);
+  assert.equal(stream.hidden, false);
 
   context.setScreenLive('replay', false);
   assert.equal(loading.hidden, true);
+  assert.equal(stream.hidden, true);
   assert.equal(stream.onload, null);
 });

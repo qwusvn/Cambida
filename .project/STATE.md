@@ -39,12 +39,12 @@ Cập nhật: 2026-09-12 +07
 - Các artifact/profile Chromium/helper cũ và `nvr_cache/` vẫn giữ nguyên, không xóa hàng loạt.
 
 ## RTSP local timeline - BLOCKED (2026-09-13 08:46:17 +07:00)
-- Runtime production 2.1.0 port 8004 v?n ho?t d?ng; replay/timeline d� �p local RTSP, kh�ng d�ng NVR playback.
-- �� ph�t hi?n v� d?ng 97 ffmpeg.exe m? c�i ch? trong D:\1\cambida; production t? t?o l?i 3 worker FFmpeg c� parent h?p l? PID 2484.
-- Sau cleanup, Cam 1-3 production v?n timeout RTSP; test_camera_connection c? 3 th?t b?i do ph?n h?i qu� ch?m.
-- Camera local 192.168.1.206/209/210 hi?n kh�ng ping v� TCP 554 kh�ng k?t n?i; Yato Ethernet 192.168.1.220 v� gateway 192.168.1.1 v?n ping OK.
-- DDNS NVR v?n resolve v� TCP 81/554 m? nhung RTSP/HTTP application kh�ng tr? media k?p; blocker hi?n l� ngu?n/network camera/NVR, kh�ng ph?i timeline UI/backend.
-- Git source hi?n c� commit 2d30fcd + 9b2a164; task chua terminal v� chua c� MP4 RTSP production m?i d? x�c nh?n end-to-end.
+- Runtime production 2.1.0 port 8004 v?n ho?t d?ng; replay/timeline d� �p local RTSP, kh�ng d�ng NVR playback.
+- �� ph�t hi?n v� d?ng 97 ffmpeg.exe m? c�i ch? trong D:\1\cambida; production t? t?o l?i 3 worker FFmpeg c� parent h?p l? PID 2484.
+- Sau cleanup, Cam 1-3 production v?n timeout RTSP; test_camera_connection c? 3 th?t b?i do ph?n h?i qu� ch?m.
+- Camera local 192.168.1.206/209/210 hi?n kh�ng ping v� TCP 554 kh�ng k?t n?i; Yato Ethernet 192.168.1.220 v� gateway 192.168.1.1 v?n ping OK.
+- DDNS NVR v?n resolve v� TCP 81/554 m? nhung RTSP/HTTP application kh�ng tr? media k?p; blocker hi?n l� ngu?n/network camera/NVR, kh�ng ph?i timeline UI/backend.
+- Git source hi?n c� commit 2d30fcd + 9b2a164; task chua terminal v� chua c� MP4 RTSP production m?i d? x�c nh?n end-to-end.
 
 
 ## Imou direct RTSP ? implementation complete / live validation blocked (2026-09-13 +07)
@@ -144,3 +144,111 @@ Cập nhật: 2026-09-12 +07
 - Verification: Node 9/9, Python 81/81, launcher 3/3, py_compile and diff-check PASS. Source/sidecar HTML hashes match.
 - PyInstaller rebuild blocked before artifact output by WinError 5 reading C:\Users\qwusv\AppData\Roaming\Python\Python313\site-packages; no user server restart or config/media change applied.
 - Codex could not stage/commit due to restricted execution token; orchestrator staged task-scoped paths successfully, and commit is being finalized: git add could not create .git\\index.lock because the execution token is denied write/delete on .git; no ACL, lock, or unrelated process was changed.
+
+
+## 2026-09-21 — Khôi phục sản phẩm về 042b9d8
+- Parent task `cambida-restore-042b9d8-20260921`: verified source/release/runtime; target product commit `042b9d8` (2026-09-21 00:15:41 +07); rollback commit `a9d4120329cb065370c44c0aa19f80ef77bb30fb` preserves later orchestration docs.
+- 8 source/test paths match target Git blobs; `tests/test_stream_copy_merge.py` unchanged; product Git diff from 042b9d8 empty (excluding AGENTS.md). Pre-existing dirty `.project` and other untracked files preserved.
+- Backup before restore: `D:\1\cambida\backup\rollback-to-042b9d8-20260921-013230` (source, config, database, old executables/runtime). No video reset/deletion.
+- Gates: Python unittest 92/92 PASS, Node UI 14/14 PASS, static syntax and Git diff-check PASS. PyInstaller onedir rebuild PASS with 10 Dahua NetSDK DLLs.
+- Both official release\2.1.0 EXEs (root and nested compatibility) hash `8D8796356F91565F4C110E857F86B8FCDC65E40BC506A29B824406E64D632567`. Source/root-release index.html and admin.html hashes match. Root/workspace config unchanged hash `15D07D038704D61C76C43C8762BA31CFD58E8083CD2F9842E41EB7AFB035B5E3`; nested compatibility config preserved as-is.
+- Previous source server PID 9968 exited before orchestration restart; restored source server PID 32940 owns port 8004. HTTP `/`, `/live`, `/timeline`, `/replay/cam1` = 200; no b6fe156 auto-live marker. After restart Cam 1 generated `cam1_01-41-40_to_01-42-40_(21-09-2026).mp4`; FFmpeg decode-to-null exit 0.
+- Source startup logs pre-existing `winreg` undefined warning in Windows autostart setup at exact target commit. Real browser GUI flow and launch of packaged EXE not individually exercised; do not claim these passed.
+
+## 2026-09-21 - Timeline hien thi ngay hom truoc va day rollover
+- Task cambida-timeline-prevday-20260921:
+  - Timeline ruler tai moc 0h doi thanh 'Hom truoc', ho tro click chuyen ve ngay hom truoc (changeTimelineDay(-1)).
+  - Keo timeline sang trai vuot moc 0h (rawProgress < 0) tu dong chuyen ve ngay hom truoc va tua den moc tuong ung.
+  - Tich hop nut chuyen ngay previous/next cho ca man hinh xem lai va cat video.
+  - Mac dinh zoom timeline ve 1 (toan bo 1 ngay).
+- Ignored runtime sidecar release\2.1.0\index.html dong bo chinh xac voi source (SHA-256: D07E34FF37998ED2C759C9288ADF8A552F4BCDC28EE66213A8C77AB686F70663).
+- Kiem thu: Node tests 18/18 PASS, Python unittests 92/92 PASS, py_compile 1.py PASS, git diff --check PASS.
+- Task-scoped commit: b28a546. Status: COMPLETED.
+
+## 2026-09-21 - Replay UI streamlining, continuous timeline ruler, instant rate and initial live view
+- Task cambida-replay-streamline-20260921:
+  - Loai bo play button va time readout duoi video; loai bo zoom buttons; chuyen nut fullscreen thanh overlay button (.video-overlay-button) ben trong video frame.
+  - Xoa prefix 'Hom nay, ' trong date label; xoa chu 'Hom truoc' tren timeline ruler.
+  - Dat nut tua tien (1x >>) ngay ben canh nut tua lui (<< 1x) o ben trai timeline toolbar.
+  - Xu ly chu ky toc do phat ngay lan bam dau tien (2x -> 4x -> 1x -> 2x), bo click chet.
+  - Thanh timeline 48h lien mach (... 22h 23h 24h 0h 1h 2h ...) qua moc nua dem, hien thi lien tuc ban ghi cua hom truoc va hom nay.
+  - Xoa nut 'Tai doan nay ve may'; doi 'Bat dau cat video' thanh 'Cat Video' voi visual primary blue gradient.
+  - Xem truc tiep mo ngay tai trang hien tai, khong mo trang moi.
+  - Mo trang mac dinh luong dau tien la xem truc tiep (setScreenLive('replay', true)), scrub timeline chuyen sang xem lai.
+- Ignored runtime sidecar release\2.1.0\index.html dong bo chinh xac voi source index.html (SHA-256: FB24CF4359BE673C4B7C105F46A76D9B05B27CB632BF0682283FF03D25E599A6).
+- Kiem thu: Node tests 18/18 PASS, Python unittests 92/92 PASS, py_compile 1.py PASS, git diff --check PASS.
+- Task-scoped commit cho index.html va tests/replay_timeline_ui.test.js. Status: COMPLETED.
+
+## 2026-09-21 - Restore zoom, 5h default zoom, admin server restart, and silent startup
+- Task cambida-zoom-admin-restart-silent-20260921:
+  - Khoi phuc cum nut zoom timeline (#timelineZoomOut, #timelineZoomIn, #cutTimelineZoomOut, #cutTimelineZoomIn) tren ca replay va cut toolbars.
+  - Zoom mac dinh hien thi khoang 5 gio tren viewport (DEFAULT_TIMELINE_ZOOM = 48 / 5 = 9.6).
+  - Trang admin co nut 'Khoi dong lai Server' o ca Trung tam van hanh va thanh luu sticky-save, goi POST /api/admin/restart va tu dong poll trang thai cho toi khi online.
+  - Backend 1.py bo lenh tu dong bat trinh duyet khi khoi dong server; tray icon them 'Mo Cambida' mac dinh khi double click; single-instance cho phep double click mo web khi server da chay.
+- Synced release\2.1.0\index.html voi source index.html.
+- py_compile 1.py PASS, git diff --check PASS. Status: COMPLETED.
+
+## 2026-09-21 - Server restart verification
+- Server da duoc khoi dong lai thanh cong tren port 8004.
+- Tien trinh cu PID 34424 da duoc dung; tien trinh moi chay ma nguon moi nhat voi day du cac tinh nang:
+  - Khong tu dong bat trinh duyet khi boot.
+  - API /api/admin/restart da hoat dong.
+  - Timeline zoom 5h mac dinh va cum nut zoom da kich hoat.
+- Kiem tra HTTP: GET / va /replay/cam1 deu tra ve 200 OK; /api/status hoat dong dung phan quyen admin.
+
+## 2026-09-21 - Toi uu do tre khoi dong luong truc tiep NetSDK (cambida-live-latency-opt-20260921)
+- Scope: Toi uu pipeline giai ma xem truc tiep NetSDK trong `dahua_37777.py` (ham `iter_jpeg_frames`).
+- Nguyen nhan goc re da xac minh:
+  - FFmpeg thieu cau hinh probesize/analyzeduration nen mac dinh mat 5s tham do packet.
+  - `CLIENT_RealPlayEx` goi truoc khi khoi tao tien trinh FFmpeg va callback lam mat I-frame dau tien (t=0.08s), buoc FFmpeg phai doi chu ky I-frame ke tiep (4.0s).
+  - Co `+nobuffer` khien packet I-frame tham do bi huy trong decoder, gay tre tich luy 8.5s va burst 60 frame don dap.
+- Xu ly:
+  - Khoi tao tien trinh `ffmpeg.exe` va worker threads truoc khi kich hoat `RealPlayEx`.
+  - Them tham so `-probesize 16384 -analyzeduration 0 -flags low_delay` cho FFmpeg; bo `-fflags +nobuffer`.
+  - Goi `CLIENT_MakeKeyFrame` ngay khi mo luong de bat buoc camera phat I-frame tuc thi.
+  - Giu nguyen 100% ham `record_segment` va luong ghi hinh MP4 60s Main stream khong bi anh huong.
+- Kiem thu thuc te:
+  - Thoi gian mo khung hinh dau tien: giam tu **8.5s xuong 0.839s** (nhanh gap 10 lan).
+  - Khong con hien tuong xa don 60 frame; luong phat on dinh ~10 fps, do tre thuc te giu o muc < 0.5s.
+  - Luong ghi hinh Cam 1 tao segment `cam1_04-05-42_to_04-06-42_(21-09-2026).mp4` dung 60.00s, video 1080p H.264 + AAC hoan toan on dinh.
+  - `python -m unittest discover -s tests`: 92/92 PASS; `py_compile`: PASS; `git diff --check`: PASS.
+- Commit scoped: `0b7a585`. Status: COMPLETED.
+
+## 2026-09-21 - Them bieu tuong loading khi cho video live (cambida-live-loading-spinner-20260921)
+- Scope: Bổ sung biểu tượng loading spinner và thông điệp trạng thái khi chờ luồng xem trực tiếp sẵn sàng.
+- Thay đổi:
+  - Thêm cấu trúc HTML `<div id="liveLoading">` và `<div id="cutLiveLoading">` kèm CSS spinner xoay tròn tinh tế nằm giữa player frame.
+  - Cập nhật hàm `setScreenLive`: hiện spinner khi bắt đầu kết nối; tự động ẩn khi khung hình đầu tiên nạp xong (`onload`) hoặc khi lỗi (`onerror`).
+  - Ẩn spinner khi quay về chế độ xem lại.
+  - Đồng bộ file sidecar runtime `release/2.1.0/index.html`.
+- Kiểm thử:
+  - Node tests: 19/19 PASS (bao gồm test mới `live stream shows loading indicator while connecting and hides it on load`).
+  - Python tests: 92/92 PASS.
+  - `git diff --check`: PASS.
+- Commit scoped: `00b7421`. Status: COMPLETED.
+
+## 2026-09-21 - Server restart fix and confirmation
+- Nang cap co che restart_server trong 1.py voi wrapper timeout 1s tre truoc khi goi tien trinh moi, giup tien trinh cu va socket tren port 8004 giai phong hoan toan.
+- Bo sung vong lap retry ket noi socket trong run_server (thu lai toi da 20 lan x 0.5s neu gap WinError 10048).
+- Server hien tai dang chay on dinh (PID 36000, listening 0.0.0.0:8004).
+- HTTP GET / va /replay/cam1 deu tra ve 200 OK.
+
+## 2026-09-21 - Fix live spinner and eliminate broken image icon (cambida-live-spinner-broken-img-fix-20260921)
+- Scope: Sửa lỗi không hiển thị loading spinner và xuất hiện biểu tượng vỡ ảnh ("Hình ảnh trực tiếp camera 1") trên trình duyệt di động (Cốc Cốc Android).
+- Nguyên nhân:
+  - Tiến trình cũ (PID 29380) chạy từ 04:05 trước khi commit 00b7421 được tạo, khiến Flask cache template index.html cũ trong RAM (has liveLoading: False).
+  - Thẻ `<img>` được bật `hidden = false` ngay khi bắt đầu gọi URL, khiến trình duyệt hiển thị icon ảnh vỡ nếu gặp lỗi mạng hoặc đợi frame đầu tiên.
+- Xử lý:
+  - Giữ `stream.hidden = true` trong suốt lúc chờ kết nối, chỉ hiện `liveLoading` spinner xoay tròn giữa khung phát.
+  - Khi khung hình đầu tiên nạp thành công (`stream.onload`), tự động ẩn spinner và mở `stream.hidden = false`.
+  - Nếu xảy ra lỗi mạng (`stream.onerror`), ẩn spinner, giữ `stream.hidden = true` (không làm lộ icon ảnh vỡ native) và báo lỗi trực quan.
+  - Cập nhật test `replay_timeline_ui.test.js` kiểm tra chặt chẽ thuộc tính `hidden` của `liveStream` trong toàn bộ vòng đời.
+  - Đồng bộ `release/2.1.0/index.html`.
+  - Khởi động lại máy chủ (PID 36000), nạp mã tối ưu NetSDK và giao diện mới.
+- Kiểm chứng:
+  - Node tests: 19/19 PASS.
+  - Python tests: 92/92 PASS.
+  - Probe thực tế: HTTP GET `/replay/cam1` trả về `has liveLoading: True, has live-spinner: True`.
+  - Probe luồng: `/cam1?stream=sub&view=live_preview` trả về `200 OK` (multipart/x-mixed-replace), frame JPEG đầu tiên trong 1.39s - 2.2s.
+  - Luồng ghi hình tiếp tục hoạt động liên tục, xuất file `cam1_04-24-50_to_04-25-50_(21-09-2026).mp4` (2.4 MB) đầy đủ 60s.
+- Status: COMPLETED.
