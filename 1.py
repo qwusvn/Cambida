@@ -315,9 +315,6 @@ def _normalise_camera_entry(camera, index):
                 "netsdk_channel": max(
                     1, _coerce_int(camera.get("netsdk_channel") or 1, 1)
                 ),
-                "netsdk_stream": "sub"
-                if (view_stream == "sub" or str(camera.get("netsdk_stream") or "").strip().lower() == "sub")
-                else "main",
             }
         )
         return result
@@ -1626,7 +1623,7 @@ def validate_config(candidate):
                     return f"Camera {index}: netsdk_port nam ngoai pham vi 1-65535."
                 if private_channel < 1:
                     return f"Camera {index}: netsdk_channel phai tu 1 tro len."
-                if str(camera.get("netsdk_stream", "main")).strip().lower() not in {"main", "sub"}:
+                if "netsdk_stream" in camera and str(camera.get("netsdk_stream", "")).strip().lower() not in {"main", "sub"}:
                     return f"Camera {index}: netsdk_stream chi nhan main hoac sub."
             else:
                 mixed_keys = sorted(
@@ -3114,6 +3111,7 @@ def gen_netsdk_frames(camera, stream=None, context=None):
     private_camera = dict(camera)
     private_camera["netsdk_stream"] = target_stream
     private_camera["stream"] = target_stream
+    private_camera["view_stream"] = target_stream
     while True:
         frames = None
         try:
@@ -3283,6 +3281,7 @@ def camera_snapshot(cam_id):
         private_camera = dict(camera)
         private_camera["netsdk_stream"] = target_stream
         private_camera["stream"] = target_stream
+        private_camera["view_stream"] = target_stream
         try:
             adapter = Dahua37777Adapter.from_camera(private_camera, base_dir=_netsdk_base_dir())
             jpeg = adapter.capture_jpeg(FFMPEG_PATH, timeout=12.0)

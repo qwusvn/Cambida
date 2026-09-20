@@ -402,13 +402,27 @@ class Dahua37777Adapter:
             channel = max(0, configured_channel - 1)
         except (TypeError, ValueError):
             channel = 0
+        raw_view = str(camera.get("view_stream") or "").strip().lower()
+        if raw_view in {"main", "sub"}:
+            resolved_stream = raw_view
+        elif raw_view == "auto":
+            candidate = str(camera.get("stream") or "").strip().lower()
+            resolved_stream = candidate if candidate in {"main", "sub"} else "main"
+        else:
+            raw_legacy = str(camera.get("netsdk_stream") or "").strip().lower()
+            if raw_legacy in {"main", "sub"}:
+                resolved_stream = raw_legacy
+            else:
+                candidate = str(camera.get("stream") or "").strip().lower()
+                resolved_stream = candidate if candidate in {"main", "sub"} else "main"
+
         return cls(
             host=camera.get("ip") or camera.get("host"),
             username=camera.get("user") or camera.get("username"),
             password=camera.get("pass") if camera.get("pass") is not None else camera.get("password", ""),
             port=camera.get("netsdk_port") or camera.get("private_port") or 37777,
             channel=channel,
-            stream=camera.get("netsdk_stream") or camera.get("view_stream") or camera.get("stream") or "main",
+            stream=resolved_stream,
             sdk_dir=find_netsdk_dir(base_dir),
         )
 

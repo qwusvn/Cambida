@@ -98,6 +98,7 @@ test('admin camera renderer isolates NetSDK, RTSP, and zero-camera states', () =
   const netsdkMarkup = elements.get('cameraList').innerHTML;
   assert.match(netsdkMarkup, /NetSDK port/);
   assert.doesNotMatch(netsdkMarkup, /Preset RTSP camera|Chỉnh luồng RTSP camera nâng cao|cam-record-path/);
+  assert.doesNotMatch(netsdkMarkup, /Cấu hình đầu ghi nâng cao|cam-nvr-timezone|cam-nvr-connect-timeout|cam-nvr-https/);
 
   context.setForm({ cameras: [{ ...stale, local_transport: 'rtsp' }], tables: [] });
   const rtspMarkup = elements.get('cameraList').innerHTML;
@@ -108,6 +109,21 @@ test('admin camera renderer isolates NetSDK, RTSP, and zero-camera states', () =
   context.setForm({ cameras: [], tables: [] });
   assert.match(elements.get('cameraList').innerHTML, /Chưa có kênh/);
   assert.match(elements.get('qrGrid').innerHTML, /Chưa có camera/);
+
+  const legacyNvr = context.normalizeCamera({
+    name: 'Legacy NVR',
+    playback_source: 'nvr',
+    ip: '192.0.2.20',
+    nvr_vendor: 'dahua',
+    channel: 4,
+    port: 8554,
+    username: 'legacy-admin',
+    password: 'legacy-pass',
+  }, 0);
+  assert.equal(legacyNvr.host, '192.0.2.20');
+  assert.equal(legacyNvr.vendor, 'dahua');
+  assert.equal(legacyNvr.nvr_channel, 4);
+  assert.equal(legacyNvr.rtsp_port, 8554);
 });
 
 test('admin camera normalizes and renders view_stream (auto/main/sub)', () => {
@@ -124,13 +140,30 @@ test('admin camera normalizes and renders view_stream (auto/main/sub)', () => {
   const c3 = context.normalizeCamera({ name: 'Cam 3', ip: '1.2.3.4', view_stream: 'main' }, 2);
   assert.equal(c3.view_stream, 'main');
 
-  // Legacy netsdk_stream mapped if view_stream absent
+  // Legacy netsdk_stream mapped if view_stream absent; netsdk_stream is not retained
   const cLegacy = context.normalizeCamera({ name: 'Cam Legacy', ip: '1.2.3.4', local_transport: 'netsdk', netsdk_stream: 'sub' }, 3);
   assert.equal(cLegacy.view_stream, 'sub');
-  assert.equal(cLegacy.netsdk_stream, 'sub');
+  assert.equal(Object.hasOwn(cLegacy, 'netsdk_stream'), false);
+
+  const cLegacyMain = context.normalizeCamera({ name: 'Cam Legacy Main', ip: '1.2.3.4', local_transport: 'netsdk', netsdk_stream: 'main' }, 4);
+  assert.equal(cLegacyMain.view_stream, 'main');
+  assert.equal(Object.hasOwn(cLegacyMain, 'netsdk_stream'), false);
+
+  // Stale legacy netsdk_stream cannot override valid view_stream
+  const cStale1 = context.normalizeCamera({ name: 'Cam Stale 1', ip: '1.2.3.4', local_transport: 'netsdk', view_stream: 'sub', netsdk_stream: 'main' }, 5);
+  assert.equal(cStale1.view_stream, 'sub');
+  assert.equal(Object.hasOwn(cStale1, 'netsdk_stream'), false);
+
+  const cStale2 = context.normalizeCamera({ name: 'Cam Stale 2', ip: '1.2.3.4', local_transport: 'netsdk', view_stream: 'auto', netsdk_stream: 'sub' }, 6);
+  assert.equal(cStale2.view_stream, 'auto');
+  assert.equal(Object.hasOwn(cStale2, 'netsdk_stream'), false);
+
+  const cStale3 = context.normalizeCamera({ name: 'Cam Stale 3', ip: '1.2.3.4', local_transport: 'netsdk', view_stream: 'main', netsdk_stream: 'sub' }, 7);
+  assert.equal(cStale3.view_stream, 'main');
+  assert.equal(Object.hasOwn(cStale3, 'netsdk_stream'), false);
 
   // NVR camera preserves view_stream
-  const cNvr = context.normalizeCamera({ name: 'NVR Cam', playback_source: 'nvr', host: '1.2.3.5', view_stream: 'sub' }, 4);
+  const cNvr = context.normalizeCamera({ name: 'NVR Cam', playback_source: 'nvr', host: '1.2.3.5', view_stream: 'sub' }, 8);
   assert.equal(cNvr.view_stream, 'sub');
 
   // Markup includes cam-view-stream selector
@@ -142,4 +175,3 @@ test('admin camera normalizes and renders view_stream (auto/main/sub)', () => {
   assert.match(markup, /value="main"/);
   assert.match(markup, /value="sub"/);
 });
-

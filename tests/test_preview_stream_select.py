@@ -280,13 +280,42 @@ class PreviewStreamSelectTests(unittest.TestCase):
         n3 = APP._normalise_camera_entry({"ip": "192.168.1.10", "view_stream": "main"}, 0)
         self.assertEqual(n3["view_stream"], "main")
 
-        # Legacy netsdk_stream mapped if view_stream absent
+        # Legacy netsdk_stream mapped if view_stream absent; netsdk_stream is not retained
         n4 = APP._normalise_camera_entry(
             {"ip": "192.168.1.10", "local_transport": "netsdk", "netsdk_stream": "sub"},
             0,
         )
         self.assertEqual(n4["view_stream"], "sub")
-        self.assertEqual(n4["netsdk_stream"], "sub")
+        self.assertNotIn("netsdk_stream", n4)
+
+        n4_main = APP._normalise_camera_entry(
+            {"ip": "192.168.1.10", "local_transport": "netsdk", "netsdk_stream": "main"},
+            0,
+        )
+        self.assertEqual(n4_main["view_stream"], "main")
+        self.assertNotIn("netsdk_stream", n4_main)
+
+        # Stale legacy netsdk_stream cannot override valid view_stream
+        n_stale1 = APP._normalise_camera_entry(
+            {"ip": "192.168.1.10", "local_transport": "netsdk", "view_stream": "sub", "netsdk_stream": "main"},
+            0,
+        )
+        self.assertEqual(n_stale1["view_stream"], "sub")
+        self.assertNotIn("netsdk_stream", n_stale1)
+
+        n_stale2 = APP._normalise_camera_entry(
+            {"ip": "192.168.1.10", "local_transport": "netsdk", "view_stream": "auto", "netsdk_stream": "sub"},
+            0,
+        )
+        self.assertEqual(n_stale2["view_stream"], "auto")
+        self.assertNotIn("netsdk_stream", n_stale2)
+
+        n_stale3 = APP._normalise_camera_entry(
+            {"ip": "192.168.1.10", "local_transport": "netsdk", "view_stream": "main", "netsdk_stream": "sub"},
+            0,
+        )
+        self.assertEqual(n_stale3["view_stream"], "main")
+        self.assertNotIn("netsdk_stream", n_stale3)
 
         # NVR camera preserves view_stream
         n5 = APP._normalise_camera_entry(
@@ -305,7 +334,7 @@ class PreviewStreamSelectTests(unittest.TestCase):
         self.assertIsNone(APP.validate_config(cfg_good))
 
     def test_clean_config_for_saving_preserves_view_stream(self):
-        """clean_config_for_saving must keep view_stream across all camera types."""
+        """clean_config_for_saving must keep view_stream across all camera types and drop netsdk_stream."""
         cfg = {
             "cameras": [
                 {
@@ -342,6 +371,7 @@ class PreviewStreamSelectTests(unittest.TestCase):
         self.assertEqual(cleaned["cameras"][0]["view_stream"], "sub")
         self.assertEqual(cleaned["cameras"][1]["view_stream"], "main")
         self.assertEqual(cleaned["cameras"][2]["view_stream"], "auto")
+        self.assertNotIn("netsdk_stream", cleaned["cameras"][1])
 
     def test_admin_api_save_and_reload_view_stream(self):
         """PUT /api/admin/config must preserve view_stream."""
@@ -471,6 +501,190 @@ class PreviewStreamSelectTests(unittest.TestCase):
         self.assertIsNone(APP.get_rtsp_url(1, "preview"))
         self.assertIsNone(APP.get_rtsp_url(1, "main"))
         self.assertIsNone(APP.get_rtsp_url(1, "sub"))
+
+    # -------------------------------------------------------------------------
+    # 6. Issue #2: Legacy netsdk_stream migration and conflict resolution
+    # -------------------------------------------------------------------------
+    def test_stale_legacy_netsdk_stream_cannot_override_valid_view_stream(self):
+        """Stale legacy netsdk_stream must never override valid view_stream."""
+        # 1. resolve_view_stream: view_stream wins
+        cam_sub_stale_main = {"view_stream": "sub", "netsdk_stream": "main"}
+        self.assertEqual(APP.resolve_view_stream(cam_sub_stale_main), "sub")
+        self.assertEqual(APP.resolve_view_stream(cam_sub_stale_main, context="single"), "sub")
+
+        cam_main_stale_sub = {"view_stream": "main", "netsdk_stream": "sub"}
+        self.assertEqual(APP.resolve_view_stream(cam_main_stale_sub), "main")
+        self.assertEqual(APP.resolve_view_stream(cam_main_stale_sub, context="grid"), "main")
+
+        cam_auto_stale_sub = {"view_stream": "auto", "netsdk_stream": "sub"}
+        self.assertEqual(APP.resolve_view_stream(cam_auto_stale_sub, context="single"), "main")
+        self.assertEqual(APP.resolve_view_stream(cam_auto_stale_sub, context="grid"), "sub")
+
+        cam_auto_stale_main = {"view_stream": "auto", "netsdk_stream": "main"}
+        self.assertEqual(APP.resolve_view_stream(cam_auto_stale_main, context="grid"), "sub")
+        self.assertEqual(APP.resolve_view_stream(cam_auto_stale_main, context="single"), "main")
+
+        # 2. _normalise_camera_entry: view_stream wins and netsdk_stream is purged
+        norm1 = APP._normalise_camera_entry(
+            {"local_transport": "netsdk", "ip": "192.168.1.10", "view_stream": "sub", "netsdk_stream": "main"},
+            0,
+        )
+        self.assertEqual(norm1["view_stream"], "sub")
+        self.assertNotIn("netsdk_stream", norm1)
+
+        norm2 = APP._normalise_camera_entry(
+            {"local_transport": "netsdk", "ip": "192.168.1.10", "view_stream": "main", "netsdk_stream": "sub"},
+            0,
+        )
+        self.assertEqual(norm2["view_stream"], "main")
+        self.assertNotIn("netsdk_stream", norm2)
+
+        norm3 = APP._normalise_camera_entry(
+            {"local_transport": "netsdk", "ip": "192.168.1.10", "view_stream": "auto", "netsdk_stream": "sub"},
+            0,
+        )
+        self.assertEqual(norm3["view_stream"], "auto")
+        self.assertNotIn("netsdk_stream", norm3)
+
+        # 3. clean_config_for_saving: drops netsdk_stream so settings cannot disagree
+        saved = APP.clean_config_for_saving(
+            self._root([
+                {"local_transport": "netsdk", "ip": "192.168.1.10", "view_stream": "sub", "netsdk_stream": "main"},
+                {"local_transport": "netsdk", "ip": "192.168.1.11", "view_stream": "auto", "netsdk_stream": "sub"},
+            ])
+        )
+        for cam in saved["cameras"]:
+            self.assertNotIn("netsdk_stream", cam)
+        self.assertEqual(saved["cameras"][0]["view_stream"], "sub")
+        self.assertEqual(saved["cameras"][1]["view_stream"], "auto")
+
+    def test_legacy_only_netsdk_stream_migration(self):
+        """Legacy configs with only netsdk_stream migrate correctly to view_stream."""
+        # 1. resolve_view_stream fallback
+        self.assertEqual(APP.resolve_view_stream({"netsdk_stream": "sub"}), "sub")
+        self.assertEqual(APP.resolve_view_stream({"netsdk_stream": "main"}), "main")
+        self.assertEqual(APP.resolve_view_stream({"view_stream": "", "netsdk_stream": "sub"}), "sub")
+        self.assertEqual(APP.resolve_view_stream({"view_stream": None, "netsdk_stream": "main"}), "main")
+        self.assertEqual(APP.resolve_view_stream({"view_stream": "invalid", "netsdk_stream": "sub"}), "sub")
+
+        # 2. _normalise_camera_entry maps legacy netsdk_stream to view_stream and prunes netsdk_stream
+        n_sub = APP._normalise_camera_entry(
+            {"local_transport": "netsdk", "ip": "192.168.1.10", "netsdk_stream": "sub"},
+            0,
+        )
+        self.assertEqual(n_sub["view_stream"], "sub")
+        self.assertNotIn("netsdk_stream", n_sub)
+
+        n_main = APP._normalise_camera_entry(
+            {"local_transport": "netsdk", "ip": "192.168.1.10", "netsdk_stream": "main"},
+            0,
+        )
+        self.assertEqual(n_main["view_stream"], "main")
+        self.assertNotIn("netsdk_stream", n_main)
+
+        # 3. clean_config_for_saving persists migrated view_stream without netsdk_stream
+        saved = APP.clean_config_for_saving(
+            self._root([
+                {"local_transport": "netsdk", "ip": "192.168.1.10", "netsdk_stream": "sub"},
+                {"local_transport": "netsdk", "ip": "192.168.1.11", "netsdk_stream": "main"},
+            ])
+        )
+        self.assertEqual(saved["cameras"][0]["view_stream"], "sub")
+        self.assertNotIn("netsdk_stream", saved["cameras"][0])
+        self.assertEqual(saved["cameras"][1]["view_stream"], "main")
+        self.assertNotIn("netsdk_stream", saved["cameras"][1])
+
+    def test_netsdk_adapter_from_camera_stream_resolution(self):
+        """Dahua37777Adapter.from_camera prioritizes view_stream over stale netsdk_stream."""
+        base = {"ip": "192.168.1.50", "user": "admin", "pass": "secret"}
+        # Valid view_stream takes precedence over stale netsdk_stream
+        ad1 = D.Dahua37777Adapter.from_camera(
+            {**base, "view_stream": "sub", "netsdk_stream": "main"}
+        )
+        self.assertEqual(ad1.stream, "sub")
+
+        ad2 = D.Dahua37777Adapter.from_camera(
+            {**base, "view_stream": "main", "netsdk_stream": "sub"}
+        )
+        self.assertEqual(ad2.stream, "main")
+
+        # view_stream='auto' with stale netsdk_stream does not use stale 'sub'
+        ad3 = D.Dahua37777Adapter.from_camera(
+            {**base, "view_stream": "auto", "netsdk_stream": "sub"}
+        )
+        self.assertEqual(ad3.stream, "main")
+
+        # Legacy-only fallback
+        ad4 = D.Dahua37777Adapter.from_camera(
+            {**base, "netsdk_stream": "sub"}
+        )
+        self.assertEqual(ad4.stream, "sub")
+
+        ad5 = D.Dahua37777Adapter.from_camera(
+            {**base, "netsdk_stream": "main"}
+        )
+        self.assertEqual(ad5.stream, "main")
+
+        ad6 = D.Dahua37777Adapter.from_camera(
+            {**base, "view_stream": "bad_value", "netsdk_stream": "sub"}
+        )
+        self.assertEqual(ad6.stream, "sub")
+
+    def test_runtime_netsdk_preview_uses_transient_clone_without_persisting(self):
+        """Runtime preview sets transient netsdk_stream on cloned camera; original is not mutated."""
+        camera = {
+            "name": "Live NetSDK",
+            "playback_source": "local",
+            "ip": "192.168.1.50",
+            "user": "admin",
+            "pass": "secret",
+            "local_transport": "netsdk",
+            "netsdk_port": 37777,
+            "netsdk_channel": 1,
+            "view_stream": "auto",
+        }
+        # Original camera must not have netsdk_stream
+        self.assertNotIn("netsdk_stream", camera)
+
+        passed_cameras = []
+
+        class DummyAdapter:
+            def __init__(self, cam):
+                passed_cameras.append(dict(cam))
+            def iter_jpeg_frames(self, *args, **kwargs):
+                return iter([b"fakeframe"])
+            def capture_jpeg(self, *args, **kwargs):
+                return b"fakejpeg"
+
+        with patch.object(APP.Dahua37777Adapter, "from_camera", side_effect=lambda cam, **kw: DummyAdapter(cam)):
+            # 1. gen_netsdk_frames in grid context -> target_stream is 'sub'
+            gen = APP.gen_netsdk_frames(camera, context="grid")
+            frame = next(gen)
+            self.assertIn(b"fakeframe", frame)
+            gen.close()
+
+            self.assertEqual(len(passed_cameras), 1)
+            cloned = passed_cameras[0]
+            # Transient clone has target stream
+            self.assertEqual(cloned["netsdk_stream"], "sub")
+            self.assertEqual(cloned["view_stream"], "sub")
+            # Original camera is untouched
+            self.assertNotIn("netsdk_stream", camera)
+            self.assertEqual(camera["view_stream"], "auto")
+
+            # 2. Snapshot in single context -> target_stream is 'main'
+            passed_cameras.clear()
+            APP.CAMERA_LIST = [camera]
+            res = self.client.get("/snapshot/cam1?context=single")
+            self.assertEqual(res.status_code, 200)
+
+            self.assertEqual(len(passed_cameras), 1)
+            cloned2 = passed_cameras[0]
+            self.assertEqual(cloned2["netsdk_stream"], "main")
+            self.assertEqual(cloned2["view_stream"], "main")
+            # Original camera in CAMERA_LIST remains untouched
+            self.assertNotIn("netsdk_stream", camera)
+            self.assertEqual(camera["view_stream"], "auto")
 
 
 if __name__ == "__main__":
