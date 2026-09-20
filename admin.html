@@ -43,7 +43,7 @@
       <div class="d-flex flex-wrap gap-2">
         <button id="refreshHealth" type="button" class="btn btn-outline-primary btn-sm">Làm mới</button>
         <button id="reconcileLibrary" type="button" class="btn btn-outline-warning btn-sm">Kiểm tra toàn bộ video</button>
-        <button id="safeRestart" type="button" class="btn btn-outline-danger btn-sm">Khởi động lại an toàn</button>
+        <button id="safeRestart" type="button" class="btn btn-outline-danger btn-sm">🔄 Khởi động lại Server</button>
       </div>
     </div>
   </section>
@@ -106,7 +106,7 @@
     <section class="card mb-4 section-card"><div class="section-head"><h2 class="h5">Video đã ghép</h2><button class="btn btn-outline-secondary btn-sm section-toggle" type="button">Thu gọn</button></div><div class="card-body section-content"><p class="form-text">Xóa nhanh các file ghép không còn cần; video gốc không bị ảnh hưởng.</p><div id="mergedVideos" class="list-group"></div></div></section>
 
     <section class="card mb-4 section-card is-collapsed"><div class="section-head"><h2 class="h5">Cấu hình nâng cao (config.json)</h2><button class="btn btn-outline-secondary btn-sm section-toggle" type="button">Mở rộng</button></div><div class="card-body section-content"><p class="form-text">Chỉ dùng khi cần đổi đường dẫn video, log hoặc database. Camera nên sửa ở phần Camera phía trên.</p><textarea id="rawConfig" class="form-control"></textarea><div class="d-flex flex-wrap gap-2 mt-2"><button class="btn btn-outline-secondary btn-sm" type="button" id="loadRaw">Nạp JSON vào biểu mẫu</button><a class="btn btn-outline-secondary btn-sm" href="/api/admin/config/download">Tải backup config</a><label class="btn btn-outline-secondary btn-sm mb-0">Khôi phục backup <input id="restoreConfig" type="file" accept="application/json,.json" hidden></label></div></div></section>
-    <div class="sticky-save d-flex gap-2 align-items-center"><button class="btn btn-brand px-4" type="submit">Lưu cấu hình</button><span class="muted">Đổi camera, port hoặc FFmpeg cần khởi động lại app.</span></div>
+    <div class="sticky-save d-flex gap-2 align-items-center flex-wrap"><button class="btn btn-brand px-4" type="submit">Lưu cấu hình</button><button id="restartServerSticky" type="button" class="btn btn-outline-danger">🔄 Khởi động lại Server</button><span class="muted">Đổi camera, port hoặc FFmpeg cần khởi động lại app.</span></div>
   </form>
 </main>
 <script>
@@ -448,7 +448,37 @@
   async function loadEvents() { const response=await fetch('/api/events'); const events=await response.json(); $('eventList').innerHTML=events.length?events.slice(0,50).map(event=>`<div class="list-group-item"><strong>${esc(event.label)}</strong> · ${esc(event.event_time)}<div class="small muted">${esc(event.note||event.filename||'')}</div></div>`).join(''):'<div class="muted">Chưa có sự kiện.</div>'; }
   $('refreshHealth').addEventListener('click',loadHealth); $('searchLibrary').addEventListener('click',loadLibrary);
   $('reconcileLibrary').addEventListener('click',async()=>{const response=await fetch('/api/admin/reconcile',{method:'POST'});const data=await response.json();notice(data.message||data.error,response.ok);});
-  $('safeRestart').addEventListener('click',async()=>{if(!confirm('Khởi động lại an toàn ngay?'))return;const response=await fetch('/api/admin/restart',{method:'POST'});const data=await response.json();notice(data.message||data.error,response.ok);});
+  async function triggerServerRestart(){
+    if(!confirm('Khởi động lại Server để cập nhật cài đặt mới?'))return;
+    notice('Đang gửi lệnh khởi động lại server...',true);
+    try{
+      const response=await fetch('/api/admin/restart',{method:'POST'});
+      const data=await response.json();
+      notice(data.message||'Hệ thống đang khởi động lại. Vui lòng đợi...',true);
+    }catch(_){
+      notice('Đã gửi lệnh khởi động lại server...',true);
+    }
+    let retries=0;
+    const pollInterval=setInterval(async()=>{
+      retries+=1;
+      try{
+        const res=await fetch('/api/status',{cache:'no-store'});
+        if(res.ok){
+          clearInterval(pollInterval);
+          notice('Server đã khởi động lại thành công!',true);
+          loadHealth();
+          loadConfig().catch(()=>{});
+        }
+      }catch(_){
+        if(retries>30){
+          clearInterval(pollInterval);
+          notice('Server đang khởi động lại lâu hơn dự kiến. Vui lòng tải lại trang sau giây lát.',false);
+        }
+      }
+    },1500);
+  }
+  $('safeRestart').addEventListener('click',triggerServerRestart);
+  $('restartServerSticky')?.addEventListener('click',triggerServerRestart);
   $('videoLibrary').addEventListener('click',async event=>{const lock=event.target.closest('.toggle-lock'), noteButton=event.target.closest('.edit-note'); if(!lock&&!noteButton)return; const button=lock||noteButton; const payload=lock?{locked:lock.dataset.locked!=='1'}:{note:prompt('Ghi chú cho video:',noteButton.dataset.note||'')}; if(payload.note===null)return; const response=await fetch('/api/admin/videos/'+encodeURIComponent(button.dataset.name),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); if(response.ok)loadLibrary();});
   document.querySelectorAll('.section-toggle').forEach(button => button.addEventListener('click', () => { const section=button.closest('.section-card'); const collapsed=section.classList.toggle('is-collapsed'); button.textContent=collapsed?'Mở rộng':'Thu gọn'; }));
   const dark = localStorage.getItem('adminTheme') === 'dark'; document.body.classList.toggle('admin-dark',dark); $('themeToggle').textContent=dark?'☀️ Sáng':'🌙 Tối'; $('themeToggle').addEventListener('click', () => { const active=document.body.classList.toggle('admin-dark'); localStorage.setItem('adminTheme',active?'dark':'light'); $('themeToggle').textContent=active?'☀️ Sáng':'🌙 Tối'; });

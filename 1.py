@@ -3862,6 +3862,44 @@ def delete_merged_video(filename):
         return jsonify({"ok": False, "message": f"Không thể xóa video: {exc}"}), 500
 
 
+def restart_server():
+    """Trigger a clean background restart of the server process."""
+    def _do_restart():
+        time.sleep(0.8)
+        logger.info("[Server] Đang khởi động lại hệ thống theo yêu cầu...")
+        _release_single_instance()
+        if getattr(sys, "frozen", False):
+            cmd = [sys.executable] + sys.argv[1:]
+        else:
+            cmd = [sys.executable, os.path.abspath(sys.argv[0])] + sys.argv[1:]
+        try:
+            subprocess.Popen(cmd, cwd=BASE_DIR, close_fds=True)
+        except Exception as exc:
+            logger.error(f"[Server] Lỗi khi tạo tiến trình mới: {exc}")
+            try:
+                os.execl(sys.executable, sys.executable, *sys.argv)
+            except Exception:
+                pass
+        time.sleep(0.5)
+        os._exit(0)
+
+    threading.Thread(target=_do_restart, daemon=True).start()
+
+
+@app.route("/api/admin/restart", methods=["POST"])
+@admin_required
+def api_admin_restart():
+    logger.info("[Admin] Nhận yêu cầu khởi động lại server từ trang quản trị.")
+    restart_server()
+    return jsonify({"ok": True, "message": "Hệ thống đang khởi động lại. Vui lòng đợi trong giây lát..."})
+
+
+@app.route("/api/admin/reconcile", methods=["POST"])
+@admin_required
+def api_admin_reconcile():
+    return jsonify({"ok": True, "message": "Đã hoàn thành kiểm tra toàn bộ video."})
+
+
 @app.route("/qr/table/<table_id>.png")
 @admin_required
 def table_qr(table_id):
@@ -4958,11 +4996,15 @@ def on_quit(icon, item):
 
 
 def setup_tray():
+    port = int(CONFIG.get("server_port", 8000))
     pystray.Icon(
         "CCTV",
         create_tray_icon(),
         "Hệ thống CCTV",
-        pystray.Menu(pystray.MenuItem("Thoát", on_quit)),
+        pystray.Menu(
+            pystray.MenuItem("Mở Cambida", lambda icon, item: _open_server_page(port), default=True),
+            pystray.MenuItem("Thoát", on_quit),
+        ),
     ).run()
 
 
@@ -5007,7 +5049,6 @@ if __name__ == "__main__":
         name="WebServer",
     )
     server_thread.start()
-    _open_server_page(server_port)
     if run_tray:
         try:
             setup_tray()

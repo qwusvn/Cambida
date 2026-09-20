@@ -147,7 +147,7 @@ test('player controls are streamlined with overlay fullscreen and no external pl
   assert.match(html, /id="fullscreenButton" class="video-overlay-button"/);
 });
 
-test('playback rate controls sit together on the left and zoom buttons are removed', () => {
+test('playback rate controls sit together on the left and zoom buttons are restored defaulting to 5 hours', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   const { context } = loadReplayScript();
   assert.equal((html.match(/data-timeline-context="replay" data-direction="reverse"/g) || []).length, 1);
@@ -157,8 +157,9 @@ test('playback rate controls sit together on the left and zoom buttons are remov
   assert.match(html, /data-direction="reverse" data-rate="1"[^>]*>[\s\S]*?<span class="rate-label">1x<\/span>/);
   assert.match(html, /data-direction="forward" data-rate="1"[^>]*>[\s\S]*?<span class="rate-label">1x<\/span>/);
   assert.deepEqual([2, 4, 1], [context.getNextPlaybackRate(1), context.getNextPlaybackRate(2), context.getNextPlaybackRate(4)]);
-  assert.equal(html.includes('id="timelineZoomOut"'), false);
-  assert.equal(html.includes('id="cutTimelineZoomOut"'), false);
+  assert.ok(html.includes('id="timelineZoomOut"'));
+  assert.ok(html.includes('id="cutTimelineZoomOut"'));
+  assert.ok(Math.abs(context.DEFAULT_TIMELINE_ZOOM - 9.6) < 0.1);
 });
 
 test('live mode keeps timeline visible and jumps it to the current day/time', () => {
