@@ -3873,14 +3873,17 @@ def restart_server():
         else:
             cmd = [sys.executable, os.path.abspath(sys.argv[0])] + sys.argv[1:]
         try:
-            subprocess.Popen(cmd, cwd=BASE_DIR, close_fds=True)
+            creationflags = 0
+            if sys.platform == "win32":
+                creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+            subprocess.Popen(cmd, cwd=BASE_DIR, close_fds=True, creationflags=creationflags)
         except Exception as exc:
             logger.error(f"[Server] Lỗi khi tạo tiến trình mới: {exc}")
             try:
                 os.execl(sys.executable, sys.executable, *sys.argv)
             except Exception:
                 pass
-        time.sleep(0.5)
+        time.sleep(0.3)
         os._exit(0)
 
     threading.Thread(target=_do_restart, daemon=True).start()
