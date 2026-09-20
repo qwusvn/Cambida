@@ -292,3 +292,62 @@ test('live list refresh does not load replay, but a user scrub exits live and pl
   assert.equal(elements.get('replayScreen').classList.contains('is-live'), false);
   assert.equal(elements.get('videoPlayer').paused, false);
 });
+
+test('timeline defaults to one full day and displays previous day instead of 0h mark', () => {
+  const { context, elements } = loadReplayScript();
+  assert.equal(vm.runInContext('timelineStates.replay.zoom', context), 1);
+  assert.equal(vm.runInContext('timelineStates.cut.zoom', context), 1);
+  context.updateRuler('ruler');
+  const labels = elements.get('ruler').children.map(child => child.textContent);
+  assert.equal(labels[0], 'Hôm trước');
+  assert.deepEqual(labels.slice(1, 3), ['1h', '2h']);
+  assert.deepEqual(labels.slice(-2), ['23h', '24h']);
+});
+
+test('previous-day navigation keeps replay and cut on date-correct absolute times', () => {
+  const { context, elements } = loadReplayScript();
+  elements.get('filterDate').value = '2026-09-20';
+  elements.set('cutFilterDate', makeElement('cutFilterDate'));
+  elements.get('cutFilterDate').value = '2026-09-20';
+  context.changeTimelineDay(-1);
+  assert.equal(elements.get('filterDate').value, '2026-09-19');
+  assert.equal(elements.get('cutFilterDate').value, '2026-09-19');
+  assert.equal(context.formatLocalSecond(context.getTimelineDateAtProgress(23 / 24)), '2026-09-19T23:00:00');
+  context.changeTimelineDay(1);
+  assert.equal(context.formatLocalSecond(context.getTimelineDateAtProgress(1 / 24)), '2026-09-20T01:00:00');
+});
+
+test('ruler previous-day mark triggers day navigation when clicked', () => {
+  const { context, elements } = loadReplayScript();
+  elements.get('filterDate').value = '2026-09-20';
+  elements.set('cutFilterDate', makeElement('cutFilterDate'));
+  elements.get('cutFilterDate').value = '2026-09-20';
+  context.updateRuler('ruler');
+  const prevDayMarker = elements.get('ruler').children[0];
+  assert.equal(prevDayMarker.textContent, 'Hôm trước');
+  prevDayMarker.dispatch('click');
+  assert.equal(elements.get('filterDate').value, '2026-09-19');
+  assert.equal(elements.get('cutFilterDate').value, '2026-09-19');
+});
+
+test('dragging timeline past 0h to the left rolls over into previous day', () => {
+  const { context, elements } = loadReplayScript();
+  elements.get('filterDate').value = '2026-09-20';
+  elements.set('cutFilterDate', makeElement('cutFilterDate'));
+  elements.get('cutFilterDate').value = '2026-09-20';
+  vm.runInContext(`visibleVideos = [
+    { name: 'cam1', started_at: '2026-09-19T00:00:00', end_at: '2026-09-20T23:59:59' }
+  ]; currentVideo = null;`, context);
+
+  context.wireTimeline('timelineHit', false);
+  const hit = context.document.getElementById('timelineHit');
+  const viewport = context.document.getElementById('timelineViewport');
+  viewport.getBoundingClientRect = () => ({ width: 1000, left: 0, right: 1000, top: 0, bottom: 50, height: 50 });
+
+  hit.dispatch('pointerdown', { pointerId: 1, clientX: 100, preventDefault() {} });
+  hit.dispatch('pointermove', { pointerId: 1, clientX: 800 });
+  hit.dispatch('pointerup', { pointerId: 1, clientX: 800 });
+
+  assert.equal(elements.get('filterDate').value, '2026-09-19');
+  assert.equal(elements.get('cutFilterDate').value, '2026-09-19');
+});
