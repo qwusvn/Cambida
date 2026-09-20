@@ -16,6 +16,7 @@ import math
 import os
 import re
 import shutil
+import socket
 import sqlite3
 import stat
 import subprocess
@@ -24,6 +25,7 @@ import tempfile
 import threading
 import time
 import uuid
+import webbrowser
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -538,47 +540,41 @@ def acquire_single_instance():
     """Prevent duplicate recorder processes before workers and FFmpeg start."""
     if _try_take_instance_mutex():
         return True
-    if not _show_restart_prompt():
-        return False
-
-    previous_pid = _read_instance_pid()
-    if not previous_pid:
-        try:
-            ctypes.windll.user32.MessageBoxW(
-                None,
-                "Không xác định được bản CCTV đang chạy. Hãy đóng bản đó rồi thử lại.",
-                "Không thể khởi động lại",
-                0x00000010,
-            )
-        except Exception:
-            pass
-        return False
-    try:
-        subprocess.run(
-            ["taskkill", "/PID", str(previous_pid), "/T", "/F"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=12,
-            creationflags=subprocess.CREATE_NO_WINDOW,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-
-    deadline = time.monotonic() + 15
-    while time.monotonic() < deadline:
-        if _try_take_instance_mutex():
-            return True
-        time.sleep(0.5)
-    try:
-        ctypes.windll.user32.MessageBoxW(
-            None,
-            "Bản CCTV cũ chưa dừng. Không mở thêm ứng dụng để tránh ghi trùng camera.",
-            "Không thể khởi động lại",
-            0x00000010,
-        )
-    except Exception:
-        pass
+    # A second double-click reuses the running server and opens its existing
+    # web entry point.  Never start a second recorder or kill the live one.
+    _open_server_page()
     return False
+
+
+def _server_url(port):
+    return f"http://127.0.0.1:{int(port)}/"
+
+
+def _wait_for_server(port, timeout=15, connector=None):
+    connector = connector or socket.create_connection
+    deadline = time.monotonic() + max(0, float(timeout))
+    while True:
+        try:
+            with connector(("127.0.0.1", int(port)), timeout=0.5):
+                return True
+        except OSError:
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.1)
+
+
+def _open_server_page(port=None, wait_timeout=15, opener=None, connector=None):
+    """Open the local web UI once the existing/new server accepts connections."""
+    if port is None:
+        port = CONFIG.get("server_port", 8000)
+    if not _wait_for_server(port, wait_timeout, connector=connector):
+        return False
+    opener = opener or webbrowser.open
+    try:
+        return bool(opener(_server_url(port), new=0, autoraise=True))
+    except Exception:
+        logger.exception("Không thể mở trình duyệt mặc định cho máy chủ CCTV")
+        return False
 
 
 VIDEO_DIR = config_path(CONFIG.get("video_dir"), "cctv_videos")
@@ -4691,12 +4687,18 @@ if __name__ == "__main__":
         except ImportError:
             app.run(host="0.0.0.0", port=server_port, debug=False)
 
+    server_thread = threading.Thread(
+        target=run_server,
+        daemon=run_tray,
+        name="WebServer",
+    )
+    server_thread.start()
+    _open_server_page(server_port)
     if run_tray:
-        threading.Thread(target=run_server, daemon=True).start()
         try:
             setup_tray()
         except Exception as e:
             logger.error(f"Lỗi khởi động System Tray: {e}")
-            run_server()
+            server_thread.join()
     else:
-        run_server()
+        server_thread.join()

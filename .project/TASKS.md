@@ -118,3 +118,14 @@
 - [x] Đồng bộ sidecar release\2.1.0\index.html với source; không đổi config/version/camera transport.
 - [x] Verification: replay Node 5/5 PASS; full Python unittest 78/78 PASS; py_compile PASS; git diff --check PASS.
 - Status: COMPLETED sau task-scoped commit.
+
+## Replay seek/live guard + packaged launcher — 2026-09-20
+- task_id: `cambida-replay-launcher-20260920`
+- [x] Scrub/drag/keyboard seek tự chuyển recorded playback và autoplay đúng datetime; giữ fixed-center needle, coverage/gap, Cut và speed/zoom.
+- [x] Player request serial loại callback `loadedmetadata` cũ; live list refresh/programmatic now jump không được load replay; user scrub khi live mới thoát live và phát replay.
+- [x] `Xem trực tiếp` giữ stream `/cam...` và không gọi recorded playback; regression Node **9/9 PASS**.
+- [x] Launcher tracked mới: `D:\1\cambida\CCTV_2.1.0.launcher.cmd`; reuse port 8004, chỉ start `release\2.1.0\CCTV_2.1.0.exe` khi cần, rồi mở browser.
+- [x] Full Python unittest **81/81 PASS**, launcher **3/3 PASS**, py_compile và `git diff --check` PASS.
+- [ ] Rebuild EXE chưa áp dụng: PyInstaller bị `WinError 5` khi đọc `C:\Users\qwusv\AppData\Roaming\Python\Python313\site-packages`; runtime/user server không bị restart.
+- [ ] Codex sandbox không tạo được Git commit: `.git\index` từ chối tạo `index.lock` với `Permission denied` do ACL read-only của execution token.
+- Status: IMPLEMENTATION VERIFIED; packaged EXE rebuild BLOCKED by host permission.

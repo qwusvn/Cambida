@@ -135,3 +135,12 @@ Cập nhật: 2026-09-12 +07
 - Hai nút 2x/4x rời được thay bằng một nút cho mỗi hướng, mặc định 1x và quay vòng 1x -> 2x -> 4x -> 1x khi tiếp tục bấm cùng hướng.
 - Source `index.html`, regression `tests/replay_timeline_ui.test.js`, và ignored sidecar `release\2.1.0\index.html` đã đồng bộ.
 - Gates: Node 5/5, Python 78/78, py_compile, diff-check đều PASS. Config/version/transport không thay đổi.
+
+## 2026-09-20 - Replay seek/live guard + launcher
+- Task cambida-replay-launcher-20260920: manual timeline scrub now selects exact recorded datetime and autoplays; fixed-center needle, coverage/gaps, Cut, speed and zoom are retained.
+- playerRequestSerials rejects stale async metadata callbacks. Programmatic live initialization/list refresh never loads replay; user scrub while live exits live and replays the selected target.
+- Xem truc tiep remains /cam<id>?stream=auto... and only moves the timeline visually.
+- Exact double-click path: D:\1\cambida\CCTV_2.1.0.launcher.cmd. It reuses TCP 8004, starts release\2.1.0\CCTV_2.1.0.exe only when needed, waits for readiness, and opens the default browser without killing a process.
+- Verification: Node 9/9, Python 81/81, launcher 3/3, py_compile and diff-check PASS. Source/sidecar HTML hashes match.
+- PyInstaller rebuild blocked before artifact output by WinError 5 reading C:\Users\qwusv\AppData\Roaming\Python\Python313\site-packages; no user server restart or config/media change applied.
+- Codex could not stage/commit due to restricted execution token; orchestrator staged task-scoped paths successfully, and commit is being finalized: git add could not create .git\\index.lock because the execution token is denied write/delete on .git; no ACL, lock, or unrelated process was changed.

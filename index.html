@@ -295,6 +295,7 @@
     cut: {trackId:"cutTimelineTrack", viewportId:"cutTimelineViewport", hitId:"cutTimelineHit", markerId:"cutTimelineMarker", bubbleId:"cutTimeBubble", zoomInId:"cutTimelineZoomIn", zoomOutId:"cutTimelineZoomOut", zoom:8, offset:0, progress:.5}
   };
   const playbackStates = new WeakMap();
+  const playerRequestSerials = new WeakMap();
   const gestureStates = new WeakMap();
 
   function getSelectedSource(){ return CAMERA_MODE === "nvr" ? "nvr" : "local"; }
@@ -333,6 +334,8 @@
   function getTimelineContext(player){return player?.id==="cutPlayer"?"cut":"replay";}
   function getTimelinePlayer(context){return $(context==="cut"?"cutPlayer":"videoPlayer");}
   function getMediaDuration(player){const duration=Number(player?.duration);return Number.isFinite(duration)&&duration>0?duration:getDuration(currentVideo);}
+  function nextPlayerRequest(player){if(!player)return 0;const next=(playerRequestSerials.get(player)||0)+1;playerRequestSerials.set(player,next);return next;}
+  function isCurrentPlayerRequest(player,serial){return Boolean(player&&serial&&playerRequestSerials.get(player)===serial);}
   function getPlayerProgress(player){const duration=getMediaDuration(player);return duration?clamp((Number(player?.currentTime)||0)/duration,0,1):0;}
   function getTimelineProgressForPlayer(player){const base=getPlayerBaseDate(player);if(!base)return timelineStates[getTimelineContext(player)]?.progress??0;return getTimelineProgressForDate(new Date(base.getTime()+(Number(player?.currentTime)||0)*1000));}
   function getTimelineProgressAt(context,clientX){const state=timelineStates[context],viewport=$(state.viewportId);if(!viewport)return 0;const rect=viewport.getBoundingClientRect(),width=Math.max(1,rect.width),trackWidth=width*state.zoom;return clamp((clientX-rect.left-state.offset)/trackWidth,0,1);}
@@ -354,12 +357,13 @@
   function wireVideoGestures(frameId,playerId){const frame=$(frameId),player=$(playerId);if(!frame||!player)return;const state={scale:1,x:0,y:0,pointers:new Map(),gesture:null};gestureStates.set(frame,state);const isControl=target=>target?.closest("button,a,input");const readPoint=ev=>({x:ev.clientX,y:ev.clientY});const beginGesture=()=>{const points=[...state.pointers.values()];if(points.length===2){const [a,b]=points,stateStart={distance:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),midX:(a.x+b.x)/2,midY:(a.y+b.y)/2,scale:state.scale,x:state.x,y:state.y};state.gesture={type:"pinch",...stateStart};}else if(points.length===1&&state.scale>1){state.gesture={type:"pan",startX:points[0].x,startY:points[0].y,x:state.x,y:state.y};}};frame.addEventListener("pointerdown",ev=>{if(ev.pointerType!=="touch"||isControl(ev.target))return;state.pointers.set(ev.pointerId,readPoint(ev));try{frame.setPointerCapture(ev.pointerId);}catch(_){ }beginGesture();ev.preventDefault();},{passive:false});frame.addEventListener("pointermove",ev=>{if(!state.pointers.has(ev.pointerId))return;state.pointers.set(ev.pointerId,readPoint(ev));const points=[...state.pointers.values()];if(points.length>=2&&state.gesture?.type==="pinch"){const [a,b]=points,distance=Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;state.scale=clamp(state.gesture.scale*distance/state.gesture.distance,1,3);state.x=state.gesture.x+(midX-state.gesture.midX);state.y=state.gesture.y+(midY-state.gesture.midY);applyVideoTransform(frame,player,state);ev.preventDefault();}else if(points.length===1&&state.gesture?.type==="pan"){const point=points[0];state.x=state.gesture.x+(point.x-state.gesture.startX);state.y=state.gesture.y+(point.y-state.gesture.startY);applyVideoTransform(frame,player,state);ev.preventDefault();}},{passive:false});const end=ev=>{state.pointers.delete(ev.pointerId);if(state.pointers.size===1&&state.scale>1){const point=[...state.pointers.values()][0];state.gesture={type:"pan",startX:point.x,startY:point.y,x:state.x,y:state.y};}else if(!state.pointers.size)state.gesture=null;};frame.addEventListener("pointerup",end);frame.addEventListener("pointercancel",end);frame.addEventListener("lostpointercapture",end);}
   function loadPlayer(player,v,targetDate=null){
     if(!v)return;
-    const context=getTimelineContext(player);stopPlayback(player,context);player.pause();
+    const requestSerial=nextPlayerRequest(player),context=getTimelineContext(player);stopPlayback(player,context);player.pause();
     const range=getVideoRange(v);let requested=targetDate instanceof Date&&!Number.isNaN(targetDate.getTime())?new Date(targetDate):range?.start||null;
     if(range&&requested){if(requested<range.start)requested=new Date(range.start);if(requested>=range.end)requested=new Date(Math.max(range.start.getTime(),range.end.getTime()-1000));}
     const nvr=isNvrVideo(v);let url=getPlayUrl(v);if(nvr&&requested)url=appendQueryParam(url,"at",formatLocalSecond(requested));
     const base=nvr?requested:(range?.start||requested);
     player.dataset.baseAt=base?formatLocalSecond(base):"";player.src=url;player.load();resetVideoTransform(player.closest(".player"));
+    return requestSerial;
   }
   function setPauseIcon(svg,playing){ svg.innerHTML=playing?'<path d="M7 5h4v14H7zm6 0h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>'; }
   function wirePlayer(playerId,buttonId,iconId,timeId,overlayId,frameId,fullId,context){
@@ -377,12 +381,12 @@
     currentVideo=v;currentVideoIndex=index;
     const range=getVideoRange(v),targetSec=Number.isFinite(Number(seekSec))?Math.max(0,Number(seekSec)):0;
     const targetDate=range?new Date(range.start.getTime()+targetSec*1000):getTimelineDateAtProgress(timelineStates.replay.progress);
-    loadPlayer($("videoPlayer"),v,targetDate);
+    const loadSerial=loadPlayer($("videoPlayer"),v,targetDate);
     const cutPlayer=$("cutPlayer");if(cutPlayer){cutPlayer.pause();cutPlayer.removeAttribute("src");cutPlayer.dataset.baseAt=formatLocalSecond(targetDate);cutPlayer.load();}
     let downloadUrl=getDownloadUrl(v);if(isNvrVideo(v)&&targetDate)downloadUrl=appendQueryParam(downloadUrl,"at",formatLocalSecond(targetDate));
     setAnchor($("downloadOriginalBtn"),downloadUrl,getVideoName(v));$("cutButton").disabled=false;$("watchError").hidden=true;
     if(range){$("overlayTimestamp").textContent=`${fmtDate(targetDate)} ${fmtTime(targetDate)}`;$("cutOverlayTimestamp").textContent=`${fmtDate(targetDate)} ${fmtTime(targetDate)}`;updateRuler("ruler");updateRuler("cutRuler");}
-    if(seekSec!==null&&!isNvrVideo(v)){const player=$("videoPlayer"),apply=()=>{const max=getMediaDuration(player);player.currentTime=clamp(targetSec,0,max);};if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});}
+    if(seekSec!==null&&!isNvrVideo(v)){const player=$("videoPlayer"),apply=()=>{if(!isCurrentPlayerRequest(player,loadSerial))return;const max=getMediaDuration(player);player.currentTime=clamp(targetSec,0,max);};if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});}
     configureClipRange(targetDate);const dayProgress=getTimelineProgressForDate(targetDate);renderTimeline("replay",dayProgress);renderTimeline("cut",dayProgress);checkCodec(v);if(autoplay)$("videoPlayer").play().catch(()=>{});
   }
 
@@ -392,6 +396,9 @@
     const val=$("filterDate").value,start=val?new Date(`${val}T00:00:00`):null,end=start?new Date(start.getTime()+86400000):null;
     visibleVideos=allVideos.filter(v=>{const r=getVideoRange(v);return !r||!start||!end||(r.end>start&&r.start<end)}).sort((a,b)=>(getVideoRange(a)?.start||0)-(getVideoRange(b)?.start||0));
     renderTimelineCoverage("filmstrip");renderTimelineCoverage("cutFilmstrip");updateRuler("ruler");updateRuler("cutRuler");
+    // Live initialization may refresh the recording list; it must never load
+    // a recorded source into either player or move the live stream off /cam.
+    if(isScreenLive("replay")||isScreenLive("cut"))return;
     if(!visibleVideos.length){$("watchError").textContent="Không có video cho ngày đã chọn.";$("watchError").hidden=false;currentVideo=null;setAnchor($("downloadOriginalBtn"),null);$("cutButton").disabled=true;renderTimeline("replay",.5);renderTimeline("cut",.5);return;}
     $("watchError").hidden=true;
     const now=new Date(),today=fmtDateInput(now)===val,nowMatch=today?findVideoAtDate(now):{video:null,index:-1};
@@ -403,8 +410,11 @@
   function fetchVideos(){const serial=++fetchSerial;let url=`/list/cam${CAMERA_ID}?source=${encodeURIComponent(getSelectedSource())}`;if($("filterDate").value)url+=`&date=${encodeURIComponent($("filterDate").value)}`;fetch(url).then(r=>{if(!r.ok)throw new Error(`Không tải được danh sách video (${r.status}).`);return r.json()}).then(data=>{if(serial!==fetchSerial)return;allVideos=Array.isArray(data)?data:(Array.isArray(data?.videos)?data.videos:[]);updateVisibleVideos();}).catch(e=>{if(serial!==fetchSerial)return;$("watchError").textContent=e.message||"Không tải được danh sách video.";$("watchError").hidden=false;});}
 
   function syncTimelineFromPlayer(){if(!currentVideo)return;syncTimelineForPlayer("replay",$("videoPlayer"));}
-  function seekTimelineProgress(context,progress,autoplay=false){
-    const resolved=clamp(progress,0,1),targetDate=getTimelineDateAtProgress(resolved),match=findVideoAtDate(targetDate),player=getTimelinePlayer(context);renderTimeline(context,resolved);
+  function isScreenLive(screen){const screenEl=$(screen==="cut"?"cutScreen":"replayScreen");return Boolean(screenEl?.classList?.contains("is-live"));}
+  function seekTimelineProgress(context,progress,autoplay=false,userInitiated=false){
+    const resolved=clamp(progress,0,1),targetDate=getTimelineDateAtProgress(resolved),match=findVideoAtDate(targetDate);
+    if(userInitiated&&isScreenLive(context))setScreenLive(context,false);
+    const player=getTimelinePlayer(context),requestSerial=nextPlayerRequest(player);renderTimeline(context,resolved);
     if(!match.video){player?.pause();if(context==="replay"){$("cutButton").disabled=true;$("watchError").textContent=`Không có bản ghi tại ${fmtTime(targetDate)}.`;$("watchError").hidden=false;}return;}
     if(context==="replay"){$("cutButton").disabled=false;$("watchError").hidden=true;}
     const range=getVideoRange(match.video),sec=range?Math.max(0,(targetDate-range.start)/1000):0,same=currentVideo&&getVideoName(currentVideo)===getVideoName(match.video);
@@ -413,7 +423,7 @@
       selectVideo(match.video,match.index,false,sec);if(autoplay)getTimelinePlayer(context)?.play().catch(()=>{});return;
     }
     if(isNvrVideo(match.video)){loadPlayer(player,match.video,targetDate);if(context==="replay"){let downloadUrl=getDownloadUrl(match.video);downloadUrl=appendQueryParam(downloadUrl,"at",formatLocalSecond(targetDate));setAnchor($("downloadOriginalBtn"),downloadUrl,getVideoName(match.video));}syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"),$(context==="cut"?"cutOverlayTimestamp":"overlayTimestamp"));if(autoplay)player.play().catch(()=>{});return;}
-    const apply=()=>{const max=getMediaDuration(player);player.currentTime=clamp(sec,0,max);syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"),$(context==="cut"?"cutOverlayTimestamp":"overlayTimestamp"));};
+    const apply=()=>{if(!isCurrentPlayerRequest(player,requestSerial))return;const max=getMediaDuration(player);player.currentTime=clamp(sec,0,max);syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"),$(context==="cut"?"cutOverlayTimestamp":"overlayTimestamp"));};
     if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});if(autoplay)player.play().catch(()=>{});
   }
   function updateCutFromPointer(context,clientX){
@@ -433,12 +443,12 @@
     updateClipVisual();
   }
   function wireTimeline(hitId,cut=false){
-    const context=cut?"cut":"replay",hit=$(hitId),endDrag=ev=>{if(timelineDrag?.pointerId!==ev.pointerId)return;const drag=timelineDrag;try{if(hit.hasPointerCapture?.(ev.pointerId))hit.releasePointerCapture(ev.pointerId);}catch(_){ }timelineDrag=null;if(drag?.mode==="seek"&&Number.isFinite(drag.pendingProgress))seekTimelineProgress(context,drag.pendingProgress,false);};
+    const context=cut?"cut":"replay",hit=$(hitId),endDrag=ev=>{if(timelineDrag?.pointerId!==ev.pointerId)return;const drag=timelineDrag;try{if(hit.hasPointerCapture?.(ev.pointerId))hit.releasePointerCapture(ev.pointerId);}catch(_){ }timelineDrag=null;if(drag?.mode==="seek"&&Number.isFinite(drag.pendingProgress))seekTimelineProgress(context,drag.pendingProgress,true,true);};
     hit.addEventListener("pointerdown",ev=>{if(!visibleVideos.length)return;ev.preventDefault();try{hit.setPointerCapture(ev.pointerId);}catch(_){ }if(cut&&currentVideo&&clipStartAt&&clipEndAt){const progress=getTimelineProgressAt(context,ev.clientX),targetDate=getTimelineDateAtProgress(progress),startRect=$("cutHandleStart").getBoundingClientRect(),endRect=$("cutHandleEnd").getBoundingClientRect(),selectionRect=$("cutSelection").getBoundingClientRect();if(ev.clientX>=startRect.left-10&&ev.clientX<=startRect.right+10)timelineDrag={mode:"start",pointerId:ev.pointerId};else if(ev.clientX>=endRect.left-10&&ev.clientX<=endRect.right+10)timelineDrag={mode:"end",pointerId:ev.pointerId};else if(ev.clientX>selectionRect.left&&ev.clientX<selectionRect.right)timelineDrag={mode:"selection",pointerId:ev.pointerId,grabOffsetMs:targetDate.getTime()-clipStartAt.getTime(),selectionWidthMs:clipEndAt.getTime()-clipStartAt.getTime()};}
       if(!timelineDrag)timelineDrag={mode:"seek",pointerId:ev.pointerId,startX:ev.clientX,startProgress:timelineStates[context].progress,pendingProgress:timelineStates[context].progress};else if(timelineDrag.mode!=="seek")updateCutFromPointer(context,ev.clientX);
     });
     hit.addEventListener("pointermove",ev=>{if(timelineDrag?.pointerId!==ev.pointerId)return;if(timelineDrag.mode==="seek"){const viewport=$(timelineStates[context].viewportId),width=Math.max(1,viewport?.getBoundingClientRect().width||1),trackWidth=width*timelineStates[context].zoom,delta=(ev.clientX-timelineDrag.startX)/trackWidth,next=clamp(timelineDrag.startProgress-delta,0,1);timelineDrag.pendingProgress=next;renderTimeline(context,next);}else if(cut)updateCutFromPointer(context,ev.clientX);});hit.addEventListener("pointerup",endDrag);hit.addEventListener("pointercancel",endDrag);hit.addEventListener("lostpointercapture",endDrag);
-    hit.addEventListener("keydown",ev=>{if(!visibleVideos.length)return;let progress=timelineStates[context].progress,step=(ev.shiftKey?10:1)/86400;if(ev.key==="ArrowLeft")progress-=step;else if(ev.key==="ArrowRight")progress+=step;else if(ev.key==="Home")progress=0;else if(ev.key==="End")progress=1;else return;ev.preventDefault();seekTimelineProgress(context,progress,false);});
+    hit.addEventListener("keydown",ev=>{if(!visibleVideos.length)return;let progress=timelineStates[context].progress,step=(ev.shiftKey?10:1)/86400;if(ev.key==="ArrowLeft")progress-=step;else if(ev.key==="ArrowRight")progress+=step;else if(ev.key==="Home")progress=0;else if(ev.key==="End")progress=1;else return;ev.preventDefault();seekTimelineProgress(context,progress,true,true);});
   }
 
   function setTimelineZoom(context,delta){const state=timelineStates[context],viewport=$(state.viewportId);if(!state||!viewport)return;const next=delta>0?Math.min(96,state.zoom*2):Math.max(1,state.zoom/2);if(next===state.zoom)return;state.zoom=next;renderTimeline(context,state.progress);}
@@ -460,7 +470,7 @@
 
   function updateModeBadge(isLive){const badge=$("headerLiveButton"),text=$("modeBadgeText");if(!badge||!text)return;badge.classList.toggle("is-live",isLive);text.textContent=isLive?"Trực tiếp":"Xem lại";badge.setAttribute("aria-label",isLive?"Đang xem trực tiếp. Nhấn để xem lại":"Đang xem lại. Nhấn để xem trực tiếp");}
   function jumpTimelineToNow(context){const now=new Date(),today=fmtDateInput(now),changed=$("filterDate").value!==today;$("filterDate").value=today;$("cutFilterDate").value=today;setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");const progress=getTimelineProgressForDate(now);renderTimeline(context,progress);if(context==="replay")renderTimeline("cut",progress);else renderTimeline("replay",progress);if(changed)fetchVideos();return progress;}
-  function setScreenLive(screen,isLive){const cut=screen==="cut",screenEl=$(cut?"cutScreen":"replayScreen"),video=$(cut?"cutPlayer":"videoPlayer"),stream=$(cut?"cutLiveStream":"liveStream"),button=$(cut?"cutLiveButton":"liveButton"),buttonText=$(cut?"cutLiveButtonText":"liveButtonText"),frame=$(cut?"cutPlayerFrame":"playerFrame");if(!screenEl||!video||!stream)return;screenEl.classList.toggle("is-live",isLive);if(isLive){activeScreen=screen;stopPlayback(video,screen);video.pause();resetVideoTransform(frame);jumpTimelineToNow(screen);stream.hidden=false;stream.src=`/cam${CAMERA_ID}?stream=auto&view=single&live=${Date.now()}`;stream.onerror=()=>{const error=$(cut?"cutError":"watchError");if(error){error.textContent="Không thể mở hình ảnh trực tiếp từ camera.";error.hidden=false;}};$(cut?"cutOverlayTimestamp":"overlayTimestamp").textContent="TRỰC TIẾP";buttonText.textContent="Xem lại";button.setAttribute("aria-label","Quay về xem lại");updateModeBadge(true);}else{stream.removeAttribute("src");stream.hidden=true;stream.onerror=null;buttonText.textContent="Xem trực tiếp";button.setAttribute("aria-label","Xem trực tiếp");if(currentVideo)syncPlayerUi(video,screen,$(cut?"cutPlayerTime":"playerTime"),$(cut?"cutOverlayTimestamp":"overlayTimestamp"));updateModeBadge(false);}}
+  function setScreenLive(screen,isLive){const cut=screen==="cut",screenEl=$(cut?"cutScreen":"replayScreen"),video=$(cut?"cutPlayer":"videoPlayer"),stream=$(cut?"cutLiveStream":"liveStream"),button=$(cut?"cutLiveButton":"liveButton"),buttonText=$(cut?"cutLiveButtonText":"liveButtonText"),frame=$(cut?"cutPlayerFrame":"playerFrame");if(!screenEl||!video||!stream)return;screenEl.classList.toggle("is-live",isLive);if(isLive){activeScreen=screen;nextPlayerRequest(video);stopPlayback(video,screen);video.pause();resetVideoTransform(frame);jumpTimelineToNow(screen);stream.hidden=false;stream.src=`/cam${CAMERA_ID}?stream=auto&view=single&live=${Date.now()}`;stream.onerror=()=>{const error=$(cut?"cutError":"watchError");if(error){error.textContent="Không thể mở hình ảnh trực tiếp từ camera.";error.hidden=false;}};$(cut?"cutOverlayTimestamp":"overlayTimestamp").textContent="TRỰC TIẾP";buttonText.textContent="Xem lại";button.setAttribute("aria-label","Quay về xem lại");updateModeBadge(true);}else{nextPlayerRequest(video);stream.removeAttribute("src");stream.hidden=true;stream.onerror=null;buttonText.textContent="Xem trực tiếp";button.setAttribute("aria-label","Xem trực tiếp");if(currentVideo)syncPlayerUi(video,screen,$(cut?"cutPlayerTime":"playerTime"),$(cut?"cutOverlayTimestamp":"overlayTimestamp"));updateModeBadge(false);}}
   function toggleLive(screen=activeScreen){const screenEl=$(screen==="cut"?"cutScreen":"replayScreen");if(screenEl&&!screenEl.hidden)setScreenLive(screen,!screenEl.classList.contains("is-live"));}
   function showReplay(){setScreenLive("cut",false);setScreenLive("replay",false);$("replayScreen").hidden=false;$("cutScreen").hidden=true;$("doneScreen").hidden=true;activeScreen="replay";$("headerTitle").textContent=replayTitle||"{{ camera_name }}";$("cutPlayer").pause();requestAnimationFrame(()=>{renderTimelineCoverage("filmstrip");updateRuler("ruler");renderTimeline("replay",timelineStates.replay.progress);if(currentVideo)syncPlayerUi($("videoPlayer"),"replay",$("playerTime"),$("overlayTimestamp"));});window.scrollTo({top:0,behavior:"smooth"});}
   function showCut(){if(!currentVideo)return;const targetDate=getTimelineDateAtProgress(timelineStates.replay.progress);setScreenLive("replay",false);setScreenLive("cut",false);$("replayScreen").hidden=true;$("cutScreen").hidden=false;$("doneScreen").hidden=true;activeScreen="cut";$("headerTitle").textContent="Cắt video";$("videoPlayer").pause();loadPlayer($("cutPlayer"),currentVideo,targetDate);configureClipRange(targetDate);renderTimeline("cut",getTimelineProgressForDate(targetDate));window.scrollTo({top:0,behavior:"smooth"});}

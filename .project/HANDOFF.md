@@ -110,3 +110,11 @@ Cập nhật: 2026-09-12 +07
 - Toolbar timeline hiện có một nút phát lùi và một nút phát tiến; mỗi nút bắt đầu ở 1x và chu kỳ khi bấm tiếp cùng hướng là 1x -> 2x -> 4x -> 1x.
 - Cụm zoom -/+ nằm trên toolbar cạnh nút hướng tiến; logic zoom cũ không đổi. Cut dùng cùng control model.
 - Regression: `tests/replay_timeline_ui.test.js` 5/5 PASS; full unittest 78/78 PASS; release sidecar đồng nhất byte-for-byte với source trước commit.
+
+## Replay seek/live/launcher handoff — 2026-09-20
+- User double-click path: `D:\1\cambida\CCTV_2.1.0.launcher.cmd`. It checks/reuses `127.0.0.1:8004`, starts `release\2.1.0\CCTV_2.1.0.exe` only when the port is unavailable, waits up to 30 seconds, then opens `http://127.0.0.1:8004/` using the default browser. It never kills a process.
+- `index.html` manual replay timeline seek (pointer/touch release and keyboard) passes `userInitiated=true`, switches from live to replay when needed, uses exact NVR `at=` or local media `currentTime`, and autoplays without a Play press.
+- `playerRequestSerials` invalidates stale async metadata callbacks. `updateVisibleVideos` returns while replay/cut live is active, so programmatic live now jumps and list refreshes never invoke recorded playback.
+- Source and ignored sidecar `release\2.1.0\index.html` are byte-identical. Gates: Node 9/9, Python 81/81, launcher 3/3, py_compile, diff-check PASS.
+- The direct packaged EXE was not rebuilt because PyInstaller hit `WinError 5` on the host Python site-packages directory. No GUI/device/live-camera E2E claim; no user server restart applied.
+- Commit remains pending because the sandbox execution token cannot write `.git\index` (`Unable to create .git/index.lock: Permission denied`); no ACL or lock-file mutation was attempted.

@@ -10,8 +10,10 @@ function makeElement(id = '') {
     id,
     value: '',
     paused: true,
+    readyState: 0,
     currentTime: 0,
     duration: 60,
+    src: '',
     style: {},
     dataset: {},
     children: [],
@@ -52,7 +54,7 @@ function makeElement(id = '') {
   };
 }
 
-function loadReplayScript() {
+function loadReplayScript(cameraMode = 'nvr') {
   const html = fs.readFileSync('index.html', 'utf8');
   const start = html.indexOf('<script>') + '<script>'.length;
   const end = html.lastIndexOf('</script>');
@@ -87,7 +89,7 @@ function loadReplayScript() {
   vm.createContext(context);
   const source = html
     .slice(start, end)
-    .replaceAll('{{ camera_mode }}', 'nvr')
+    .replaceAll('{{ camera_mode }}', cameraMode)
     .replaceAll('{{ cam_id }}', '1')
     .replaceAll('{{ max_merge_minutes|int }}', '60');
   new vm.Script(source, { filename: 'index.html' }).runInContext(context);
@@ -171,6 +173,19 @@ test('live mode keeps timeline visible and jumps it to the current day/time', ()
   assert.equal(vm.runInContext('timelineStates.replay.progress', context), progress);
 });
 
+test('live click uses the current /cam stream without loading recorded playback', () => {
+  const { context, elements } = loadReplayScript();
+  elements.set('replayScreen', makeElement('replayScreen'));
+  elements.set('liveStream', makeElement('liveStream'));
+  vm.runInContext("document.getElementById('videoPlayer')", context);
+
+  context.setScreenLive('replay', true);
+
+  assert.match(elements.get('liveStream').src, /^\/cam1\?stream=auto&view=single&live=/);
+  assert.equal(elements.get('videoPlayer').src, '');
+  assert.equal(elements.get('replayScreen').classList.contains('is-live'), true);
+});
+
 test('playback direction buttons cycle active speed 1x to 2x to 4x to 1x', () => {
   const { context, elements } = loadReplayScript();
   vm.runInContext("currentVideo={started_at:'2026-09-20T00:00:00',end_at:'2026-09-20T00:10:00'}", context);
@@ -190,4 +205,49 @@ test('playback direction buttons cycle active speed 1x to 2x to 4x to 1x', () =>
   context.setPlaybackRate('replay', 'forward', forward);
   assert.equal(forward.dataset.rate, '1');
   assert.equal(forwardLabel.textContent, '1x');
+});
+
+test('manual replay scrub selects the exact recording and starts playback', () => {
+  const { context, elements } = loadReplayScript();
+  vm.runInContext(`visibleVideos = [
+    { name: 'cam1', started_at: '2026-09-20T00:00:00', end_at: '2026-09-20T23:59:59' }
+  ]; currentVideo = null;`, context);
+
+  context.seekTimelineProgress('replay', 0.5, true, true);
+
+  const player = elements.get('videoPlayer');
+  assert.equal(player.paused, false);
+  assert.match(player.src, /at=2026-09-20T12%3A00%3A00/);
+});
+
+test('stale loadedmetadata callbacks cannot override the latest scrub target', () => {
+  const { context, elements } = loadReplayScript('local');
+  vm.runInContext(`visibleVideos = [
+    { name: 'cam1', source: 'local', started_at: '2026-09-20T00:00:00', end_at: '2026-09-20T01:00:00' }
+  ]; currentVideo = visibleVideos[0]; currentVideoIndex = 0;`, context);
+  vm.runInContext("document.getElementById('videoPlayer').duration = 3600", context);
+
+  context.seekTimelineProgress('replay', 5 / 24 / 60, false, false);
+  context.seekTimelineProgress('replay', 25 / 24 / 60, false, false);
+  const player = elements.get('videoPlayer');
+  player.dispatch('loadedmetadata');
+
+  assert.equal(player.currentTime, 25 * 60);
+});
+
+test('live list refresh does not load replay, but a user scrub exits live and plays replay', () => {
+  const { context, elements } = loadReplayScript();
+  elements.set('replayScreen', makeElement('replayScreen'));
+  vm.runInContext("document.getElementById('videoPlayer')", context);
+  vm.runInContext(`allVideos = [
+    { name: 'cam1', started_at: '2026-09-20T00:00:00', end_at: '2026-09-20T23:59:59' }
+  ]; visibleVideos = allVideos; currentVideo = null;`, context);
+  elements.get('replayScreen').classList.add('is-live');
+  context.updateVisibleVideos();
+  assert.equal(context.currentVideo, undefined);
+  assert.equal(elements.get('videoPlayer').src, '');
+
+  context.seekTimelineProgress('replay', 0.5, true, true);
+  assert.equal(elements.get('replayScreen').classList.contains('is-live'), false);
+  assert.equal(elements.get('videoPlayer').paused, false);
 });
