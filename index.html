@@ -60,14 +60,12 @@
     .player{position:relative;overflow:hidden;width:100%;aspect-ratio:1.66;border-radius:12px;background:#101820;box-shadow:0 1px 0 rgba(0,0,0,.05);touch-action:none}
     .player video,.player .live-stream{width:100%;height:100%;display:block;object-fit:cover;background:#101820;transform:translate3d(0,0,0) scale(1);transform-origin:center;will-change:transform;user-select:none;-webkit-user-select:none;touch-action:none}
     .player .live-stream{object-position:center}
-    .player-top{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;padding:11px 12px;color:#fff;font-size:11px;font-weight:650;text-shadow:0 1px 3px rgba(0,0,0,.72);pointer-events:none}
-    .player-controls{position:absolute;inset:0;z-index:4;opacity:0;pointer-events:none;transition:opacity .18s ease}
-    .player.is-controls-visible .player-controls,.player:focus-within .player-controls{opacity:1;pointer-events:auto}
-    @media (prefers-reduced-motion:reduce){.player-controls{transition:none}}
-    .pause-button{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:62px;height:62px;border:2px solid rgba(255,255,255,.86);border-radius:50%;background:rgba(54,64,75,.48);backdrop-filter:blur(2px);color:#fff;display:grid;place-items:center;padding:0;box-shadow:0 2px 10px rgba(0,0,0,.18)}
-    .player-bottom{position:absolute;left:12px;right:12px;bottom:9px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.75)}
-    .time-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:560;margin-bottom:5px}
-    .fullscreen-button{border:0;background:transparent;color:#fff;width:28px;height:28px;padding:2px;display:grid;place-items:center;margin:-7px -4px -7px 0}
+    .player-toolbar{display:flex;align-items:center;gap:8px;min-height:38px;margin:7px 2px 0;color:#60758a}
+    .player-toolbar-button{width:36px;height:34px;border:1px solid var(--border);border-radius:10px;background:#fff;color:#176da9;display:grid;place-items:center;padding:0;box-shadow:var(--shadow)}
+    .player-toolbar-button:hover,.player-toolbar-button:focus-visible{border-color:#8cc8f5;background:#edf7ff;color:#0878ea;outline:none}
+    .player-toolbar-button svg{width:20px;height:20px}
+    .player-time{margin-left:2px;font-size:11px;font-weight:650;letter-spacing:.1px}
+    .player-toolbar-button.fullscreen-button{margin-left:auto}
 
     .control-row{display:grid;grid-template-columns:1.35fr 1fr;gap:9px;margin:13px 4px 11px}
     .pill{height:44px;border:1px solid var(--border);border-radius:23px;background:#fff;color:#1f5e9f;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;gap:9px;font-size:13px;font-weight:650;padding:0 12px;white-space:nowrap;position:relative}
@@ -138,7 +136,7 @@
     .screen.is-live .control-row{grid-template-columns:1fr}
     .screen.is-live .live-stream{display:block}
     .screen.is-live .player video{display:none}
-    .screen.is-live .pause-button,.screen.is-live .player-bottom{display:none}
+    .screen.is-live .player-toolbar{visibility:hidden}
     .live-stream[hidden]{display:none}
     @media(max-width:370px){.app{padding-left:9px;padding-right:9px}.header{grid-template-columns:82px 1fr 82px}.timeline-wrap{margin-left:-9px;margin-right:-9px;padding-left:9px;padding-right:9px}.timeline-viewport{left:9px;right:9px}.timeline-hit{left:9px;right:9px}.timeline-toolbar{left:9px;right:9px}.rate-button{min-width:48px;padding:0 5px}.zoom-button{width:27px}.timeline-zoom{gap:2px;margin-left:3px}.time-bubble{min-width:68px;padding:0 7px}.live-badge{padding:0 8px}.source-button{min-width:70px;padding:0 6px}.source-button-label{max-width:45px}.control-row{gap:6px}.pill{font-size:12px;padding:0 8px}}
   </style>
@@ -158,15 +156,11 @@
     <div class="player" id="playerFrame">
       <video id="videoPlayer" playsinline preload="metadata" poster="/snapshot/cam{{ cam_id }}?view=single"></video>
       <img id="liveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
-      <div class="player-top"><span id="overlayTimestamp">--/--/---- --:--:--</span><span>CAM {{ '%02d'|format(cam_id|int) }}</span></div>
-      <div class="player-controls">
-        <button id="pauseButton" class="pause-button" type="button" aria-label="Phát hoặc tạm dừng">
-          <svg id="pauseIcon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg>
-        </button>
-        <div class="player-bottom">
-          <div class="time-row"><span id="playerTime">00:00 / 00:00</span><button id="fullscreenButton" class="fullscreen-button" type="button" aria-label="Toàn màn hình"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button></div>
-        </div>
-      </div>
+    </div>
+    <div class="player-toolbar" role="toolbar" aria-label="Điều khiển phát lại">
+      <button id="pauseButton" class="player-toolbar-button" type="button" aria-label="Phát hoặc tạm dừng"><svg id="pauseIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg></button>
+      <span id="playerTime" class="player-time">00:00 / 00:00</span>
+      <button id="fullscreenButton" class="player-toolbar-button fullscreen-button" type="button" aria-label="Toàn màn hình"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
     </div>
 
     <div class="control-row">
@@ -215,11 +209,11 @@
     <div class="player" id="cutPlayerFrame">
       <video id="cutPlayer" playsinline preload="metadata" poster="/snapshot/cam{{ cam_id }}?view=single"></video>
       <img id="cutLiveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
-      <div class="player-top"><span id="cutOverlayTimestamp">--/--/---- --:--:--</span><span>CAM {{ '%02d'|format(cam_id|int) }}</span></div>
-      <button id="cutPauseButton" class="pause-button" type="button" aria-label="Phát hoặc tạm dừng"><svg id="cutPauseIcon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg></button>
-      <div class="player-bottom">
-        <div class="time-row"><span id="cutPlayerTime">00:00 / 00:00</span><button id="cutFullscreenButton" class="fullscreen-button" type="button" aria-label="Toàn màn hình"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button></div>
-      </div>
+    </div>
+    <div class="player-toolbar" role="toolbar" aria-label="Điều khiển phát lại đoạn cắt">
+      <button id="cutPauseButton" class="player-toolbar-button" type="button" aria-label="Phát hoặc tạm dừng"><svg id="cutPauseIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg></button>
+      <span id="cutPlayerTime" class="player-time">00:00 / 00:00</span>
+      <button id="cutFullscreenButton" class="player-toolbar-button fullscreen-button" type="button" aria-label="Toàn màn hình"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
     </div>
 
     <div class="control-row">
@@ -284,7 +278,6 @@
   const MAX_MERGE_MINUTES = Number({{ max_merge_minutes|int }});
   const MAX_MERGE_SECONDS = Math.max(60, MAX_MERGE_MINUTES * 60);
   const COVERAGE_JITTER_MS = 2000;
-  const CONTROL_IDLE_MS = 2400;
   const $ = (id) => document.getElementById(id);
   const pad = (n) => String(n).padStart(2,"0");
   let allVideos = [], visibleVideos = [], currentVideo = null, currentVideoIndex = -1;
@@ -360,8 +353,8 @@
   function updatePlaybackRateButton(button,rate){if(!button)return;const resolved=rate===2||rate===4?rate:1,direction=button.dataset.direction==="reverse"?"reverse":"forward",label=button.querySelector(".rate-label"),verb=direction==="reverse"?"Phát lùi":"Phát tiến";button.dataset.rate=String(resolved);if(label)label.textContent=`${resolved}x`;button.title=`${verb} ${resolved} lần`;button.setAttribute("aria-label",`${verb} ${resolved} lần`);}
   function clearPlaybackButtons(context){document.querySelectorAll(`.rate-button[data-timeline-context="${context}"]`).forEach(button=>button.classList.remove("is-active"));}
   function stopPlayback(player,context=getTimelineContext(player)){if(!player)return;const state=getPlaybackState(player);if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;}state.mode="normal";state.rate=1;player.playbackRate=1;clearPlaybackButtons(context);}
-  function syncPlayerUi(player,context,time,overlay){const duration=getMediaDuration(player),current=clamp(Number(player.currentTime)||0,0,duration);time.textContent=`${fmtShort(current)} / ${fmtShort(duration)}`;const base=getPlayerBaseDate(player);if(base)overlay.textContent=`${fmtDate(base)} ${fmtTime(new Date(base.getTime()+current*1000))}`;syncTimelineForPlayer(context,player);}
-  function startReversePlayback(context,rate,button=getPlaybackRateButton(context,"reverse")){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;const state=getPlaybackState(player);if(state.reverseTimer)clearInterval(state.reverseTimer);player.pause();player.playbackRate=1;state.mode="reverse";state.rate=rate;clearPlaybackButtons(context);button?.classList.add("is-active");state.reverseTimer=setInterval(()=>{const next=clamp((Number(player.currentTime)||0)-0.06*rate,0,getMediaDuration(player));player.currentTime=next;syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"),$(context==="cut"?"cutOverlayTimestamp":"overlayTimestamp"));if(next<=0)stopPlayback(player,context);},60);}
+  function syncPlayerUi(player,context,time){const duration=getMediaDuration(player),current=clamp(Number(player.currentTime)||0,0,duration);time.textContent=`${fmtShort(current)} / ${fmtShort(duration)}`;syncTimelineForPlayer(context,player);}
+  function startReversePlayback(context,rate,button=getPlaybackRateButton(context,"reverse")){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;const state=getPlaybackState(player);if(state.reverseTimer)clearInterval(state.reverseTimer);player.pause();player.playbackRate=1;state.mode="reverse";state.rate=rate;clearPlaybackButtons(context);button?.classList.add("is-active");state.reverseTimer=setInterval(()=>{const next=clamp((Number(player.currentTime)||0)-0.06*rate,0,getMediaDuration(player));player.currentTime=next;syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));if(next<=0)stopPlayback(player,context);},60);}
   function setPlaybackRate(context,direction,button=null){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;button=button||getPlaybackRateButton(context,direction);const state=getPlaybackState(player),displayed=Number(button?.dataset.rate)||1,rate=state.mode===direction?getNextPlaybackRate(state.rate):displayed;updatePlaybackRateButton(button,rate);if(direction==="reverse"){startReversePlayback(context,rate,button);return;}if(state.reverseTimer)clearInterval(state.reverseTimer);state.reverseTimer=null;state.mode="forward";state.rate=rate;player.playbackRate=rate;clearPlaybackButtons(context);button?.classList.add("is-active");player.play().catch(()=>{});}
   function wirePlaybackControls(context){document.querySelectorAll(`.rate-button[data-timeline-context="${context}"]`).forEach(button=>button.addEventListener("click",()=>setPlaybackRate(context,button.dataset.direction,button)));}
   function applyVideoTransform(frame,player,state){const maxX=Math.max(0,frame.clientWidth*(state.scale-1)/2),maxY=Math.max(0,frame.clientHeight*(state.scale-1)/2);state.x=clamp(state.x,-maxX,maxX);state.y=clamp(state.y,-maxY,maxY);player.style.transform=`translate3d(${state.x}px,${state.y}px,0) scale(${state.scale})`;}
@@ -378,14 +371,12 @@
     return requestSerial;
   }
   function setPauseIcon(svg,playing){ svg.innerHTML=playing?'<path d="M7 5h4v14H7zm6 0h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>'; }
-  function wirePlayer(playerId,buttonId,iconId,timeId,overlayId,frameId,fullId,context){
-    const p=$(playerId),b=$(buttonId),icon=$(iconId),time=$(timeId),overlay=$(overlayId),frame=$(frameId),full=$(fullId);
-    const sync=()=>syncPlayerUi(p,context,time,overlay);
-    let hideTimer=null;const hideControls=()=>{hideTimer=null;frame.classList.remove("is-controls-visible")};const revealControls=()=>{frame.classList.add("is-controls-visible");if(hideTimer!==null)clearTimeout(hideTimer);hideTimer=setTimeout(hideControls,CONTROL_IDLE_MS)};
-    ["pointerdown","pointerenter","pointermove","touchstart","keydown","focusin"].forEach(type=>frame.addEventListener(type,revealControls,{passive:type==="touchstart"}));
-    b.addEventListener("click",()=>{revealControls();const state=getPlaybackState(p);if(state.mode==="reverse")stopPlayback(p,context);if(p.paused)p.play().catch(()=>{});else p.pause();});
-    p.addEventListener("play",()=>{setPauseIcon(icon,true);revealControls()});p.addEventListener("pause",()=>{setPauseIcon(icon,false);revealControls()});p.addEventListener("timeupdate",sync);p.addEventListener("loadedmetadata",sync);p.addEventListener("durationchange",sync);p.addEventListener("ratechange",sync);
-    full.addEventListener("click",()=>{revealControls();if(document.fullscreenElement)document.exitFullscreen();else frame.requestFullscreen?.()});wireVideoGestures(frameId,playerId);
+  function wirePlayer(playerId,buttonId,iconId,timeId,frameId,fullId,context){
+    const p=$(playerId),b=$(buttonId),icon=$(iconId),time=$(timeId),frame=$(frameId),full=$(fullId);
+    const sync=()=>syncPlayerUi(p,context,time);
+    b.addEventListener("click",()=>{const state=getPlaybackState(p);if(state.mode==="reverse")stopPlayback(p,context);if(p.paused)p.play().catch(()=>{});else p.pause();});
+    p.addEventListener("play",()=>setPauseIcon(icon,true));p.addEventListener("pause",()=>setPauseIcon(icon,false));p.addEventListener("timeupdate",sync);p.addEventListener("loadedmetadata",sync);p.addEventListener("durationchange",sync);p.addEventListener("ratechange",sync);
+    full.addEventListener("click",()=>{if(document.fullscreenElement)document.exitFullscreen();else frame.requestFullscreen?.()});wireVideoGestures(frameId,playerId);
   }
 
   function selectVideo(v,index,autoplay=false,seekSec=null){
@@ -397,7 +388,7 @@
     const cutPlayer=$("cutPlayer");if(cutPlayer){cutPlayer.pause();cutPlayer.removeAttribute("src");cutPlayer.dataset.baseAt=formatLocalSecond(targetDate);cutPlayer.load();}
     let downloadUrl=getDownloadUrl(v);if(isNvrVideo(v)&&targetDate)downloadUrl=appendQueryParam(downloadUrl,"at",formatLocalSecond(targetDate));
     setAnchor($("downloadOriginalBtn"),downloadUrl,getVideoName(v));$("cutButton").disabled=false;$("watchError").hidden=true;
-    if(range){$("overlayTimestamp").textContent=`${fmtDate(targetDate)} ${fmtTime(targetDate)}`;$("cutOverlayTimestamp").textContent=`${fmtDate(targetDate)} ${fmtTime(targetDate)}`;updateRuler("ruler");updateRuler("cutRuler");}
+    if(range){updateRuler("ruler");updateRuler("cutRuler");}
     if(seekSec!==null&&!isNvrVideo(v)){const player=$("videoPlayer"),apply=()=>{if(!isCurrentPlayerRequest(player,loadSerial))return;const max=getMediaDuration(player);player.currentTime=clamp(targetSec,0,max);};if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});}
     configureClipRange(targetDate);const dayProgress=getTimelineProgressForDate(targetDate);renderTimeline("replay",dayProgress);renderTimeline("cut",dayProgress);checkCodec(v);if(autoplay)playPlayerWhenReady($("videoPlayer"),loadSerial);return loadSerial;
   }
@@ -434,8 +425,8 @@
       if(context==="cut"){currentVideo=match.video;currentVideoIndex=match.index;const loadSerial=loadPlayer($("cutPlayer"),match.video,targetDate);checkCodec(match.video);if(autoplay)playPlayerWhenReady($("cutPlayer"),loadSerial);return;}
       const loadSerial=selectVideo(match.video,match.index,false,sec);if(autoplay)playPlayerWhenReady(getTimelinePlayer(context),loadSerial);return;
     }
-    if(isNvrVideo(match.video)){const loadSerial=loadPlayer(player,match.video,targetDate);if(context==="replay"){let downloadUrl=getDownloadUrl(match.video);downloadUrl=appendQueryParam(downloadUrl,"at",formatLocalSecond(targetDate));setAnchor($("downloadOriginalBtn"),downloadUrl,getVideoName(match.video));}syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"),$(context==="cut"?"cutOverlayTimestamp":"overlayTimestamp"));if(autoplay)playPlayerWhenReady(player,loadSerial);return;}
-    const apply=()=>{if(!isCurrentPlayerRequest(player,requestSerial))return;const max=getMediaDuration(player);player.currentTime=clamp(sec,0,max);syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"),$(context==="cut"?"cutOverlayTimestamp":"overlayTimestamp"));};
+    if(isNvrVideo(match.video)){const loadSerial=loadPlayer(player,match.video,targetDate);if(context==="replay"){let downloadUrl=getDownloadUrl(match.video);downloadUrl=appendQueryParam(downloadUrl,"at",formatLocalSecond(targetDate));setAnchor($("downloadOriginalBtn"),downloadUrl,getVideoName(match.video));}syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));if(autoplay)playPlayerWhenReady(player,loadSerial);return;}
+    const apply=()=>{if(!isCurrentPlayerRequest(player,requestSerial))return;const max=getMediaDuration(player);player.currentTime=clamp(sec,0,max);syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));};
     if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});if(autoplay)playPlayerWhenReady(player,requestSerial);
   }
   function updateCutFromPointer(context,clientX){
@@ -482,9 +473,9 @@
 
   function updateModeBadge(isLive){const badge=$("headerLiveButton"),text=$("modeBadgeText");if(!badge||!text)return;badge.classList.toggle("is-live",isLive);text.textContent=isLive?"Trực tiếp":"Xem lại";badge.setAttribute("aria-label",isLive?"Đang xem trực tiếp. Nhấn để xem lại":"Đang xem lại. Nhấn để xem trực tiếp");}
   function jumpTimelineToNow(context){const now=new Date(),today=fmtDateInput(now),changed=$("filterDate").value!==today;$("filterDate").value=today;$("cutFilterDate").value=today;setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");const progress=getTimelineProgressForDate(now);renderTimeline(context,progress);if(context==="replay")renderTimeline("cut",progress);else renderTimeline("replay",progress);if(changed)fetchVideos();return progress;}
-  function setScreenLive(screen,isLive){const cut=screen==="cut",screenEl=$(cut?"cutScreen":"replayScreen"),video=$(cut?"cutPlayer":"videoPlayer"),stream=$(cut?"cutLiveStream":"liveStream"),button=$(cut?"cutLiveButton":"liveButton"),buttonText=$(cut?"cutLiveButtonText":"liveButtonText"),frame=$(cut?"cutPlayerFrame":"playerFrame");if(!screenEl||!video||!stream)return;screenEl.classList.toggle("is-live",isLive);if(isLive){activeScreen=screen;nextPlayerRequest(video);stopPlayback(video,screen);video.pause();resetVideoTransform(frame);jumpTimelineToNow(screen);stream.hidden=false;stream.src=`/cam${CAMERA_ID}?stream=auto&view=single&live=${Date.now()}`;stream.onerror=()=>{const error=$(cut?"cutError":"watchError");if(error){error.textContent="Không thể mở hình ảnh trực tiếp từ camera.";error.hidden=false;}};$(cut?"cutOverlayTimestamp":"overlayTimestamp").textContent="TRỰC TIẾP";buttonText.textContent="Xem lại";button.setAttribute("aria-label","Quay về xem lại");updateModeBadge(true);}else{nextPlayerRequest(video);stream.removeAttribute("src");stream.hidden=true;stream.onerror=null;buttonText.textContent="Xem trực tiếp";button.setAttribute("aria-label","Xem trực tiếp");if(currentVideo)syncPlayerUi(video,screen,$(cut?"cutPlayerTime":"playerTime"),$(cut?"cutOverlayTimestamp":"overlayTimestamp"));updateModeBadge(false);}}
+  function setScreenLive(screen,isLive){const cut=screen==="cut",screenEl=$(cut?"cutScreen":"replayScreen"),video=$(cut?"cutPlayer":"videoPlayer"),stream=$(cut?"cutLiveStream":"liveStream"),button=$(cut?"cutLiveButton":"liveButton"),buttonText=$(cut?"cutLiveButtonText":"liveButtonText"),frame=$(cut?"cutPlayerFrame":"playerFrame");if(!screenEl||!video||!stream)return;screenEl.classList.toggle("is-live",isLive);if(isLive){activeScreen=screen;nextPlayerRequest(video);stopPlayback(video,screen);video.pause();resetVideoTransform(frame);jumpTimelineToNow(screen);stream.hidden=false;stream.src=`/cam${CAMERA_ID}?stream=sub&view=live_preview&live=${Date.now()}`;stream.onerror=()=>{const error=$(cut?"cutError":"watchError");if(error){error.textContent="Không thể mở hình ảnh trực tiếp từ camera.";error.hidden=false;}};buttonText.textContent="Xem lại";button.setAttribute("aria-label","Quay về xem lại");updateModeBadge(true);}else{nextPlayerRequest(video);stream.removeAttribute("src");stream.hidden=true;stream.onerror=null;buttonText.textContent="Xem trực tiếp";button.setAttribute("aria-label","Xem trực tiếp");if(currentVideo)syncPlayerUi(video,screen,$(cut?"cutPlayerTime":"playerTime"));updateModeBadge(false);}}
   function toggleLive(screen=activeScreen){const screenEl=$(screen==="cut"?"cutScreen":"replayScreen");if(screenEl&&!screenEl.hidden)setScreenLive(screen,!screenEl.classList.contains("is-live"));}
-  function showReplay(){setScreenLive("cut",false);setScreenLive("replay",false);$("replayScreen").hidden=false;$("cutScreen").hidden=true;$("doneScreen").hidden=true;activeScreen="replay";$("headerTitle").textContent=replayTitle||"{{ camera_name }}";$("cutPlayer").pause();requestAnimationFrame(()=>{renderTimelineCoverage("filmstrip");updateRuler("ruler");renderTimeline("replay",timelineStates.replay.progress);if(currentVideo)syncPlayerUi($("videoPlayer"),"replay",$("playerTime"),$("overlayTimestamp"));});window.scrollTo({top:0,behavior:"smooth"});}
+  function showReplay(){setScreenLive("cut",false);setScreenLive("replay",false);$("replayScreen").hidden=false;$("cutScreen").hidden=true;$("doneScreen").hidden=true;activeScreen="replay";$("headerTitle").textContent=replayTitle||"{{ camera_name }}";$("cutPlayer").pause();requestAnimationFrame(()=>{renderTimelineCoverage("filmstrip");updateRuler("ruler");renderTimeline("replay",timelineStates.replay.progress);if(currentVideo)syncPlayerUi($("videoPlayer"),"replay",$("playerTime"));});window.scrollTo({top:0,behavior:"smooth"});}
   function showCut(){if(!currentVideo)return;const targetDate=getTimelineDateAtProgress(timelineStates.replay.progress);setScreenLive("replay",false);setScreenLive("cut",false);$("replayScreen").hidden=true;$("cutScreen").hidden=false;$("doneScreen").hidden=true;activeScreen="cut";$("headerTitle").textContent="Cắt video";$("videoPlayer").pause();loadPlayer($("cutPlayer"),currentVideo,targetDate);configureClipRange(targetDate);renderTimeline("cut",getTimelineProgressForDate(targetDate));window.scrollTo({top:0,behavior:"smooth"});}
   function showDone(){setScreenLive("replay",false);setScreenLive("cut",false);$("replayScreen").hidden=true;$("cutScreen").hidden=true;$("doneScreen").hidden=false;$("headerTitle").textContent="Cắt video";updateModeBadge(false);window.scrollTo({top:0,behavior:"smooth"});}
   function getMergeBounds(){const start=clipStartAt?new Date(clipStartAt):null,end=clipEndAt?new Date(clipEndAt):null;if(!start||!end)return null;start.setMilliseconds(0);end.setMilliseconds(0);if(end<=start)end.setTime(start.getTime()+1000);return{start,end,duration:(end-start)/1000};}
@@ -493,7 +484,7 @@
 
   document.addEventListener("DOMContentLoaded",()=>{
     const today=new Date();$("filterDate").value=fmtDateInput(today);$("cutFilterDate").value=fmtDateInput(today);setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");wireDatePicker("filterDate");wireDatePicker("cutFilterDate");updateRuler("ruler");updateRuler("cutRuler");
-    replayTitle=$("headerTitle").textContent.trim();wirePlayer("videoPlayer","pauseButton","pauseIcon","playerTime","overlayTimestamp","playerFrame","fullscreenButton","replay");wirePlayer("cutPlayer","cutPauseButton","cutPauseIcon","cutPlayerTime","cutOverlayTimestamp","cutPlayerFrame","cutFullscreenButton","cut");wireTimeline("timelineHit",false);wireTimeline("cutTimelineHit",true);wireTimelineZoom("replay");wireTimelineZoom("cut");wirePlaybackControls("replay");wirePlaybackControls("cut");
+    replayTitle=$("headerTitle").textContent.trim();wirePlayer("videoPlayer","pauseButton","pauseIcon","playerTime","playerFrame","fullscreenButton","replay");wirePlayer("cutPlayer","cutPauseButton","cutPauseIcon","cutPlayerTime","cutPlayerFrame","cutFullscreenButton","cut");wireTimeline("timelineHit",false);wireTimeline("cutTimelineHit",true);wireTimelineZoom("replay");wireTimelineZoom("cut");wirePlaybackControls("replay");wirePlaybackControls("cut");
     $("liveButton").addEventListener("click",()=>toggleLive("replay"));$("cutLiveButton").addEventListener("click",()=>toggleLive("cut"));$("headerLiveButton").addEventListener("click",()=>{if(!$("doneScreen").hidden)showReplay();else toggleLive(activeScreen);});
     $("filterDate").addEventListener("change",()=>{$("cutFilterDate").value=$("filterDate").value;setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");fetchVideos();});
     $("cutFilterDate").addEventListener("change",()=>{$("filterDate").value=$("cutFilterDate").value;setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");fetchVideos();});

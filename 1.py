@@ -1802,6 +1802,23 @@ def resolve_view_stream(camera, requested_stream=None, context=None):
     return "sub"
 
 
+LIVE_PREVIEW_CONTEXTS = frozenset({"live_preview", "grid", "multi", "live_all"})
+
+
+def resolve_live_preview_stream(camera, requested_stream=None, context=None):
+    """Use the low-latency sub stream for user-facing live preview only.
+
+    This is deliberately separate from ``resolve_view_stream`` so configured
+    preview preferences remain intact and recording/replay stream selection is
+    not changed.  A live-preview route may still accept an explicit request,
+    but the live-preview contract always resolves it to the sub stream.
+    """
+    ctx = str(context or "").strip().lower()
+    if ctx in LIVE_PREVIEW_CONTEXTS:
+        return "sub"
+    return resolve_view_stream(camera, requested_stream, context=context)
+
+
 LOCAL_RTSP_DEFAULT_PATHS = {
     "record": "h264/ch1/main/av_stream",
     "preview": "h264/ch1/sub/av_stream",
@@ -3096,14 +3113,14 @@ def get_rtsp_url(cam_id, stream=None, context=None):
         cam = CAMERA_LIST[cam_id - 1]
         if str(cam.get("playback_source", "local")).strip().lower() == "local" and _local_transport(cam) == "netsdk":
             return None
-        target_stream = resolve_view_stream(cam, stream, context=context)
+        target_stream = resolve_live_preview_stream(cam, stream, context=context)
         return build_rtsp_url(cam, target_stream)
     return None
 
 
 def gen_netsdk_frames(camera, stream=None, context=None):
     """Stream JPEG frames from Dahua/Imou 37777 without RTSP fallback."""
-    target_stream = resolve_view_stream(camera, stream, context=context)
+    target_stream = resolve_live_preview_stream(camera, stream, context=context)
     private_camera = dict(camera)
     private_camera["netsdk_stream"] = target_stream
     private_camera["stream"] = target_stream
@@ -3239,7 +3256,7 @@ def stream_cam(cam_id):
             context = "grid"
         elif "/replay" in referrer:
             context = "single"
-    target_stream = resolve_view_stream(camera, raw_stream, context=context)
+    target_stream = resolve_live_preview_stream(camera, raw_stream, context=context)
     if str(camera.get("playback_source", "local")).strip().lower() == "local" and _local_transport(camera) == "netsdk":
         return Response(
             gen_netsdk_frames(camera, target_stream, context=context),
@@ -3272,7 +3289,7 @@ def camera_snapshot(cam_id):
             context = "grid"
         elif "/replay" in referrer:
             context = "single"
-    target_stream = resolve_view_stream(camera, raw_stream, context=context)
+    target_stream = resolve_live_preview_stream(camera, raw_stream, context=context)
     if str(camera.get("playback_source", "local")).strip().lower() == "local" and _local_transport(camera) == "netsdk":
         private_camera = dict(camera)
         private_camera["netsdk_stream"] = target_stream

@@ -264,6 +264,58 @@ class PreviewStreamSelectTests(unittest.TestCase):
         self.assertEqual(APP.resolve_view_stream(cam_auto, "auto", context=None), "sub")
         self.assertEqual(APP.resolve_view_stream({}, None, context=None), "sub")
 
+    def test_live_preview_context_forces_sub_without_changing_camera_config(self):
+        """User live preview always uses sub even when config/URL says auto or main."""
+        camera = {
+            "name": "Low latency camera",
+            "playback_source": "local",
+            "ip": "192.168.1.50",
+            "user": "admin",
+            "pass": "secret",
+            "local_transport": "rtsp",
+            "port": 554,
+            "record_path": "cam/realmonitor?channel=1&subtype=0",
+            "preview_path": "cam/realmonitor?channel=1&subtype=1",
+            "view_stream": "main",
+        }
+        APP.CAMERA_LIST = [camera]
+        multipart = b"--frame\r\nContent-Type: image/jpeg\r\n\r\nfake\r\n"
+        with patch.object(APP, "get_rtsp_url", return_value="rtsp://preview") as mock_url, \
+             patch.object(APP, "gen_frames", return_value=iter([multipart])) as mock_frames:
+            response = self.client.get("/cam1?stream=auto&view=live_preview")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(multipart, response.data)
+        mock_url.assert_called_once_with(1, "sub", context="live_preview")
+        mock_frames.assert_called_once_with("rtsp://preview")
+        self.assertEqual(camera["view_stream"], "main")
+
+    def test_live_preview_keeps_nvr_transport_and_uses_nvr_sub_stream(self):
+        """Low-latency preview must not turn an NVR camera into a local stream."""
+        camera = {
+            "name": "NVR preview",
+            "playback_source": "nvr",
+            "vendor": "dahua",
+            "host": "nvr.example",
+            "http_port": 80,
+            "rtsp_port": 8554,
+            "user": "nvr-user",
+            "pass": "nvr-pass",
+            "nvr_channel": 4,
+            "stream": "main",
+            "view_stream": "main",
+        }
+        APP.CAMERA_LIST = [camera]
+        multipart = b"--frame\r\nContent-Type: image/jpeg\r\n\r\nfake\r\n"
+        with patch.object(APP, "gen_frames", return_value=iter([multipart])) as mock_frames:
+            response = self.client.get("/cam1?stream=auto&view=live_preview")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(multipart, response.data)
+        nvr_url = mock_frames.call_args.args[0]
+        self.assertIn("nvr.example:8554/cam/realmonitor?channel=4&subtype=1", nvr_url)
+        self.assertEqual(camera["playback_source"], "nvr")
+
     # -------------------------------------------------------------------------
     # 4. Config save/load and normalization preserves view_stream
     # -------------------------------------------------------------------------

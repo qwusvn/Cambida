@@ -119,14 +119,14 @@ test('timeline coverage merges segmentation jitter but preserves real gaps', () 
   assert.ok(Number.parseFloat(cells[1].style.left) > Number.parseFloat(cells[0].style.left));
 });
 
-test('video controls reveal on interaction and auto-hide when idle', () => {
-  const { context, elements, getTimer } = loadReplayScript();
+test('video overlays are removed and controls stay in the external toolbar', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const { context, elements } = loadReplayScript();
   elements.set('playerFrame', makeElement('playerFrame'));
   const frame = elements.get('playerFrame');
   elements.get('pauseButton');
   elements.get('pauseIcon');
   elements.get('playerTime');
-  elements.get('overlayTimestamp');
   elements.get('fullscreenButton');
 
   context.wirePlayer(
@@ -134,21 +134,17 @@ test('video controls reveal on interaction and auto-hide when idle', () => {
     'pauseButton',
     'pauseIcon',
     'playerTime',
-    'overlayTimestamp',
     'playerFrame',
     'fullscreenButton',
     'replay',
   );
-  const player = elements.get('videoPlayer');
-  assert.equal(frame.classList.contains('is-controls-visible'), false);
-
   frame.dispatch('pointerdown', { pointerType: 'mouse' });
-  assert.equal(frame.classList.contains('is-controls-visible'), true);
-  assert.equal(getTimer()?.delay, 2400);
-
-  getTimer().callback();
   assert.equal(frame.classList.contains('is-controls-visible'), false);
-  assert.equal(player.paused, true);
+  assert.doesNotMatch(html, /player-top|player-controls|is-controls-visible|CONTROL_IDLE_MS/);
+  assert.doesNotMatch(html, /id="(?:overlayTimestamp|cutOverlayTimestamp)"/);
+  assert.match(html, /<\/div>\s*<div class="player-toolbar"/);
+  assert.match(html, /id="pauseButton" class="player-toolbar-button"/);
+  assert.match(html, /id="fullscreenButton" class="player-toolbar-button fullscreen-button"/);
 });
 
 test('playback rate controls are single-direction cyclers and zoom sits in the top toolbar', () => {
@@ -185,9 +181,22 @@ test('live click uses the current /cam stream without loading recorded playback'
 
   context.setScreenLive('replay', true);
 
-  assert.match(elements.get('liveStream').src, /^\/cam1\?stream=auto&view=single&live=/);
+  assert.match(elements.get('liveStream').src, /^\/cam1\?stream=sub&view=live_preview&live=/);
   assert.equal(elements.get('videoPlayer').src, '');
   assert.equal(elements.get('replayScreen').classList.contains('is-live'), true);
+});
+
+test('cut live mode uses the same explicit low-latency sub preview stream', () => {
+  const { context, elements } = loadReplayScript();
+  elements.set('cutScreen', makeElement('cutScreen'));
+  elements.set('cutLiveStream', makeElement('cutLiveStream'));
+  elements.set('cutPlayer', makeElement('cutPlayer'));
+  elements.set('cutLiveButton', makeElement('cutLiveButton'));
+  elements.set('cutLiveButtonText', makeElement('cutLiveButtonText'));
+  elements.set('cutPlayerFrame', makeElement('cutPlayerFrame'));
+  context.setScreenLive('cut', true);
+  assert.match(elements.get('cutLiveStream').src, /^\/cam1\?stream=sub&view=live_preview&live=/);
+  assert.equal(elements.get('cutScreen').classList.contains('is-live'), true);
 });
 
 test('playback direction buttons cycle active speed 1x to 2x to 4x to 1x', () => {
