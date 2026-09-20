@@ -3888,30 +3888,81 @@ def cut_video():
     duration = request.args.get("duration", type=float)
     if not filename or start is None or duration is None:
         return jsonify({"error": "Thiếu tham số"}), 400
+    if not safe_video_filename(filename):
+        return jsonify({"error": "Tên file không hợp lệ"}), 400
     input_path = os.path.join(VIDEO_DIR, filename)
+    if not os.path.isfile(input_path):
+        return jsonify({"error": "File không tồn tại"}), 404
     output_filename = f"cut_{uuid.uuid4().hex[:8]}.mp4"
     output_path = os.path.join(VIDEO_DIR, output_filename)
+    safe_start = max(0.0, start)
+    safe_duration = max(0.001, duration)
     cmd = [
         FFMPEG_PATH,
+        "-y",
+        "-ss",
+        f"{safe_start:.3f}",
         "-i",
         input_path,
-        "-ss",
-        str(start),
         "-t",
-        str(duration),
+        f"{safe_duration:.3f}",
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a?",
         "-c",
         "copy",
+        "-movflags",
+        "+faststart",
         output_path,
     ]
     try:
-        subprocess.run(
+        completed = subprocess.run(
             cmd,
-            check=True,
+            check=False,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             creationflags=subprocess.CREATE_NO_WINDOW,
         )
-    except:
+        if completed.returncode != 0 or not os.path.isfile(output_path) or os.path.getsize(output_path) <= 0:
+            cmd_an = [
+                FFMPEG_PATH,
+                "-y",
+                "-ss",
+                f"{safe_start:.3f}",
+                "-i",
+                input_path,
+                "-t",
+                f"{safe_duration:.3f}",
+                "-map",
+                "0:v:0",
+                "-c:v",
+                "copy",
+                "-an",
+                "-movflags",
+                "+faststart",
+                output_path,
+            ]
+            completed = subprocess.run(
+                cmd_an,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+        if completed.returncode != 0 or not os.path.isfile(output_path) or os.path.getsize(output_path) <= 0:
+            if os.path.isfile(output_path):
+                try:
+                    os.remove(output_path)
+                except OSError:
+                    pass
+            return jsonify({"error": "Lỗi khi cắt"}), 500
+    except Exception:
+        if os.path.isfile(output_path):
+            try:
+                os.remove(output_path)
+            except OSError:
+                pass
         return jsonify({"error": "Lỗi khi cắt"}), 500
     return jsonify({"output": output_filename})
 
@@ -3923,20 +3974,34 @@ def cut_progress():
     duration = request.args.get("duration", type=float)
     if not filename or start is None or duration is None:
         return "Thiếu tham số", 400
+    if not safe_video_filename(filename):
+        return "Tên file không hợp lệ", 400
 
     input_path = os.path.join(VIDEO_DIR, filename)
+    if not os.path.isfile(input_path):
+        return "File không tồn tại", 404
+
     output_filename = f"cut_{uuid.uuid4().hex[:8]}.mp4"
     output_path = os.path.join(VIDEO_DIR, output_filename)
+    safe_start = max(0.0, start)
+    safe_duration = max(0.001, duration)
     cmd = [
         FFMPEG_PATH,
+        "-y",
+        "-ss",
+        f"{safe_start:.3f}",
         "-i",
         input_path,
-        "-ss",
-        str(start),
         "-t",
-        str(duration),
+        f"{safe_duration:.3f}",
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a?",
         "-c",
         "copy",
+        "-movflags",
+        "+faststart",
         "-progress",
         "pipe:1",
         "-nostats",
@@ -3944,29 +4009,105 @@ def cut_progress():
     ]
 
     def generate():
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            creationflags=subprocess.CREATE_NO_WINDOW,
-        )
-        yield "data: 0\n\n"
+        process = None
+        done_successfully = False
         try:
-            for line in process.stdout:
-                if "out_time_ms=" not in line:
-                    continue
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+            yield "data: 0\n\n"
+            try:
+                for line in process.stdout:
+                    if not (line.startswith("out_time_ms=") or line.startswith("out_time_us=")):
+                        continue
+                    try:
+                        val = int(line.strip().split("=", 1)[1])
+                        pct = max(0, min(100, int(val / 1_000_000 / safe_duration * 100)))
+                        yield f"data: {pct}\n\n"
+                    except Exception:
+                        pass
+            finally:
+                if process.stdout:
+                    try:
+                        process.stdout.close()
+                    except Exception:
+                        pass
+            process.wait()
+            if process.returncode == 0 and os.path.isfile(output_path) and os.path.getsize(output_path) > 0:
+                done_successfully = True
+                yield "data: 100\n\n"
+            else:
+                cmd_an = [
+                    FFMPEG_PATH,
+                    "-y",
+                    "-ss",
+                    f"{safe_start:.3f}",
+                    "-i",
+                    input_path,
+                    "-t",
+                    f"{safe_duration:.3f}",
+                    "-map",
+                    "0:v:0",
+                    "-c:v",
+                    "copy",
+                    "-an",
+                    "-movflags",
+                    "+faststart",
+                    "-progress",
+                    "pipe:1",
+                    "-nostats",
+                    output_path,
+                ]
+                process = subprocess.Popen(
+                    cmd_an,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
                 try:
-                    ms = int(line.strip().split("=")[1])
-                    yield f"data: {int(ms / 1_000_000 / duration * 100)}\n\n"
-                except:
+                    for line in process.stdout:
+                        if not (line.startswith("out_time_ms=") or line.startswith("out_time_us=")):
+                            continue
+                        try:
+                            val = int(line.strip().split("=", 1)[1])
+                            pct = max(0, min(100, int(val / 1_000_000 / safe_duration * 100)))
+                            yield f"data: {pct}\n\n"
+                        except Exception:
+                            pass
+                finally:
+                    if process.stdout:
+                        try:
+                            process.stdout.close()
+                        except Exception:
+                            pass
+                process.wait()
+                if process.returncode == 0 and os.path.isfile(output_path) and os.path.getsize(output_path) > 0:
+                    done_successfully = True
+                    yield "data: 100\n\n"
+                else:
+                    yield "data: error:Lỗi khi cắt\n\n"
+        except Exception:
+            yield "data: error:Lỗi khi cắt\n\n"
+        finally:
+            if process and process.poll() is None:
+                try:
+                    process.kill()
+                except OSError:
                     pass
-        except:
-            pass
-        process.wait()
-        yield "data: 100\n\n"
+            if not done_successfully and os.path.isfile(output_path):
+                try:
+                    os.remove(output_path)
+                except OSError:
+                    pass
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
@@ -4297,18 +4438,8 @@ def _materialize_nvr_merge_part(part, nvr, target_path):
         "0:v:0",
         "-map",
         "0:a?",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "veryfast",
-        "-crf",
-        "20",
-        "-pix_fmt",
-        "yuv420p",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "128k",
+        "-c",
+        "copy",
         "-movflags",
         "+faststart",
         target_path,
@@ -4324,6 +4455,40 @@ def _materialize_nvr_merge_part(part, nvr, target_path):
         creationflags=subprocess.CREATE_NO_WINDOW,
     )
     if completed.returncode != 0 or not os.path.isfile(target_path) or os.path.getsize(target_path) <= 0:
+        cmd_an = [
+            FFMPEG_PATH,
+            "-y",
+            "-ss",
+            f"{source_offset:.3f}",
+            "-i",
+            source_path,
+            "-t",
+            f"{duration:.3f}",
+            "-map",
+            "0:v:0",
+            "-c:v",
+            "copy",
+            "-an",
+            "-movflags",
+            "+faststart",
+            target_path,
+        ]
+        completed = subprocess.run(
+            cmd_an,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=max(180, int(nvr.get("read_timeout_sec", 30) or 30) * 20),
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
+    if completed.returncode != 0 or not os.path.isfile(target_path) or os.path.getsize(target_path) <= 0:
+        if os.path.isfile(target_path):
+            try:
+                os.remove(target_path)
+            except OSError:
+                pass
         raise RuntimeError((completed.stdout or "Cắt video NVR thất bại.")[-2000:])
     return duration
 
@@ -4342,6 +4507,7 @@ def _merge_nvr_response(cam_id, req_start, req_end):
     def generate():
         work_dir = tempfile.mkdtemp(prefix=".cambida_nvr_merge_", dir=BASE_DIR)
         part_paths = []
+        done_successfully = False
         try:
             yield "data: 5\n\n"
             if missing_duration >= 1.0:
@@ -4370,8 +4536,32 @@ def _merge_nvr_response(cam_id, req_start, req_end):
                         )
                         list_file.write(f"file '{escaped_path}'\n")
                 yield "data: 95\n\n"
+                concat_cmd = [
+                    FFMPEG_PATH,
+                    "-y",
+                    "-f",
+                    "concat",
+                    "-safe",
+                    "0",
+                    "-i",
+                    list_file_path,
+                    "-c",
+                    "copy",
+                    "-movflags",
+                    "+faststart",
+                    output_path,
+                ]
                 completed = subprocess.run(
-                    [
+                    concat_cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+                if completed.returncode != 0 or not os.path.isfile(output_path) or os.path.getsize(output_path) <= 0:
+                    concat_cmd_an = [
                         FFMPEG_PATH,
                         "-y",
                         "-f",
@@ -4380,33 +4570,37 @@ def _merge_nvr_response(cam_id, req_start, req_end):
                         "0",
                         "-i",
                         list_file_path,
-                        "-c",
+                        "-c:v",
                         "copy",
+                        "-an",
                         "-movflags",
                         "+faststart",
                         output_path,
-                    ],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    creationflags=subprocess.CREATE_NO_WINDOW,
-                )
-                if completed.returncode != 0 or not os.path.isfile(output_path):
+                    ]
+                    completed = subprocess.run(
+                        concat_cmd_an,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        creationflags=subprocess.CREATE_NO_WINDOW,
+                    )
+                if completed.returncode != 0 or not os.path.isfile(output_path) or os.path.getsize(output_path) <= 0:
                     raise RuntimeError((completed.stdout or "Ghép các đoạn NVR thất bại.")[-2000:])
+            done_successfully = True
             yield "data: 100\n\n"
             yield f"data: done:{output_filename}\n\n"
         except Exception as exc:
             logger.exception("Không thể cắt/ghép video NVR camera %s", cam_id)
-            try:
-                if os.path.isfile(output_path):
-                    os.remove(output_path)
-            except OSError:
-                pass
             yield f"data: error:{str(exc)}\n\n"
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
+            if not done_successfully and os.path.isfile(output_path):
+                try:
+                    os.remove(output_path)
+                except OSError:
+                    pass
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
@@ -4487,6 +4681,8 @@ def merge_video():
             work_dir = tempfile.mkdtemp(prefix=".cambida_merge_", dir=BASE_DIR)
             part_paths = []
             completed_duration = 0.0
+            done_successfully = False
+            current_proc = None
             try:
                 yield "data: 5\n\n"
                 if missing_duration >= 1.0:
@@ -4495,34 +4691,26 @@ def merge_video():
                         f"{int(round(missing_duration))} giây không có video; "
                         "file kết quả chỉ gồm phần có sẵn.\n\n"
                     )
+                total_pieces = len(pieces)
                 for index, piece in enumerate(pieces):
                     part_path = os.path.join(work_dir, f"part_{index:03d}.mp4")
                     part_paths.append(part_path)
+                    piece_dur = max(0.001, piece["duration"])
                     cmd = [
                         FFMPEG_PATH,
                         "-y",
                         "-ss",
-                        f"{piece['offset']:.3f}",
+                        f"{max(0.0, piece['offset']):.3f}",
                         "-i",
                         piece["path"],
                         "-t",
-                        f"{piece['duration']:.3f}",
+                        f"{piece_dur:.3f}",
                         "-map",
                         "0:v:0",
                         "-map",
                         "0:a?",
-                        "-c:v",
-                        "libx264",
-                        "-preset",
-                        "veryfast",
-                        "-crf",
-                        "20",
-                        "-pix_fmt",
-                        "yuv420p",
-                        "-c:a",
-                        "aac",
-                        "-b:a",
-                        "128k",
+                        "-c",
+                        "copy",
                         "-movflags",
                         "+faststart",
                         "-progress",
@@ -4539,26 +4727,98 @@ def merge_video():
                         errors="replace",
                         creationflags=subprocess.CREATE_NO_WINDOW,
                     )
-                    for line in process.stdout:
-                        if not line.startswith("out_time_ms="):
-                            continue
-                        try:
-                            current_sec = min(
-                                piece["duration"],
-                                int(line.strip().split("=", 1)[1]) / 1_000_000,
-                            )
-                            ratio = (completed_duration + current_sec) / max(
-                                selected_media_duration, 0.001
-                            )
-                            percent = 5 + int(max(0.0, min(1.0, ratio)) * 85)
-                            yield f"data: {min(percent, 90)}\n\n"
-                        except (TypeError, ValueError, ZeroDivisionError):
-                            pass
+                    current_proc = process
+                    try:
+                        for line in process.stdout:
+                            if not (line.startswith("out_time_ms=") or line.startswith("out_time_us=")):
+                                continue
+                            try:
+                                val = int(line.strip().split("=", 1)[1])
+                                current_sec = min(
+                                    piece_dur,
+                                    val / 1_000_000,
+                                )
+                                ratio = (completed_duration + current_sec) / max(
+                                    selected_media_duration, 0.001
+                                )
+                                percent = 5 + int(max(0.0, min(1.0, ratio)) * 85)
+                                yield f"data: {min(percent, 90)}\n\n"
+                            except (TypeError, ValueError, ZeroDivisionError):
+                                pass
+                    finally:
+                        if process.stdout:
+                            try:
+                                process.stdout.close()
+                            except Exception:
+                                pass
                     process.wait()
-                    if process.returncode != 0 or not os.path.isfile(part_path):
+                    current_proc = None
+
+                    if process.returncode != 0 or not os.path.isfile(part_path) or os.path.getsize(part_path) <= 0:
+                        cmd_an = [
+                            FFMPEG_PATH,
+                            "-y",
+                            "-ss",
+                            f"{max(0.0, piece['offset']):.3f}",
+                            "-i",
+                            piece["path"],
+                            "-t",
+                            f"{piece_dur:.3f}",
+                            "-map",
+                            "0:v:0",
+                            "-c:v",
+                            "copy",
+                            "-an",
+                            "-movflags",
+                            "+faststart",
+                            "-progress",
+                            "pipe:1",
+                            "-nostats",
+                            part_path,
+                        ]
+                        process = subprocess.Popen(
+                            cmd_an,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace",
+                            creationflags=subprocess.CREATE_NO_WINDOW,
+                        )
+                        current_proc = process
+                        try:
+                            for line in process.stdout:
+                                if not (line.startswith("out_time_ms=") or line.startswith("out_time_us=")):
+                                    continue
+                                try:
+                                    val = int(line.strip().split("=", 1)[1])
+                                    current_sec = min(
+                                        piece_dur,
+                                        val / 1_000_000,
+                                    )
+                                    ratio = (completed_duration + current_sec) / max(
+                                        selected_media_duration, 0.001
+                                    )
+                                    percent = 5 + int(max(0.0, min(1.0, ratio)) * 85)
+                                    yield f"data: {min(percent, 90)}\n\n"
+                                except (TypeError, ValueError, ZeroDivisionError):
+                                    pass
+                        finally:
+                            if process.stdout:
+                                try:
+                                    process.stdout.close()
+                                except Exception:
+                                    pass
+                        process.wait()
+                        current_proc = None
+
+                    if process.returncode != 0 or not os.path.isfile(part_path) or os.path.getsize(part_path) <= 0:
                         yield "data: error:Cắt video thất bại\n\n"
                         return
                     completed_duration += piece["duration"]
+                    step_ratio = (index + 1) / max(total_pieces, 1)
+                    step_percent = 5 + int(max(0.0, min(1.0, step_ratio)) * 85)
+                    yield f"data: {min(step_percent, 90)}\n\n"
 
                 if len(part_paths) == 1:
                     shutil.copyfile(part_paths[0], output_path)
@@ -4597,17 +4857,54 @@ def merge_video():
                         errors="replace",
                         creationflags=subprocess.CREATE_NO_WINDOW,
                     )
-                    if result.returncode != 0 or not os.path.isfile(output_path):
+                    if result.returncode != 0 or not os.path.isfile(output_path) or os.path.getsize(output_path) <= 0:
+                        concat_cmd_an = [
+                            FFMPEG_PATH,
+                            "-y",
+                            "-f",
+                            "concat",
+                            "-safe",
+                            "0",
+                            "-i",
+                            list_file_path,
+                            "-c:v",
+                            "copy",
+                            "-an",
+                            "-movflags",
+                            "+faststart",
+                            output_path,
+                        ]
+                        result = subprocess.run(
+                            concat_cmd_an,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace",
+                            creationflags=subprocess.CREATE_NO_WINDOW,
+                        )
+                    if result.returncode != 0 or not os.path.isfile(output_path) or os.path.getsize(output_path) <= 0:
                         logger.error("Ghép các đoạn cắt thất bại: %s", result.stdout[-2000:])
                         yield "data: error:Ghép các đoạn cắt thất bại\n\n"
                         return
+                done_successfully = True
                 yield "data: 100\n\n"
                 yield f"data: done:{output_filename}\n\n"
             except Exception:
                 logger.exception("Không thể cắt/ghép video")
                 yield "data: error:Lỗi xử lý video\n\n"
             finally:
+                if current_proc and current_proc.poll() is None:
+                    try:
+                        current_proc.kill()
+                    except OSError:
+                        pass
                 shutil.rmtree(work_dir, ignore_errors=True)
+                if not done_successfully and os.path.isfile(output_path):
+                    try:
+                        os.remove(output_path)
+                    except OSError:
+                        pass
 
         return Response(
             stream_with_context(generate_merge_process()),
