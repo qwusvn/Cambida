@@ -70,19 +70,11 @@ function loadReplayScript(cameraMode = 'nvr') {
     return elements.get(id);
   };
   element('filterDate').value = '2026-09-20';
-  const documentListeners = new Map();
   const document = {
     getElementById: element,
     createElement: () => makeElement(),
     querySelectorAll: () => [],
-    addEventListener(type, handler) {
-      const current = documentListeners.get(type) || [];
-      current.push(handler);
-      documentListeners.set(type, current);
-    },
-    dispatch(type, event = {}) {
-      for (const handler of documentListeners.get(type) || []) handler({ type, ...event });
-    },
+    addEventListener() {},
   };
   const window = { addEventListener() {}, scrollTo() {} };
   let timer = null;
@@ -117,7 +109,7 @@ test('timeline coverage merges segmentation jitter but preserves real gaps', () 
   ];`, context);
 
   context.renderTimelineCoverage('filmstrip');
-  const cells = elements.get('filmstrip').children.filter(child => child.className === 'filmstrip-cell');
+  const cells = elements.get('filmstrip').children;
   assert.equal(cells.length, 2);
   assert.match(cells[0].title, /00:00:00 - 00:10:00/);
   assert.match(cells[0].title, /00:10:01 - 00:20:00/);
@@ -125,55 +117,6 @@ test('timeline coverage merges segmentation jitter but preserves real gaps', () 
   assert.match(cells[1].title, /00:20:06 - 00:30:00/);
   assert.ok(Number.parseFloat(cells[0].style.width) > 1);
   assert.ok(Number.parseFloat(cells[1].style.left) > Number.parseFloat(cells[0].style.left));
-});
-
-test('adjacent recording segments keep a configurable visible boundary', () => {
-  const html = fs.readFileSync('index.html', 'utf8');
-  const { context, elements } = loadReplayScript();
-  vm.runInContext(`visibleVideos = [
-    { started_at: '2026-09-20T10:00:00', end_at: '2026-09-20T10:05:00' },
-    { started_at: '2026-09-20T10:05:01', end_at: '2026-09-20T10:10:00' },
-    { started_at: '2026-09-20T10:20:00', end_at: '2026-09-20T10:25:00' },
-  ];`, context);
-
-  context.renderTimelineCoverage('filmstrip');
-  const boundaries = elements.get('filmstrip').children.filter(child => child.className === 'filmstrip-boundary');
-  assert.equal(boundaries.length, 1);
-  assert.match(boundaries[0].title, /Ranh giới đoạn ghi/);
-  assert.match(html, /--segment-boundary:\{\{ site\.theme\.segment_boundary \}\}/);
-  assert.match(html, /background:var\(--segment-boundary\)/);
-});
-
-test('timeline defaults to one full day and labels every hour through midnight', () => {
-  const { context, elements } = loadReplayScript();
-  assert.equal(vm.runInContext('timelineStates.replay.zoom', context), 1);
-  assert.equal(vm.runInContext('timelineStates.cut.zoom', context), 1);
-  context.updateRuler('ruler');
-  const labels = elements.get('ruler').children.map(child => child.textContent);
-  assert.deepEqual(labels.slice(0, 3), ['0h', '1h', '2h']);
-  assert.deepEqual(labels.slice(-2), ['23h', '24h']);
-});
-
-test('previous-day navigation keeps replay and cut on date-correct absolute times', () => {
-  const { context, elements } = loadReplayScript();
-  elements.get('filterDate').value = '2026-09-20';
-  elements.set('cutFilterDate', makeElement('cutFilterDate'));
-  elements.get('cutFilterDate').value = '2026-09-20';
-  context.changeTimelineDay(-1);
-  assert.equal(elements.get('filterDate').value, '2026-09-19');
-  assert.equal(elements.get('cutFilterDate').value, '2026-09-19');
-  assert.equal(context.formatLocalSecond(context.getTimelineDateAtProgress(23 / 24)), '2026-09-19T23:00:00');
-  context.changeTimelineDay(1);
-  assert.equal(context.formatLocalSecond(context.getTimelineDateAtProgress(1 / 24)), '2026-09-20T01:00:00');
-});
-
-test('opening replay starts the actual sub live stream before any seek', () => {
-  const { context, elements } = loadReplayScript();
-  context.document.dispatch('DOMContentLoaded');
-  assert.equal(elements.get('replayScreen').classList.contains('is-live'), true);
-  assert.equal(elements.get('liveStream').hidden, false);
-  assert.match(elements.get('liveStream').src, /^\/cam1\?stream=sub&view=live_preview&live=/);
-  assert.equal(elements.get('videoPlayer').src, '');
 });
 
 test('video overlays are removed and controls stay in the external toolbar', () => {

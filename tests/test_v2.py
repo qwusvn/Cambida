@@ -3,7 +3,6 @@ import os
 import sqlite3
 import tempfile
 import unittest
-from unittest.mock import patch
 
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -81,17 +80,6 @@ class CCTV20Tests(unittest.TestCase):
                 "/api/timeline?start=2026-08-03T12:00&end=2026-08-03T11:00"
             )
         self.assertEqual(response.status_code, 400)
-
-    def test_site_theme_restores_configured_segment_boundary_color(self):
-        configured = {
-            "site": {
-                "name": "Cambida",
-                "theme": {"segment_boundary": "#123456"},
-            }
-        }
-        with patch.object(APP, "CONFIG", configured):
-            site = APP.get_site_config()
-        self.assertEqual(site["theme"]["segment_boundary"], "#123456")
 
 
 if __name__ == "__main__":

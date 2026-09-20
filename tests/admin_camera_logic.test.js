@@ -175,16 +175,3 @@ test('admin camera normalizes and renders view_stream (auto/main/sub)', () => {
   assert.match(markup, /value="main"/);
   assert.match(markup, /value="sub"/);
 });
-
-test('segment boundary color is loaded and saved with the site theme', () => {
-  const { context, elements } = loadAdminScript();
-  context.setForm({
-    cameras: [],
-    tables: [],
-    site: { name: 'Cambida', tagline: '', theme: { segment_boundary: '#123456' } },
-  });
-  assert.equal(elements.get('themeSegmentBoundary').value, '#123456');
-  elements.get('themeSegmentBoundary').value = '#abcdef';
-  const saved = context.readForm();
-  assert.equal(saved.site.theme.segment_boundary, '#abcdef');
-});

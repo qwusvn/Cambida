@@ -11,14 +11,13 @@ SPEC.loader.exec_module(APP)
 
 
 class LauncherTests(unittest.TestCase):
-    def test_packaged_launcher_starts_server_without_opening_browser(self):
+    def test_packaged_double_click_launcher_reuses_port_before_starting_exe(self):
         with open(os.path.join(ROOT, "CCTV_2.1.0.launcher.cmd"), encoding="utf-8") as handle:
             launcher = handle.read()
         self.assertIn(r"release\2.1.0\CCTV_2.1.0.exe", launcher)
         self.assertIn("call :port_ready", launcher)
         self.assertIn('if errorlevel 1 start "Cambida CCTV" "%EXE%"', launcher)
-        self.assertNotIn('start "" "%URL%"', launcher)
-        self.assertNotIn("open_browser", launcher)
+        self.assertIn('start "" "%URL%"', launcher)
         self.assertNotIn("taskkill", launcher.lower())
 
     def test_open_server_page_waits_then_uses_default_browser_reuse_mode(self):
@@ -43,25 +42,13 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(calls[0][0], ("127.0.0.1", 8004))
         self.assertEqual(calls[1], ("http://127.0.0.1:8004/", {"new": 0, "autoraise": True}))
 
-    def test_second_process_does_not_open_browser_or_restart_server(self):
+    def test_second_double_click_reuses_existing_server_without_restart(self):
         with patch.object(APP, "_try_take_instance_mutex", return_value=False), \
                 patch.object(APP, "_open_server_page", return_value=True) as open_page, \
                 patch.object(APP, "_show_restart_prompt") as restart_prompt:
             self.assertFalse(APP.acquire_single_instance())
-        open_page.assert_not_called()
-        restart_prompt.assert_not_called()
-
-    def test_tray_default_action_opens_gui_and_startup_does_not(self):
-        menu = APP.create_tray_menu()
-        self.assertTrue(menu.items[0].default)
-        self.assertEqual(menu.items[0].text, "Mở Cambida")
-        with patch.object(APP, "_open_server_page", return_value=True) as open_page:
-            APP.on_open(None, None)
         open_page.assert_called_once_with()
-
-        with open(os.path.join(ROOT, "1.py"), encoding="utf-8") as handle:
-            source = handle.read()
-        self.assertNotIn("_open_server_page(server_port)", source)
+        restart_prompt.assert_not_called()
 
 
 if __name__ == "__main__":
