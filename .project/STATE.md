@@ -270,3 +270,20 @@ Cập nhật: 2026-09-12 +07
   - Probe thực tế: `/replay/cam1` trả về `object-fit:contain` và `Đang tải...`.
   - Probe luồng: Mở luồng live trong 0.53s - 0.55s.
 - Status: COMPLETED.
+
+## 2026-09-21 - Full width 4:3 live player & 18px rounded corners (cambida-live-fullwidth-rounded-20260921)
+- Scope:
+  1. Phóng to khung hình live vừa khít 100% chiều ngang màn hình điện thoại, tự động co giãn theo tỷ lệ 4:3 thực tế của luồng sub camera (640x480), loại bỏ hoàn toàn viền đen 2 bên. Các thành phần điều khiển bên dưới tự động dịch chuyển lên xuống theo chiều cao khung hình.
+  2. Bo cong 4 góc mềm mại 18px (thay vì góc nhọn) cho cả Xem lại và Trực tiếp, bổ sung mask chống tràn góc nhọn khi phần cứng render trên Android/Cốc Cốc.
+- Xử lý:
+  - `index.html`:
+    - `.player`: `border-radius: 18px; aspect-ratio: 16/9; isolation: isolate; -webkit-mask-image: -webkit-radial-gradient(white,black); mask-image: radial-gradient(white,black);`.
+    - `.player video, .player .live-stream`: `border-radius: inherit;`.
+    - `.screen.is-live .player`: `aspect-ratio: 4/3;`.
+    - `setScreenLive`: Khi `stream.onload` nạp xong, gán `frame.style.aspectRatio = \`${stream.naturalWidth}/${stream.naturalHeight}\`` để tự động vừa khít mọi tỷ lệ camera; khi thoát live trả về tỷ lệ mặc định.
+  - Đồng bộ `release/2.1.0/index.html`.
+- Kiểm chứng:
+  - Node tests: 19/19 PASS.
+  - Python tests: 92/92 PASS.
+  - HTML reload xác minh: `border-radius:18px` và `.screen.is-live .player{aspect-ratio:4/3}` đã active.
+- Status: COMPLETED.
