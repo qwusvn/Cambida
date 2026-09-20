@@ -6,6 +6,7 @@ const vm = require('node:vm');
 function makeElement(id = '') {
   const listeners = new Map();
   const classes = new Set();
+  let text = '';
   return {
     id,
     value: '',
@@ -17,7 +18,12 @@ function makeElement(id = '') {
     style: {},
     dataset: {},
     children: [],
-    textContent: '',
+    get textContent() {
+      return text || this.children.map(c => c.textContent).join('');
+    },
+    set textContent(val) {
+      text = String(val);
+    },
     title: '',
     className: '',
     classList: {
@@ -115,18 +121,15 @@ test('timeline coverage merges segmentation jitter but preserves real gaps', () 
   assert.match(cells[0].title, /00:10:01 - 00:20:00/);
   assert.doesNotMatch(cells[0].title, /00:20:06/);
   assert.match(cells[1].title, /00:20:06 - 00:30:00/);
-  assert.ok(Number.parseFloat(cells[0].style.width) > 1);
+  assert.ok(Number.parseFloat(cells[0].style.width) > 0.5);
   assert.ok(Number.parseFloat(cells[1].style.left) > Number.parseFloat(cells[0].style.left));
 });
 
-test('video overlays are removed and controls stay in the external toolbar', () => {
+test('player controls are streamlined with overlay fullscreen and no external playback bar', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   const { context, elements } = loadReplayScript();
   elements.set('playerFrame', makeElement('playerFrame'));
   const frame = elements.get('playerFrame');
-  elements.get('pauseButton');
-  elements.get('pauseIcon');
-  elements.get('playerTime');
   elements.get('fullscreenButton');
 
   context.wirePlayer(
@@ -140,14 +143,11 @@ test('video overlays are removed and controls stay in the external toolbar', () 
   );
   frame.dispatch('pointerdown', { pointerType: 'mouse' });
   assert.equal(frame.classList.contains('is-controls-visible'), false);
-  assert.doesNotMatch(html, /player-top|player-controls|is-controls-visible|CONTROL_IDLE_MS/);
-  assert.doesNotMatch(html, /id="(?:overlayTimestamp|cutOverlayTimestamp)"/);
-  assert.match(html, /<\/div>\s*<div class="player-toolbar"/);
-  assert.match(html, /id="pauseButton" class="player-toolbar-button"/);
-  assert.match(html, /id="fullscreenButton" class="player-toolbar-button fullscreen-button"/);
+  assert.doesNotMatch(html, /id="pauseButton"|id="playerTime"/);
+  assert.match(html, /id="fullscreenButton" class="video-overlay-button"/);
 });
 
-test('playback rate controls are single-direction cyclers and zoom sits in the top toolbar', () => {
+test('playback rate controls sit together on the left and zoom buttons are removed', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   const { context } = loadReplayScript();
   assert.equal((html.match(/data-timeline-context="replay" data-direction="reverse"/g) || []).length, 1);
@@ -156,9 +156,9 @@ test('playback rate controls are single-direction cyclers and zoom sits in the t
   assert.equal((html.match(/data-timeline-context="cut" data-direction="forward"/g) || []).length, 1);
   assert.match(html, /data-direction="reverse" data-rate="1"[^>]*>[\s\S]*?<span class="rate-label">1x<\/span>/);
   assert.match(html, /data-direction="forward" data-rate="1"[^>]*>[\s\S]*?<span class="rate-label">1x<\/span>/);
-  assert.deepEqual([1, 2, 4, 1], [1, context.getNextPlaybackRate(1), context.getNextPlaybackRate(2), context.getNextPlaybackRate(4)]);
-  assert.ok(html.indexOf('id="timelineZoomOut"') < html.indexOf('id="timelineViewport"'));
-  assert.ok(html.indexOf('id="cutTimelineZoomOut"') < html.indexOf('id="cutTimelineViewport"'));
+  assert.deepEqual([2, 4, 1], [context.getNextPlaybackRate(1), context.getNextPlaybackRate(2), context.getNextPlaybackRate(4)]);
+  assert.equal(html.includes('id="timelineZoomOut"'), false);
+  assert.equal(html.includes('id="cutTimelineZoomOut"'), false);
 });
 
 test('live mode keeps timeline visible and jumps it to the current day/time', () => {
@@ -199,7 +199,7 @@ test('cut live mode uses the same explicit low-latency sub preview stream', () =
   assert.equal(elements.get('cutScreen').classList.contains('is-live'), true);
 });
 
-test('playback direction buttons cycle active speed 1x to 2x to 4x to 1x', () => {
+test('playback direction buttons cycle active speed immediately on first click (2x -> 4x -> 1x -> 2x)', () => {
   const { context, elements } = loadReplayScript();
   vm.runInContext("currentVideo={started_at:'2026-09-20T00:00:00',end_at:'2026-09-20T00:10:00'}", context);
   const forward = makeElement('forwardRate');
@@ -208,16 +208,17 @@ test('playback direction buttons cycle active speed 1x to 2x to 4x to 1x', () =>
   forward.querySelector = selector => selector === '.rate-label' ? forwardLabel : null;
   context.setPlaybackRate('replay', 'forward', forward);
   const player = elements.get('videoPlayer');
+  assert.equal(forward.dataset.rate, '2');
+  assert.equal(player.playbackRate, 2);
+  context.setPlaybackRate('replay', 'forward', forward);
+  assert.equal(forward.dataset.rate, '4');
+  assert.equal(player.playbackRate, 4);
+  context.setPlaybackRate('replay', 'forward', forward);
   assert.equal(forward.dataset.rate, '1');
   assert.equal(player.playbackRate, 1);
   context.setPlaybackRate('replay', 'forward', forward);
   assert.equal(forward.dataset.rate, '2');
   assert.equal(player.playbackRate, 2);
-  context.setPlaybackRate('replay', 'forward', forward);
-  assert.equal(forward.dataset.rate, '4');
-  context.setPlaybackRate('replay', 'forward', forward);
-  assert.equal(forward.dataset.rate, '1');
-  assert.equal(forwardLabel.textContent, '1x');
 });
 
 test('manual replay scrub selects the exact recording and starts playback', () => {
@@ -226,7 +227,7 @@ test('manual replay scrub selects the exact recording and starts playback', () =
     { name: 'cam1', started_at: '2026-09-20T00:00:00', end_at: '2026-09-20T23:59:59' }
   ]; currentVideo = null;`, context);
 
-  context.seekTimelineProgress('replay', 0.5, true, true);
+  context.seekTimelineProgress('replay', 0.75, true, true);
 
   const player = elements.get('videoPlayer');
   assert.equal(player.paused, false);
@@ -249,7 +250,7 @@ test('manual scrub retries autoplay after the selected media becomes playable', 
     return Promise.resolve();
   };
 
-  context.seekTimelineProgress('replay', 0.5, true, true);
+  context.seekTimelineProgress('replay', 0.75, true, true);
   await Promise.resolve();
   assert.equal(player.paused, true);
   assert.equal(playAttempts, 1);
@@ -268,8 +269,8 @@ test('stale loadedmetadata callbacks cannot override the latest scrub target', (
   ]; currentVideo = visibleVideos[0]; currentVideoIndex = 0;`, context);
   vm.runInContext("document.getElementById('videoPlayer').duration = 3600", context);
 
-  context.seekTimelineProgress('replay', 5 / 24 / 60, false, false);
-  context.seekTimelineProgress('replay', 25 / 24 / 60, false, false);
+  context.seekTimelineProgress('replay', 0.5 + 5 / 48 / 60, false, false);
+  context.seekTimelineProgress('replay', 0.5 + 25 / 48 / 60, false, false);
   const player = elements.get('videoPlayer');
   player.dispatch('loadedmetadata');
 
@@ -288,20 +289,22 @@ test('live list refresh does not load replay, but a user scrub exits live and pl
   assert.equal(context.currentVideo, undefined);
   assert.equal(elements.get('videoPlayer').src, '');
 
-  context.seekTimelineProgress('replay', 0.5, true, true);
+  context.seekTimelineProgress('replay', 0.75, true, true);
   assert.equal(elements.get('replayScreen').classList.contains('is-live'), false);
   assert.equal(elements.get('videoPlayer').paused, false);
 });
 
-test('timeline defaults to one full day and displays previous day instead of 0h mark', () => {
+test('timeline ruler renders continuous 48-hour seamless markers with midnight transition', () => {
   const { context, elements } = loadReplayScript();
-  assert.equal(vm.runInContext('timelineStates.replay.zoom', context), 1);
-  assert.equal(vm.runInContext('timelineStates.cut.zoom', context), 1);
   context.updateRuler('ruler');
-  const labels = elements.get('ruler').children.map(child => child.textContent);
-  assert.equal(labels[0], 'Hôm trước');
-  assert.deepEqual(labels.slice(1, 3), ['1h', '2h']);
-  assert.deepEqual(labels.slice(-2), ['23h', '24h']);
+  const children = elements.get('ruler').children;
+  assert.equal(children.length, 49);
+  assert.equal(children[0].textContent, '0h');
+  assert.equal(children[23].textContent, '23h');
+  assert.equal(children[24].textContent, '24h0h');
+  assert.equal(children[25].textContent, '1h');
+  assert.equal(children[26].textContent, '2h');
+  assert.equal(children[48].textContent, '24h');
 });
 
 test('previous-day navigation keeps replay and cut on date-correct absolute times', () => {
@@ -312,22 +315,15 @@ test('previous-day navigation keeps replay and cut on date-correct absolute time
   context.changeTimelineDay(-1);
   assert.equal(elements.get('filterDate').value, '2026-09-19');
   assert.equal(elements.get('cutFilterDate').value, '2026-09-19');
-  assert.equal(context.formatLocalSecond(context.getTimelineDateAtProgress(23 / 24)), '2026-09-19T23:00:00');
+  assert.equal(context.formatLocalSecond(context.getTimelineDateAtProgress(47 / 48)), '2026-09-19T23:00:00');
   context.changeTimelineDay(1);
-  assert.equal(context.formatLocalSecond(context.getTimelineDateAtProgress(1 / 24)), '2026-09-20T01:00:00');
+  assert.equal(context.formatLocalSecond(context.getTimelineDateAtProgress(25 / 48)), '2026-09-20T01:00:00');
 });
 
-test('ruler previous-day mark triggers day navigation when clicked', () => {
-  const { context, elements } = loadReplayScript();
-  elements.get('filterDate').value = '2026-09-20';
-  elements.set('cutFilterDate', makeElement('cutFilterDate'));
-  elements.get('cutFilterDate').value = '2026-09-20';
-  context.updateRuler('ruler');
-  const prevDayMarker = elements.get('ruler').children[0];
-  assert.equal(prevDayMarker.textContent, 'Hôm trước');
-  prevDayMarker.dispatch('click');
-  assert.equal(elements.get('filterDate').value, '2026-09-19');
-  assert.equal(elements.get('cutFilterDate').value, '2026-09-19');
+test('action buttons feature cut video as primary and download button is removed', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.doesNotMatch(html, /id="downloadOriginalBtn"/);
+  assert.match(html, /id="cutButton" class="action primary cut-primary"[^>]*>[\s\S]*?Cắt Video<\/button>/);
 });
 
 test('dragging timeline past 0h to the left rolls over into previous day', () => {

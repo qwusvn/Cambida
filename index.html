@@ -60,12 +60,9 @@
     .player{position:relative;overflow:hidden;width:100%;aspect-ratio:1.66;border-radius:12px;background:#101820;box-shadow:0 1px 0 rgba(0,0,0,.05);touch-action:none}
     .player video,.player .live-stream{width:100%;height:100%;display:block;object-fit:cover;background:#101820;transform:translate3d(0,0,0) scale(1);transform-origin:center;will-change:transform;user-select:none;-webkit-user-select:none;touch-action:none}
     .player .live-stream{object-position:center}
-    .player-toolbar{display:flex;align-items:center;gap:8px;min-height:38px;margin:7px 2px 0;color:#60758a}
-    .player-toolbar-button{width:36px;height:34px;border:1px solid var(--border);border-radius:10px;background:#fff;color:#176da9;display:grid;place-items:center;padding:0;box-shadow:var(--shadow)}
-    .player-toolbar-button:hover,.player-toolbar-button:focus-visible{border-color:#8cc8f5;background:#edf7ff;color:#0878ea;outline:none}
-    .player-toolbar-button svg{width:20px;height:20px}
-    .player-time{margin-left:2px;font-size:11px;font-weight:650;letter-spacing:.1px}
-    .player-toolbar-button.fullscreen-button{margin-left:auto}
+    .video-overlay-button{position:absolute;right:10px;bottom:10px;z-index:10;width:34px;height:34px;border-radius:9px;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);color:#fff;border:1px solid rgba(255,255,255,.24);display:grid;place-items:center;padding:0;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.25);transition:background .15s ease,border-color .15s ease}
+    .video-overlay-button:hover,.video-overlay-button:focus-visible{border-color:rgba(255,255,255,.5);background:rgba(0,0,0,.7);outline:none}
+    .video-overlay-button svg{width:18px;height:18px}
 
     .control-row{display:grid;grid-template-columns:34px minmax(0,1.35fr) 34px minmax(0,1fr);gap:6px;margin:13px 4px 11px}
     .pill{height:44px;border:1px solid var(--border);border-radius:23px;background:#fff;color:#1f5e9f;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;gap:9px;font-size:13px;font-weight:650;padding:0 12px;white-space:nowrap;position:relative}
@@ -76,10 +73,9 @@
 
     .timeline-wrap{position:relative;margin:0 -12px 12px;padding:0 12px;height:164px;overflow:hidden}
     .timeline-toolbar{position:absolute;z-index:12;left:12px;right:12px;top:0;height:34px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:4px}
-    .timeline-rate-group{display:flex;align-items:center;gap:3px;min-width:0}
-    .timeline-rate-group.forward{justify-content:flex-end}
-    .rate-button,.zoom-button{border:1px solid #dce8f2;background:#fff;color:#6b8095;display:inline-flex;align-items:center;justify-content:center;gap:2px;padding:0;box-shadow:0 2px 5px rgba(31,91,153,.07)}
-    .rate-button{min-width:58px;height:29px;border-radius:9px;font-size:10px;font-weight:760;padding:0 7px}
+    .timeline-rate-group{display:flex;align-items:center;gap:4px;min-width:0}
+    .timeline-toolbar-spacer{min-width:0}
+    .rate-button{border:1px solid #dce8f2;background:#fff;color:#6b8095;display:inline-flex;align-items:center;justify-content:center;gap:2px;padding:0;box-shadow:0 2px 5px rgba(31,91,153,.07);min-width:58px;height:29px;border-radius:9px;font-size:10px;font-weight:760;padding:0 7px}
     .rate-button svg{width:14px;height:14px;flex:0 0 auto}
     .rate-button:hover,.rate-button:focus-visible,.rate-button.is-active{border-color:#8cc7f2;background:#edf7ff;color:#147ee8;outline:none}
     .rate-button.is-active{box-shadow:0 0 0 2px rgba(25,137,255,.12)}
@@ -97,15 +93,14 @@
     .handle-end{left:calc(69% - 8px)}
     .timeline-marker{position:absolute;z-index:9;top:-7px;bottom:0;left:50%;width:3px;border-radius:2px;background:var(--pink);transform:translateX(-50%);box-shadow:0 0 0 1px rgba(255,255,255,.5);pointer-events:none}
     .timeline-marker:before{content:"";position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:10px;height:10px;border-radius:50%;background:var(--pink)}
-    .ruler{position:absolute;left:0;right:auto;top:53px;width:100%;height:48px;border-top:1px solid #d8e1ea;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(5% - 1px),#cfd9e3 calc(5% - 1px),#cfd9e3 5%);background-size:100% 11px;background-repeat:no-repeat}
-    .ruler-major{position:absolute;top:12px;transform:translateX(-50%);color:#67788b;font-size:11px;font-weight:520}
+    .ruler{position:absolute;left:0;right:auto;top:53px;width:100%;height:48px;border-top:1px solid #d8e1ea;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(2.0833% - 1px),#cfd9e3 calc(2.0833% - 1px),#cfd9e3 2.0833%);background-size:100% 11px;background-repeat:no-repeat}
+    .ruler-major{position:absolute;top:12px;transform:translateX(-50%);color:#67788b;font-size:11px;font-weight:520;white-space:nowrap}
     .ruler-major:before{content:"";position:absolute;top:-12px;left:50%;width:1px;height:10px;background:#aebdca}
+    .ruler-major.ruler-midnight{transform:translateX(-50%);display:inline-flex;align-items:center;gap:4px}
+    .ruler-midnight-prev{color:#67788b}
+    .ruler-midnight-next{color:#188cff;font-weight:700}
     .timeline-hit{position:absolute;inset:38px 12px 18px;z-index:10;touch-action:none;user-select:none;-webkit-user-select:none;background:transparent;border-radius:6px;outline:none}
     .timeline-hit:focus-visible{box-shadow:0 0 0 2px rgba(25,137,255,.28)}
-    .timeline-zoom{display:flex;align-items:center;gap:4px;margin-left:5px}
-    .zoom-button{width:29px;height:28px;border-radius:8px}
-    .zoom-button svg{width:16px;height:16px}
-    .zoom-button:hover,.zoom-button:focus-visible{border-color:#8cc7f2;background:#edf7ff;color:#147ee8;outline:none}
 
     .selection-info{display:grid;grid-template-columns:1fr 1fr 1fr;margin:3px 2px 10px;border:1px solid var(--border);border-radius:11px;background:#fbfdff;overflow:hidden}
     .selection-info>div{padding:8px 7px 7px;text-align:center;border-right:1px solid var(--border)}
@@ -136,13 +131,10 @@
     .screen.is-live .selection-info,.screen.is-live [data-replay-only],.screen.is-live [data-cut-only],.screen.is-live .warning,.screen.is-live .inline-error,.screen.is-live .progress-box{display:none}
     .screen.is-live .date-control,.screen.is-live .day-button{display:none}
     .screen.is-live .control-row{grid-template-columns:1fr}
-    .ruler-major.ruler-prev-day{transform:translateX(0);color:#188cff;font-weight:600;cursor:pointer}
-    .ruler-major.ruler-prev-day:before{left:10px}
     .screen.is-live .live-stream{display:block}
     .screen.is-live .player video{display:none}
-    .screen.is-live .player-toolbar{visibility:hidden}
     .live-stream[hidden]{display:none}
-    @media(max-width:370px){.app{padding-left:9px;padding-right:9px}.header{grid-template-columns:82px 1fr 82px}.timeline-wrap{margin-left:-9px;margin-right:-9px;padding-left:9px;padding-right:9px}.timeline-viewport{left:9px;right:9px}.timeline-hit{left:9px;right:9px}.timeline-toolbar{left:9px;right:9px}.rate-button{min-width:48px;padding:0 5px}.zoom-button{width:27px}.timeline-zoom{gap:2px;margin-left:3px}.time-bubble{min-width:68px;padding:0 7px}.live-badge{padding:0 8px}.source-button{min-width:70px;padding:0 6px}.source-button-label{max-width:45px}.control-row{gap:6px}.pill{font-size:12px;padding:0 8px}}
+    @media(max-width:370px){.app{padding-left:9px;padding-right:9px}.header{grid-template-columns:82px 1fr 82px}.timeline-wrap{margin-left:-9px;margin-right:-9px;padding-left:9px;padding-right:9px}.timeline-viewport{left:9px;right:9px}.timeline-hit{left:9px;right:9px}.timeline-toolbar{left:9px;right:9px}.rate-button{min-width:48px;padding:0 5px}.time-bubble{min-width:68px;padding:0 7px}.live-badge{padding:0 8px}.source-button{min-width:70px;padding:0 6px}.source-button-label{max-width:45px}.control-row{gap:6px}.pill{font-size:12px;padding:0 8px}}
   </style>
 </head>
 <body>
@@ -160,18 +152,14 @@
     <div class="player" id="playerFrame">
       <video id="videoPlayer" playsinline preload="metadata" poster="/snapshot/cam{{ cam_id }}?view=single"></video>
       <img id="liveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
-    </div>
-    <div class="player-toolbar" role="toolbar" aria-label="Điều khiển phát lại">
-      <button id="pauseButton" class="player-toolbar-button" type="button" aria-label="Phát hoặc tạm dừng"><svg id="pauseIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg></button>
-      <span id="playerTime" class="player-time">00:00 / 00:00</span>
-      <button id="fullscreenButton" class="player-toolbar-button fullscreen-button" type="button" aria-label="Toàn màn hình"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
+      <button id="fullscreenButton" class="video-overlay-button" type="button" aria-label="Toàn màn hình" title="Toàn màn hình"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
     </div>
 
     <div class="control-row">
       <button id="previousDayButton" class="day-button" type="button" aria-label="Ngày trước" title="Ngày trước">‹</button>
       <label class="pill date-control" aria-label="Chọn ngày">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
-        <span id="dateLabel">Hôm nay</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        <span id="dateLabel">--/--/----</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
         <input id="filterDate" class="date-input" type="date">
       </label>
       <button id="nextDayButton" class="day-button" type="button" aria-label="Ngày sau" title="Ngày sau">›</button>
@@ -182,15 +170,10 @@
       <div class="timeline-toolbar" role="toolbar" aria-label="Điều khiển tốc độ xem lại">
         <div class="timeline-rate-group">
           <button class="rate-button" type="button" data-timeline-context="replay" data-direction="reverse" data-rate="1" title="Phát lùi 1 lần" aria-label="Phát lùi 1 lần"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 6-6 6 6 6M20 6l-6 6 6 6"/></svg><span class="rate-label">1x</span></button>
+          <button class="rate-button" type="button" data-timeline-context="replay" data-direction="forward" data-rate="1" title="Phát tiến 1 lần" aria-label="Phát tiến 1 lần"><span class="rate-label">1x</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 6 6-6 6M11 6l6 6-6 6"/></svg></button>
         </div>
         <div id="timeBubble" class="time-bubble">--:--:--</div>
-        <div class="timeline-rate-group forward">
-          <button class="rate-button" type="button" data-timeline-context="replay" data-direction="forward" data-rate="1" title="Phát tiến 1 lần" aria-label="Phát tiến 1 lần"><span class="rate-label">1x</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 6 6-6 6M11 6l6 6-6 6"/></svg></button>
-          <div class="timeline-zoom" role="group" aria-label="Thu phóng timeline">
-            <button id="timelineZoomOut" class="zoom-button" type="button" title="Thu nhỏ thang thời gian" aria-label="Thu nhỏ timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
-            <button id="timelineZoomIn" class="zoom-button" type="button" title="Phóng to thang thời gian" aria-label="Phóng to timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
-          </div>
-        </div>
+        <div class="timeline-toolbar-spacer" aria-hidden="true"></div>
       </div>
       <div id="timelineViewport" class="timeline-viewport">
         <div id="timelineTrack" class="timeline-track">
@@ -206,8 +189,7 @@
     <div id="watchError" class="inline-error" hidden></div>
 
     <div class="actions replay-actions" data-replay-only>
-      <a id="downloadOriginalBtn" class="action primary" href="#" aria-disabled="true" tabindex="-1"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m-5-5 5 5 5-5M5 21h14"/></svg>Tải đoạn này về máy</a>
-      <button id="cutButton" class="action outline" type="button" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="3"/><circle cx="6" cy="17" r="3"/><path d="m8.6 8.5 10.4 6.2M8.6 15.5 19 9.3"/></svg>Bắt đầu cắt video</button>
+      <button id="cutButton" class="action primary cut-primary" type="button" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="3"/><circle cx="6" cy="17" r="3"/><path d="m8.6 8.5 10.4 6.2M8.6 15.5 19 9.3"/></svg>Cắt Video</button>
     </div>
   </section>
 
@@ -215,16 +197,12 @@
     <div class="player" id="cutPlayerFrame">
       <video id="cutPlayer" playsinline preload="metadata" poster="/snapshot/cam{{ cam_id }}?view=single"></video>
       <img id="cutLiveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
-    </div>
-    <div class="player-toolbar" role="toolbar" aria-label="Điều khiển phát lại đoạn cắt">
-      <button id="cutPauseButton" class="player-toolbar-button" type="button" aria-label="Phát hoặc tạm dừng"><svg id="cutPauseIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg></button>
-      <span id="cutPlayerTime" class="player-time">00:00 / 00:00</span>
-      <button id="cutFullscreenButton" class="player-toolbar-button fullscreen-button" type="button" aria-label="Toàn màn hình"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
+      <button id="cutFullscreenButton" class="video-overlay-button" type="button" aria-label="Toàn màn hình" title="Toàn màn hình"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
     </div>
 
     <div class="control-row">
       <button id="cutPreviousDayButton" class="day-button" type="button" aria-label="Ngày trước" title="Ngày trước">‹</button>
-      <label class="pill date-control"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span id="cutDateLabel">Hôm nay</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg><input id="cutFilterDate" class="date-input" type="date"></label>
+      <label class="pill date-control"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span id="cutDateLabel">--/--/----</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg><input id="cutFilterDate" class="date-input" type="date"></label>
       <button id="cutNextDayButton" class="day-button" type="button" aria-label="Ngày sau" title="Ngày sau">›</button>
       <button id="cutLiveButton" class="pill" type="button" aria-label="Xem trực tiếp"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8a4 4 0 0 1 0 8M7.76 4.76a10 10 0 0 0 0 14.48M16.24 4.76a10 10 0 0 1 0 14.48"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg><span id="cutLiveButtonText">Xem trực tiếp</span></button>
     </div>
@@ -233,15 +211,10 @@
       <div class="timeline-toolbar" role="toolbar" aria-label="Điều khiển tốc độ cắt video">
         <div class="timeline-rate-group">
           <button class="rate-button" type="button" data-timeline-context="cut" data-direction="reverse" data-rate="1" title="Phát lùi 1 lần" aria-label="Phát lùi 1 lần"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 6-6 6 6 6M20 6l-6 6 6 6"/></svg><span class="rate-label">1x</span></button>
+          <button class="rate-button" type="button" data-timeline-context="cut" data-direction="forward" data-rate="1" title="Phát tiến 1 lần" aria-label="Phát tiến 1 lần"><span class="rate-label">1x</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 6 6-6 6M11 6l6 6-6 6"/></svg></button>
         </div>
         <div id="cutTimeBubble" class="time-bubble">--:--:--</div>
-        <div class="timeline-rate-group forward">
-          <button class="rate-button" type="button" data-timeline-context="cut" data-direction="forward" data-rate="1" title="Phát tiến 1 lần" aria-label="Phát tiến 1 lần"><span class="rate-label">1x</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 6 6-6 6M11 6l6 6-6 6"/></svg></button>
-          <div class="timeline-zoom" role="group" aria-label="Thu phóng timeline cắt video">
-            <button id="cutTimelineZoomOut" class="zoom-button" type="button" title="Thu nhỏ thang thời gian" aria-label="Thu nhỏ timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
-            <button id="cutTimelineZoomIn" class="zoom-button" type="button" title="Phóng to thang thời gian" aria-label="Phóng to timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
-          </div>
-        </div>
+        <div class="timeline-toolbar-spacer" aria-hidden="true"></div>
       </div>
       <div id="cutTimelineViewport" class="timeline-viewport">
         <div id="cutTimelineTrack" class="timeline-track">
@@ -292,8 +265,8 @@
   let clipStartAt = null, clipEndAt = null, mergeEventSource = null, timelineDrag = null;
   let fetchSerial = 0, activeScreen = "replay", replayTitle = "";
   const timelineStates = {
-    replay: {trackId:"timelineTrack", viewportId:"timelineViewport", hitId:"timelineHit", markerId:"timelineMarker", bubbleId:"timeBubble", zoomInId:"timelineZoomIn", zoomOutId:"timelineZoomOut", zoom:1, offset:0, progress:.5},
-    cut: {trackId:"cutTimelineTrack", viewportId:"cutTimelineViewport", hitId:"cutTimelineHit", markerId:"cutTimelineMarker", bubbleId:"cutTimeBubble", zoomInId:"cutTimelineZoomIn", zoomOutId:"cutTimelineZoomOut", zoom:1, offset:0, progress:.5}
+    replay: {trackId:"timelineTrack", viewportId:"timelineViewport", hitId:"timelineHit", markerId:"timelineMarker", bubbleId:"timeBubble", zoom:1, offset:0, progress:.5},
+    cut: {trackId:"cutTimelineTrack", viewportId:"cutTimelineViewport", hitId:"cutTimelineHit", markerId:"cutTimelineMarker", bubbleId:"cutTimeBubble", zoom:1, offset:0, progress:.5}
   };
   const playbackStates = new WeakMap();
   const playerRequestSerials = new WeakMap();
@@ -323,15 +296,15 @@
   function isNvrVideo(v){const url=getPlayUrl(v);return CAMERA_MODE === "nvr" || v?.source === "nvr" || url.startsWith("/nvr/")}
   function getPlayerBaseDate(player){const fromData=parseDate(player?.dataset?.baseAt);if(fromData)return fromData;return getVideoRange(currentVideo)?.start||null}
 
-  function setDateLabel(inputId,labelId){ const input=$(inputId); if(!input?.value)return; const d=new Date(`${input.value}T12:00:00`), now=new Date(); const today=fmtDateInput(now)===input.value; $(labelId).textContent=`${today?"Hôm nay, ":""}${fmtDate(d)}`; }
+  function setDateLabel(inputId,labelId){ const input=$(inputId); if(!input?.value)return; const d=new Date(`${input.value}T12:00:00`); $(labelId).textContent=fmtDate(d); }
   function wireDatePicker(inputId){const input=$(inputId),pill=input?.closest(".pill");if(!input||!pill)return;const open=()=>{input.focus({preventScroll:true});try{if(typeof input.showPicker==="function")input.showPicker();else input.click();}catch(_){input.click();}};input.addEventListener("pointerdown",ev=>{if(typeof input.showPicker!=="function")return;ev.preventDefault();open();});pill.addEventListener("click",ev=>{if(ev.target===input)return;ev.preventDefault();open();});}
   function changeTimelineDay(delta){const value=$("filterDate")?.value||fmtDateInput(new Date()),date=new Date(`${value}T12:00:00`);date.setDate(date.getDate()+Number(delta||0));const next=fmtDateInput(date);$("filterDate").value=next;$("cutFilterDate").value=next;setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");renderTimeline("replay",timelineStates.replay.progress);renderTimeline("cut",timelineStates.cut.progress);fetchVideos();return next;}
-  function getTimelineDayBounds(){const value=$("filterDate")?.value||fmtDateInput(new Date()),start=new Date(`${value}T00:00:00`),end=new Date(start.getTime()+86400000);return{start,end,duration:86400};}
+  function getTimelineDayBounds(){const value=$("filterDate")?.value||fmtDateInput(new Date()),currStart=new Date(`${value}T00:00:00`),start=new Date(currStart.getTime()-86400000),end=new Date(currStart.getTime()+86400000);return{start,end,duration:172800};}
   function getTimelineDateAtProgress(progress){const day=getTimelineDayBounds();return new Date(day.start.getTime()+clamp(progress,0,1)*day.duration*1000);}
   function getTimelineProgressForDate(value){const day=getTimelineDayBounds(),date=value instanceof Date?value:parseDate(value);if(!date)return 0;return clamp((date-day.start)/(day.end-day.start),0,1);}
   function findVideoAtDate(date){let match=null,index=-1;visibleVideos.some((v,i)=>{const r=getVideoRange(v);if(r&&date>=r.start&&date<r.end){match=v;index=i;return true;}return false;});return{video:match,index};}
   function renderTimelineCoverage(targetId){const target=$(targetId);if(!target)return;target.textContent="";const day=getTimelineDayBounds(),span=day.end-day.start,ranges=visibleVideos.map(v=>{const r=getVideoRange(v);if(!r)return null;const start=new Date(Math.max(day.start.getTime(),r.start.getTime())),end=new Date(Math.min(day.end.getTime(),r.end.getTime()));return end>start?{start,end,labels:[`${fmtTime(start)} - ${fmtTime(end)}`]}:null;}).filter(Boolean).sort((a,b)=>a.start-b.start),merged=[];ranges.forEach(range=>{const previous=merged[merged.length-1];if(previous&&range.start.getTime()-previous.end.getTime()<=COVERAGE_JITTER_MS){previous.end=new Date(Math.max(previous.end.getTime(),range.end.getTime()));previous.labels.push(range.labels[0]);}else merged.push(range);});merged.forEach(range=>{const cell=document.createElement("div");cell.className="filmstrip-cell";cell.style.left=`${(range.start-day.start)/span*100}%`;cell.style.width=`${(range.end-range.start)/span*100}%`;cell.title=range.labels.join(" · ");target.appendChild(cell);});}
-  function updateRuler(targetId){const el=$(targetId);if(!el)return;el.textContent="";for(let hour=0;hour<=24;hour+=1){const s=document.createElement("span");s.className="ruler-major";s.style.left=`${hour/24*100}%`;if(hour===0){s.textContent="Hôm trước";s.classList.add("ruler-prev-day");s.title="Xem ngày hôm trước";s.setAttribute("aria-label","Xem ngày hôm trước");s.addEventListener("click",()=>changeTimelineDay(-1));}else if(hour===24){s.textContent="24h";}else{s.textContent=`${hour}h`;}el.appendChild(s);}}
+  function updateRuler(targetId){const el=$(targetId);if(!el)return;el.textContent="";for(let hour=0;hour<=48;hour+=1){const s=document.createElement("span");s.className="ruler-major";s.style.left=`${(hour/48)*100}%`;if(hour===24){s.classList.add("ruler-midnight");const prevSpan=document.createElement("span");prevSpan.className="ruler-midnight-prev";prevSpan.textContent="24h";const nextSpan=document.createElement("span");nextSpan.className="ruler-midnight-next";nextSpan.textContent="0h";s.appendChild(prevSpan);s.appendChild(nextSpan);}else if(hour<24){s.textContent=`${hour}h`;}else if(hour===48){s.textContent="24h";}else{s.textContent=`${hour-24}h`;}el.appendChild(s);}}
 
   function clamp(value,min,max){return Math.min(max,Math.max(min,value));}
   function getTimelineContext(player){return player?.id==="cutPlayer"?"cut":"replay";}
@@ -355,16 +328,16 @@
   function getTimelineProgressAt(context,clientX){const state=timelineStates[context],viewport=$(state.viewportId);if(!viewport)return 0;const rect=viewport.getBoundingClientRect(),width=Math.max(1,rect.width),trackWidth=width*state.zoom;return clamp((clientX-rect.left-state.offset)/trackWidth,0,1);}
   function renderTimeline(context,progress=null){const state=timelineStates[context],track=$(state.trackId),viewport=$(state.viewportId),hit=$(state.hitId);if(!state||!track||!viewport)return;const resolved=clamp(progress==null?state.progress:progress,0,1),width=Math.max(0,viewport.getBoundingClientRect().width),trackWidth=width*state.zoom;state.progress=resolved;state.offset=width/2-resolved*trackWidth;track.style.width=`${Math.max(1,state.zoom*100)}%`;track.style.transform=`translate3d(${state.offset}px,0,0)`;const bubble=$(state.bubbleId);if(bubble)bubble.textContent=fmtTime(getTimelineDateAtProgress(resolved));if(hit){hit.setAttribute("aria-valuenow",String(Math.round(resolved*100)));hit.setAttribute("aria-valuetext",fmtTime(getTimelineDateAtProgress(resolved)));}}
   function syncTimelineForPlayer(context,player){if(!currentVideo)return;renderTimeline(context,getTimelineProgressForPlayer(player));}
-  function setAnchor(anchor,url,name){ if(!url){anchor.href="#";anchor.setAttribute("aria-disabled","true");anchor.removeAttribute("download");anchor.tabIndex=-1;return;} anchor.href=url;anchor.setAttribute("download",name||"");anchor.setAttribute("aria-disabled","false");anchor.tabIndex=0; }
+  function setAnchor(anchor,url,name){ if(!anchor)return; if(!url){anchor.href="#";anchor.setAttribute("aria-disabled","true");anchor.removeAttribute("download");anchor.tabIndex=-1;return;} anchor.href=url;anchor.setAttribute("download",name||"");anchor.setAttribute("aria-disabled","false");anchor.tabIndex=0; }
   function getPlaybackState(player){let state=playbackStates.get(player);if(!state){state={mode:"normal",rate:1,reverseTimer:null};playbackStates.set(player,state);}return state;}
   function getPlaybackRateButton(context,direction){return document.querySelector(`.rate-button[data-timeline-context="${context}"][data-direction="${direction}"]`);}
   function getNextPlaybackRate(rate){return rate===1?2:rate===2?4:1;}
   function updatePlaybackRateButton(button,rate){if(!button)return;const resolved=rate===2||rate===4?rate:1,direction=button.dataset.direction==="reverse"?"reverse":"forward",label=button.querySelector(".rate-label"),verb=direction==="reverse"?"Phát lùi":"Phát tiến";button.dataset.rate=String(resolved);if(label)label.textContent=`${resolved}x`;button.title=`${verb} ${resolved} lần`;button.setAttribute("aria-label",`${verb} ${resolved} lần`);}
   function clearPlaybackButtons(context){document.querySelectorAll(`.rate-button[data-timeline-context="${context}"]`).forEach(button=>button.classList.remove("is-active"));}
   function stopPlayback(player,context=getTimelineContext(player)){if(!player)return;const state=getPlaybackState(player);if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;}state.mode="normal";state.rate=1;player.playbackRate=1;clearPlaybackButtons(context);}
-  function syncPlayerUi(player,context,time){const duration=getMediaDuration(player),current=clamp(Number(player.currentTime)||0,0,duration);time.textContent=`${fmtShort(current)} / ${fmtShort(duration)}`;syncTimelineForPlayer(context,player);}
-  function startReversePlayback(context,rate,button=getPlaybackRateButton(context,"reverse")){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;const state=getPlaybackState(player);if(state.reverseTimer)clearInterval(state.reverseTimer);player.pause();player.playbackRate=1;state.mode="reverse";state.rate=rate;clearPlaybackButtons(context);button?.classList.add("is-active");state.reverseTimer=setInterval(()=>{const next=clamp((Number(player.currentTime)||0)-0.06*rate,0,getMediaDuration(player));player.currentTime=next;syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));if(next<=0)stopPlayback(player,context);},60);}
-  function setPlaybackRate(context,direction,button=null){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;button=button||getPlaybackRateButton(context,direction);const state=getPlaybackState(player),displayed=Number(button?.dataset.rate)||1,rate=state.mode===direction?getNextPlaybackRate(state.rate):displayed;updatePlaybackRateButton(button,rate);if(direction==="reverse"){startReversePlayback(context,rate,button);return;}if(state.reverseTimer)clearInterval(state.reverseTimer);state.reverseTimer=null;state.mode="forward";state.rate=rate;player.playbackRate=rate;clearPlaybackButtons(context);button?.classList.add("is-active");player.play().catch(()=>{});}
+  function syncPlayerUi(player,context,time){const duration=getMediaDuration(player),current=clamp(Number(player.currentTime)||0,0,duration);if(time)time.textContent=`${fmtShort(current)} / ${fmtShort(duration)}`;syncTimelineForPlayer(context,player);}
+  function startReversePlayback(context,rate,button=getPlaybackRateButton(context,"reverse")){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;const state=getPlaybackState(player);if(state.reverseTimer)clearInterval(state.reverseTimer);player.pause();player.playbackRate=1;state.mode="reverse";state.rate=rate;clearPlaybackButtons(context);if(rate>1)button?.classList.add("is-active");state.reverseTimer=setInterval(()=>{const next=clamp((Number(player.currentTime)||0)-0.06*rate,0,getMediaDuration(player));player.currentTime=next;syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));if(next<=0)stopPlayback(player,context);},60);}
+  function setPlaybackRate(context,direction,button=null){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;button=button||getPlaybackRateButton(context,direction);const state=getPlaybackState(player),rate=(state.mode===direction)?getNextPlaybackRate(state.rate):2;updatePlaybackRateButton(button,rate);if(direction==="reverse"){startReversePlayback(context,rate,button);return;}if(state.reverseTimer)clearInterval(state.reverseTimer);state.reverseTimer=null;state.mode="forward";state.rate=rate;player.playbackRate=rate;clearPlaybackButtons(context);if(rate>1)button?.classList.add("is-active");player.play().catch(()=>{});}
   function wirePlaybackControls(context){document.querySelectorAll(`.rate-button[data-timeline-context="${context}"]`).forEach(button=>button.addEventListener("click",()=>setPlaybackRate(context,button.dataset.direction,button)));}
   function applyVideoTransform(frame,player,state){const maxX=Math.max(0,frame.clientWidth*(state.scale-1)/2),maxY=Math.max(0,frame.clientHeight*(state.scale-1)/2);state.x=clamp(state.x,-maxX,maxX);state.y=clamp(state.y,-maxY,maxY);player.style.transform=`translate3d(${state.x}px,${state.y}px,0) scale(${state.scale})`;}
   function resetVideoTransform(frame){const state=gestureStates.get(frame);if(!state)return;state.scale=1;state.x=0;state.y=0;const player=frame.querySelector("video");if(player)applyVideoTransform(frame,player,state);}
@@ -379,13 +352,19 @@
     player.dataset.baseAt=base?formatLocalSecond(base):"";player.src=url;player.load();resetVideoTransform(player.closest(".player"));
     return requestSerial;
   }
-  function setPauseIcon(svg,playing){ svg.innerHTML=playing?'<path d="M7 5h4v14H7zm6 0h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>'; }
+  function setPauseIcon(svg,playing){ if(svg)svg.innerHTML=playing?'<path d="M7 5h4v14H7zm6 0h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>'; }
   function wirePlayer(playerId,buttonId,iconId,timeId,frameId,fullId,context){
     const p=$(playerId),b=$(buttonId),icon=$(iconId),time=$(timeId),frame=$(frameId),full=$(fullId);
     const sync=()=>syncPlayerUi(p,context,time);
-    b.addEventListener("click",()=>{const state=getPlaybackState(p);if(state.mode==="reverse")stopPlayback(p,context);if(p.paused)p.play().catch(()=>{});else p.pause();});
-    p.addEventListener("play",()=>setPauseIcon(icon,true));p.addEventListener("pause",()=>setPauseIcon(icon,false));p.addEventListener("timeupdate",sync);p.addEventListener("loadedmetadata",sync);p.addEventListener("durationchange",sync);p.addEventListener("ratechange",sync);
-    full.addEventListener("click",()=>{if(document.fullscreenElement)document.exitFullscreen();else frame.requestFullscreen?.()});wireVideoGestures(frameId,playerId);
+    if(b)b.addEventListener("click",()=>{const state=getPlaybackState(p);if(state.mode==="reverse")stopPlayback(p,context);if(p.paused)p.play().catch(()=>{});else p.pause();});
+    p.addEventListener("play",()=>{if(icon)setPauseIcon(icon,true)});
+    p.addEventListener("pause",()=>{if(icon)setPauseIcon(icon,false)});
+    p.addEventListener("timeupdate",sync);
+    p.addEventListener("loadedmetadata",sync);
+    p.addEventListener("durationchange",sync);
+    p.addEventListener("ratechange",sync);
+    if(full)full.addEventListener("click",()=>{if(document.fullscreenElement)document.exitFullscreen();else frame.requestFullscreen?.()});
+    wireVideoGestures(frameId,playerId);
   }
 
   function selectVideo(v,index,autoplay=false,seekSec=null){
@@ -396,7 +375,7 @@
     const loadSerial=loadPlayer($("videoPlayer"),v,targetDate);
     const cutPlayer=$("cutPlayer");if(cutPlayer){cutPlayer.pause();cutPlayer.removeAttribute("src");cutPlayer.dataset.baseAt=formatLocalSecond(targetDate);cutPlayer.load();}
     let downloadUrl=getDownloadUrl(v);if(isNvrVideo(v)&&targetDate)downloadUrl=appendQueryParam(downloadUrl,"at",formatLocalSecond(targetDate));
-    setAnchor($("downloadOriginalBtn"),downloadUrl,getVideoName(v));$("cutButton").disabled=false;$("watchError").hidden=true;
+    const dlBtn=$("downloadOriginalBtn");if(dlBtn)setAnchor(dlBtn,downloadUrl,getVideoName(v));$("cutButton").disabled=false;$("watchError").hidden=true;
     if(range){updateRuler("ruler");updateRuler("cutRuler");}
     if(seekSec!==null&&!isNvrVideo(v)){const player=$("videoPlayer"),apply=()=>{if(!isCurrentPlayerRequest(player,loadSerial))return;const max=getMediaDuration(player);player.currentTime=clamp(targetSec,0,max);};if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});}
     configureClipRange(targetDate);const dayProgress=getTimelineProgressForDate(targetDate);renderTimeline("replay",dayProgress);renderTimeline("cut",dayProgress);checkCodec(v);if(autoplay)playPlayerWhenReady($("videoPlayer"),loadSerial);return loadSerial;
@@ -405,21 +384,21 @@
   function checkCodec(v){ [$("codecWarning"),$("cutCodecWarning")].forEach(el=>{el.hidden=true}); if(!v||isNvrSource()||v.source==="nvr"||getPlayUrl(v).startsWith("/nvr/"))return;fetch(`/api/video-codec/${encodeURIComponent(getVideoName(v))}`).then(r=>r.ok?r.json():null).then(info=>{if(info?.is_h265&&currentVideo&&getVideoName(currentVideo)===getVideoName(v)){ $("codecWarning").hidden=false;$("cutCodecWarning").hidden=false; }}).catch(()=>{}); }
 
   function updateVisibleVideos(){
-    const val=$("filterDate").value,start=val?new Date(`${val}T00:00:00`):null,end=start?new Date(start.getTime()+86400000):null;
-    visibleVideos=allVideos.filter(v=>{const r=getVideoRange(v);return !r||!start||!end||(r.end>start&&r.start<end)}).sort((a,b)=>(getVideoRange(a)?.start||0)-(getVideoRange(b)?.start||0));
+    const day=getTimelineDayBounds();
+    visibleVideos=allVideos.filter(v=>{const r=getVideoRange(v);return !r||(r.end>day.start&&r.start<day.end)}).sort((a,b)=>(getVideoRange(a)?.start||0)-(getVideoRange(b)?.start||0));
     renderTimelineCoverage("filmstrip");renderTimelineCoverage("cutFilmstrip");updateRuler("ruler");updateRuler("cutRuler");
     // Live initialization may refresh the recording list; it must never load
     // a recorded source into either player or move the live stream off /cam.
     if(isScreenLive("replay")||isScreenLive("cut"))return;
-    if(!visibleVideos.length){$("watchError").textContent="Không có video cho ngày đã chọn.";$("watchError").hidden=false;currentVideo=null;setAnchor($("downloadOriginalBtn"),null);$("cutButton").disabled=true;renderTimeline("replay",.5);renderTimeline("cut",.5);return;}
+    if(!visibleVideos.length){$("watchError").textContent="Không có video cho ngày đã chọn.";$("watchError").hidden=false;currentVideo=null;const dlBtn=$("downloadOriginalBtn");if(dlBtn)setAnchor(dlBtn,null);$("cutButton").disabled=true;renderTimeline("replay",.75);renderTimeline("cut",.75);return;}
     $("watchError").hidden=true;
-    const now=new Date(),today=fmtDateInput(now)===val,nowMatch=today?findVideoAtDate(now):{video:null,index:-1};
+    const now=new Date(),nowMatch=findVideoAtDate(now);
     let idx=nowMatch.video?nowMatch.index:visibleVideos.findIndex(v=>getVideoName(v)===getVideoName(currentVideo));if(idx<0)idx=visibleVideos.length-1;
     const range=getVideoRange(visibleVideos[idx]);let target=range?.start||now;
     if(nowMatch.video)target=now;else if(range)target=new Date(Math.max(range.start.getTime(),range.end.getTime()-1000));
     const sec=range?Math.max(0,(target-range.start)/1000):0;selectVideo(visibleVideos[idx],idx,false,sec);
   }
-  function fetchVideos(){const serial=++fetchSerial;let url=`/list/cam${CAMERA_ID}?source=${encodeURIComponent(getSelectedSource())}`;if($("filterDate").value)url+=`&date=${encodeURIComponent($("filterDate").value)}`;fetch(url).then(r=>{if(!r.ok)throw new Error(`Không tải được danh sách video (${r.status}).`);return r.json()}).then(data=>{if(serial!==fetchSerial)return;allVideos=Array.isArray(data)?data:(Array.isArray(data?.videos)?data.videos:[]);updateVisibleVideos();}).catch(e=>{if(serial!==fetchSerial)return;$("watchError").textContent=e.message||"Không tải được danh sách video.";$("watchError").hidden=false;});}
+  function fetchVideos(){const serial=++fetchSerial;let url=`/list/cam${CAMERA_ID}?source=${encodeURIComponent(getSelectedSource())}`;if($("filterDate").value)url+=`&start=${encodeURIComponent(formatLocalSecond(new Date(new Date($("filterDate").value+'T00:00:00').getTime()-86400000)))}&end=${encodeURIComponent(formatLocalSecond(new Date(new Date($("filterDate").value+'T00:00:00').getTime()+86400000)))}&date=${encodeURIComponent($("filterDate").value)}`;fetch(url).then(r=>{if(!r.ok)throw new Error(`Không tải được danh sách video (${r.status}).`);return r.json()}).then(data=>{if(serial!==fetchSerial)return;allVideos=Array.isArray(data)?data:(Array.isArray(data?.videos)?data.videos:[]);updateVisibleVideos();}).catch(e=>{if(serial!==fetchSerial)return;$("watchError").textContent=e.message||"Không tải được danh sách video.";$("watchError").hidden=false;});}
 
   function syncTimelineFromPlayer(){if(!currentVideo)return;syncTimelineForPlayer("replay",$("videoPlayer"));}
   function isScreenLive(screen){const screenEl=$(screen==="cut"?"cutScreen":"replayScreen");return Boolean(screenEl?.classList?.contains("is-live"));}
@@ -434,7 +413,7 @@
       if(context==="cut"){currentVideo=match.video;currentVideoIndex=match.index;const loadSerial=loadPlayer($("cutPlayer"),match.video,targetDate);checkCodec(match.video);if(autoplay)playPlayerWhenReady($("cutPlayer"),loadSerial);return;}
       const loadSerial=selectVideo(match.video,match.index,false,sec);if(autoplay)playPlayerWhenReady(getTimelinePlayer(context),loadSerial);return;
     }
-    if(isNvrVideo(match.video)){const loadSerial=loadPlayer(player,match.video,targetDate);if(context==="replay"){let downloadUrl=getDownloadUrl(match.video);downloadUrl=appendQueryParam(downloadUrl,"at",formatLocalSecond(targetDate));setAnchor($("downloadOriginalBtn"),downloadUrl,getVideoName(match.video));}syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));if(autoplay)playPlayerWhenReady(player,loadSerial);return;}
+    if(isNvrVideo(match.video)){const loadSerial=loadPlayer(player,match.video,targetDate);if(context==="replay"){let downloadUrl=getDownloadUrl(match.video);downloadUrl=appendQueryParam(downloadUrl,"at",formatLocalSecond(targetDate));const dlBtn=$("downloadOriginalBtn");if(dlBtn)setAnchor(dlBtn,downloadUrl,getVideoName(match.video));}syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));if(autoplay)playPlayerWhenReady(player,loadSerial);return;}
     const apply=()=>{if(!isCurrentPlayerRequest(player,requestSerial))return;const max=getMediaDuration(player);player.currentTime=clamp(sec,0,max);syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));};
     if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});if(autoplay)playPlayerWhenReady(player,requestSerial);
   }
@@ -463,11 +442,11 @@
       if(drag?.mode==="seek"&&Number.isFinite(drag.pendingProgress)){
         if(drag.pendingProgress<0){
           changeTimelineDay(-1);
-          const nextProg=clamp(1+drag.pendingProgress,0,1);
+          const nextProg=clamp(0.5+drag.pendingProgress,0,1);
           seekTimelineProgress(context,nextProg,true,true);
         }else if(drag.pendingProgress>1){
           changeTimelineDay(1);
-          const nextProg=clamp(drag.pendingProgress-1,0,1);
+          const nextProg=clamp(drag.pendingProgress-0.5,0,1);
           seekTimelineProgress(context,nextProg,true,true);
         }else{
           seekTimelineProgress(context,drag.pendingProgress,true,true);
@@ -495,15 +474,7 @@
         renderTimeline(context,next);
         const bubble=$(timelineStates[context].bubbleId);
         if(bubble){
-          if(rawProgress<0){
-            const day=getTimelineDayBounds(),targetDate=new Date(day.start.getTime()+rawProgress*day.duration*1000);
-            bubble.textContent=`${fmtTime(targetDate)} (Hôm trước)`;
-          }else if(rawProgress>1){
-            const day=getTimelineDayBounds(),targetDate=new Date(day.start.getTime()+rawProgress*day.duration*1000);
-            bubble.textContent=`${fmtTime(targetDate)} (Ngày sau)`;
-          }else{
-            bubble.textContent=fmtTime(getTimelineDateAtProgress(next));
-          }
+          bubble.textContent=fmtTime(getTimelineDateAtProgress(rawProgress));
         }
       }else if(cut)updateCutFromPointer(context,ev.clientX);
     });
@@ -512,13 +483,13 @@
     hit.addEventListener("lostpointercapture",endDrag);
     hit.addEventListener("keydown",ev=>{
       if(!visibleVideos.length)return;
-      let progress=timelineStates[context].progress,step=(ev.shiftKey?10:1)/86400;
+      let progress=timelineStates[context].progress,step=(ev.shiftKey?10:1)/172800;
       if(ev.key==="ArrowLeft"){
         progress-=step;
-        if(progress<0){changeTimelineDay(-1);seekTimelineProgress(context,clamp(1+progress,0,1),true,true);return;}
+        if(progress<0){changeTimelineDay(-1);seekTimelineProgress(context,clamp(0.5+progress,0,1),true,true);return;}
       }else if(ev.key==="ArrowRight"){
         progress+=step;
-        if(progress>1){changeTimelineDay(1);seekTimelineProgress(context,clamp(progress-1,0,1),true,true);return;}
+        if(progress>1){changeTimelineDay(1);seekTimelineProgress(context,clamp(progress-0.5,0,1),true,true);return;}
       }else if(ev.key==="Home")progress=0;
       else if(ev.key==="End")progress=1;
       else return;
@@ -527,8 +498,6 @@
     });
   }
 
-  function setTimelineZoom(context,delta){const state=timelineStates[context],viewport=$(state.viewportId);if(!state||!viewport)return;const next=delta>0?Math.min(96,state.zoom*2):Math.max(1,state.zoom/2);if(next===state.zoom)return;state.zoom=next;renderTimeline(context,state.progress);}
-  function wireTimelineZoom(context){const state=timelineStates[context];$(state.zoomInId)?.addEventListener("click",()=>setTimelineZoom(context,.5));$(state.zoomOutId)?.addEventListener("click",()=>setTimelineZoom(context,-.5));}
   function configureClipRange(targetDate=null){
     const day=getTimelineDayBounds(),focus=targetDate instanceof Date?new Date(targetDate):getTimelineDateAtProgress(timelineStates.replay.progress),defaultMs=Math.min(60,MAX_MERGE_SECONDS)*1000;
     let startMs=clamp(focus.getTime(),day.start.getTime(),day.end.getTime()-1000),endMs=Math.min(day.end.getTime(),startMs+defaultMs);
@@ -557,15 +526,17 @@
 
   document.addEventListener("DOMContentLoaded",()=>{
     const today=new Date();$("filterDate").value=fmtDateInput(today);$("cutFilterDate").value=fmtDateInput(today);setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");wireDatePicker("filterDate");wireDatePicker("cutFilterDate");updateRuler("ruler");updateRuler("cutRuler");
-    replayTitle=$("headerTitle").textContent.trim();wirePlayer("videoPlayer","pauseButton","pauseIcon","playerTime","playerFrame","fullscreenButton","replay");wirePlayer("cutPlayer","cutPauseButton","cutPauseIcon","cutPlayerTime","cutPlayerFrame","cutFullscreenButton","cut");wireTimeline("timelineHit",false);wireTimeline("cutTimelineHit",true);wireTimelineZoom("replay");wireTimelineZoom("cut");wirePlaybackControls("replay");wirePlaybackControls("cut");
+    replayTitle=$("headerTitle").textContent.trim();wirePlayer("videoPlayer","pauseButton","pauseIcon","playerTime","playerFrame","fullscreenButton","replay");wirePlayer("cutPlayer","cutPauseButton","cutPauseIcon","cutPlayerTime","cutPlayerFrame","cutFullscreenButton","cut");wireTimeline("timelineHit",false);wireTimeline("cutTimelineHit",true);wirePlaybackControls("replay");wirePlaybackControls("cut");
     $("liveButton").addEventListener("click",()=>toggleLive("replay"));$("cutLiveButton").addEventListener("click",()=>toggleLive("cut"));$("headerLiveButton").addEventListener("click",()=>{if(!$("doneScreen").hidden)showReplay();else toggleLive(activeScreen);});
     $("previousDayButton")?.addEventListener("click",()=>changeTimelineDay(-1));$("nextDayButton")?.addEventListener("click",()=>changeTimelineDay(1));$("cutPreviousDayButton")?.addEventListener("click",()=>changeTimelineDay(-1));$("cutNextDayButton")?.addEventListener("click",()=>changeTimelineDay(1));
     $("filterDate").addEventListener("change",()=>{$("cutFilterDate").value=$("filterDate").value;setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");fetchVideos();});
     $("cutFilterDate").addEventListener("change",()=>{$("filterDate").value=$("cutFilterDate").value;setDateLabel("filterDate","dateLabel");setDateLabel("cutFilterDate","cutDateLabel");fetchVideos();});
     $("cutButton").addEventListener("click",showCut);$("cancelCutButton").addEventListener("click",showReplay);$("mergeButton").addEventListener("click",mergeVideo);$("doneBackButton").addEventListener("click",showReplay);
     $("videoPlayer").addEventListener("ended",()=>{const n=currentVideoIndex+1;if(visibleVideos[n])selectVideo(visibleVideos[n],n,true)});
-    $("videoPlayer").addEventListener("error",()=>{$("watchError").textContent="Không thể phát video này trên trình duyệt. Bạn vẫn có thể tải video về máy.";$("watchError").hidden=false;});
-    window.addEventListener("resize",()=>{renderTimeline("replay");renderTimeline("cut");if(currentVideo)updateClipVisual();});fetchVideos();
+    $("videoPlayer").addEventListener("error",()=>{$("watchError").textContent="Không thể phát video này trên trình duyệt.";$("watchError").hidden=false;});
+    window.addEventListener("resize",()=>{renderTimeline("replay");renderTimeline("cut");if(currentVideo)updateClipVisual();});
+    setScreenLive("replay",true);
+    fetchVideos();
   });
   window.addEventListener("beforeunload",()=>mergeEventSource?.close());
 </script>
