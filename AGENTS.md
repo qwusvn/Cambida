@@ -8,10 +8,10 @@ Tài liệu này thay thế toàn bộ phiên bản AGENTS.md cũ; nếu có xun
 
 1. Chat/parent task mới: chỉ đọc từ đầu tệp toàn cục đến `FAST_BOOT_END`; chỉ đọc phần FULL khi FAST BOOT yêu cầu hoặc cần điều phối phức tạp.
 2. Trước mọi yêu cầu sửa/triển khai/thực thi: diễn giải phạm vi, kết quả và phân công công cụ/agent; chờ người dùng xác nhận. Lệnh bắt đầu hoặc kết thúc bằng dấu phẩy được thực thi ngay theo COMMA BYPASS.
-3. Sau xác nhận: kiểm tra nhanh sự sống của TẤT CẢ công cụ cần thiết. Bất kỳ công cụ bắt buộc nào ngoại tuyến/lỗi: dừng, nêu đúng công cụ lỗi; không tự chuyển sang công cụ khác.
+3. Sau xác nhận: kiểm tra nhanh sự sống của TẤT CẢ công cụ cần thiết. Với AGY/Codex, ưu tiên MCP; nếu kết nối lỗi, thử lại đúng một lần rồi mới chuyển sang CLI tương ứng khi vẫn thất bại. Công cụ bắt buộc khác lỗi thì dừng theo FAST BOOT.
 4. Sau tool gate: kiểm tra workspace, `.project` (PROJECT, ARCHITECTURE nếu có, DECISIONS, STATE, TASKS, HANDOFF), source/Git và tác vụ đang chạy; không nhân đôi parent task.
 5. Mặc định COLLABORATIVE; `SKIP GPT` theo FAST BOOT chuyển SINGLE_AGENT, không tự gọi agent khác.
-6. AGY/Codex chỉ khởi chạy qua CLI dưới Yato/process manager; giữ task_id/process_id, log và giám sát tới khi parent task terminal thực, không dừng vì executor im lặng.
+6. AGY/Codex ưu tiên MCP, CLI chỉ là dự phòng sau một lần thử kết nối lại MCP thất bại; CLI dài hạn chạy dưới Yato/process manager; giữ task_id/process_id, log và giám sát tới khi parent task terminal thực, không dừng vì executor im lặng.
 7. Với task AGY/Codex còn chạy: checkpoint 15 phút một lần, hỏi trên session cũ khi an toàn hoặc đọc status/log; tối đa một Telegram PROGRESS gộp/parent/checkpoint; không suy đoán phần trăm.
 8. Chỉ báo COMPLETED sau xác minh đầu ra, kiểm thử/acceptance và Git commit riêng đúng phạm vi. Parent terminal gửi đúng một notification_final_event; không gửi child completion, không gửi conversation/share URL.
 
