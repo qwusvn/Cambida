@@ -336,15 +336,38 @@ test('dragging timeline past 0h to the left rolls over into previous day', () =>
     { name: 'cam1', started_at: '2026-09-19T00:00:00', end_at: '2026-09-20T23:59:59' }
   ]; currentVideo = null;`, context);
 
-  context.wireTimeline('timelineHit', false);
+  context.timelineStates.replay.zoom = 1; context.wireTimeline('timelineHit', false);
   const hit = context.document.getElementById('timelineHit');
   const viewport = context.document.getElementById('timelineViewport');
   viewport.getBoundingClientRect = () => ({ width: 1000, left: 0, right: 1000, top: 0, bottom: 50, height: 50 });
 
   hit.dispatch('pointerdown', { pointerId: 1, clientX: 100, preventDefault() {} });
-  hit.dispatch('pointermove', { pointerId: 1, clientX: 800 });
-  hit.dispatch('pointerup', { pointerId: 1, clientX: 800 });
+  hit.dispatch('pointermove', { pointerId: 1, clientX: 950 });
+  hit.dispatch('pointerup', { pointerId: 1, clientX: 950 });
 
   assert.equal(elements.get('filterDate').value, '2026-09-19');
   assert.equal(elements.get('cutFilterDate').value, '2026-09-19');
+});
+
+test('live stream shows loading indicator while connecting and hides it on load', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.ok(html.includes('id="liveLoading"'));
+  assert.ok(html.includes('id="cutLiveLoading"'));
+  assert.ok(html.includes('.live-loading'));
+  assert.ok(html.includes('.live-spinner'));
+
+  const { context } = loadReplayScript();
+  const loading = context.document.getElementById('liveLoading');
+  const stream = context.document.getElementById('liveStream');
+
+  context.setScreenLive('replay', true);
+  assert.equal(loading.hidden, false);
+
+  assert.equal(typeof stream.onload, 'function');
+  stream.onload();
+  assert.equal(loading.hidden, true);
+
+  context.setScreenLive('replay', false);
+  assert.equal(loading.hidden, true);
+  assert.equal(stream.onload, null);
 });
