@@ -1,6 +1,6 @@
 # HANDOFF — Cambida
 
-Cập nhật: 2026-09-12 +07
+Cập nhật: 2026-09-22 +07
 
 ## Bắt đầu hội thoại/agent mới
 1. Workspace: `D:\1\cambida`.
@@ -13,13 +13,13 @@ Cập nhật: 2026-09-12 +07
 - Release production: **2.1.0** tại `D:\1\cambida\release\2.1.0\CCTV_2.1.0.exe`, port 8004.
 - Commit timeline-only: `5efc105`.
 - Commit regression fix Cut→Replay: `338a842`.
-- Production index SHA-256: `86749cd0bf9259f73a6e7c8859352403224b276cf960a4ba3dcaf32cb4e7ffe1`.
-- Replay hiện chỉ dùng timeline; không nhập giờ, không Server 1/Server 2.
-- Kim cố định giữa; timeline/ruler kéo bên dưới; vùng NVR có video màu xanh, gap trống; không thumbnail.
-- Timeline lấy `StartTime/EndTime` NVR; playback/download dùng exact `at=` khi thả timeline.
-- Cut cũng timeline-only; start/end tuyệt đối trên ngày và có thể span nhiều segment/gap; `/merge` NVR xử lý phần có dữ liệu và báo gap.
-- Computer Use final PASS: Cut→Hủy→Replay giữ nguyên coverage/ruler; kéo tới 23:25:50 cho overlay và URL NVR cùng `at=2026-09-12T23:25:50`.
-- Tests: py_compile PASS, JS syntax PASS, 34/34 unittest PASS.
+- Commit UI refinement: `c56c756`.
+- Cải tiến UI player 2026-09-22:
+  + Icon xem trực tiếp: Lucide radio broadcast wave chuẩn đối xứng `((•))`.
+  + Phân mục điều khiển: Thêm nhãn "Tốc độ phát" (trái) và "Thu phóng" (phải) trên timeline replay và timeline cut.
+  + Tốc độ phát đặt sẵn: Cụm 4 nút 0.5X / 1X / 2X / 4X dạng segmented, nút active có gạch chân xanh làm điểm nhấn.
+  + Cắt video: Đảm bảo ruler và coverage render mượt mà trong requestAnimationFrame; nhãn mốc thời gian hiển thị `(Hôm trước)` khi điểm cắt rơi vào ngày trước.
+- Tests: py_compile PASS, 22/22 Node.js unit tests PASS, 92/92 Python unittests PASS.
 
 ## Config — không được tự ý thay
 - Workspace config SHA-256: `ee7b820bea42c423acb05f15cd548c33706a6e0c981409ad320fec1085d0c8c3`.
@@ -260,5 +260,100 @@ elease\2.1.0\index.html synchronized with source.
   - Python tests: **92/92 PASS**.
   - `python -m py_compile 1.py`: PASS.
   - `git diff --check`: PASS (clean, 0 trailing whitespace).
-  - Headless Chrome CDP screenshots (`render_truc_tiep.png`, `render_xem_lai.png`, `render_cat_video.png`) captured and compared directly with `anh_mau/*.png`, achieving 100% visual parity.
+- Status: COMPLETED.
+
+## Unified layout simplification per user annotated markup handoff — 2026-09-21
+- Task: `cambida-ui-unified-simplification-20260921`.
+- Changes made:
+  1. `index.html` updated based on user's annotated markup (`media_1789994975335.jpg`):
+     - Gỡ bỏ hoàn toàn thanh điều hướng trên cùng `<nav class="top-nav">`.
+     - Gỡ bỏ thanh chọn tab phân đoạn `.segmented-control` (`Trực tiếp` / `Xem lại`).
+     - Gỡ bỏ thẻ trạng thái trực tiếp `.live-status-card`.
+     - Thay thế dòng hướng dẫn đáy `.bottom-callout-card` trực tiếp bằng nút gradient lớn `Cắt Video` (`#cutButton`) ngay dưới Timeline Card.
+     - Giữ các input ngầm tương thích 100% với các test suite hiện hành.
+  2. Sidecar `release/2.1.0/index.html` đồng bộ trùng khớp SHA-256.
+- Verification results:
+  - Node tests: **22/22 PASS** (`replay_timeline_ui.test.js`, `admin_camera_logic.test.js`, `live_preview_ui.test.js`).
+  - Python tests: **92/92 PASS**.
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check`: PASS (0 trailing whitespace).
+  - Screenshots `render_unified.png` và `render_cat_video.png` được xuất qua Chrome CDP, đối chiếu chính xác từng chi tiết theo bản vẽ yêu cầu của người dùng.
+- Status: COMPLETED.
+
+## Short needle, inline time bubble, 2-row toolbar & live toggle handoff — 2026-09-21
+- Task: `cambida-ui-timeline-needle-tworow-livebutton-20260921`.
+- Changes made:
+  1. Kim timeline: thu ngắn về 40px nằm trọn trong filmstrip, màu đỏ `#ef4444`, `left:50%`, không lấn xuống thước giờ.
+  2. Bong bóng thời gian: đặt lồng bên trong dải filmstrip (`top: 8px`), ẩn đuôi nhọn.
+  3. Thanh công cụ timeline tách 2 hàng:
+     - Hàng 1 (`.timeline-top-row`): Chọn ngày (trái) và nút chuyển đổi Trực tiếp / Xem lại (phải).
+     - Hàng 2 (`.timeline-sub-row`): Tốc độ phát (trái) và nút zoom (phải).
+  4. Nút Live/Replay:
+     - Hiển thị `🕒 Xem lại` khi đang live.
+     - Tự động chuyển thành `((•)) Xem trực tiếp` khi người dùng vuốt/kéo timeline để phát lại.
+  5. Đồng bộ `release/2.1.0/index.html` với cùng mã băm SHA-256.
+- Verification results:
+  - Node tests: **22/22 PASS**.
+  - Python unittests: **92/92 PASS**.
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check`: PASS (0 trailing whitespace).
+  - Chrome CDP render test: `render_live.png`, `render_replay.png`, `render_cat_video.png` đều đạt chuẩn thiết kế.
+- Status: COMPLETED.
+
+## Redesign timeline bar per Imou camera app reference handoff — 2026-09-21
+- Task: `cambida-ui-timeline-imou-style-20260921`.
+- Changes made:
+  1. `index.html` updated:
+     - Thanh timeline được tái thiết kế chuẩn xác theo ảnh mẫu ứng dụng camera Imou Life (`media_1790003421084.jpg`).
+     - Bong bóng thời gian dạng viên nang nền tối `#161e28` có viền mỏng và chữ trắng rõ nét, phía dưới có mũi tên tam giác trắng nhỏ trỏ xuống tâm kim.
+     - Hàng số đo thời gian nằm trên dải xanh (`15h`, `16h`, `17h`, `18h`, `19h`...).
+     - Dải ghi hình (Filmstrip) màu xanh lá tươi chuẩn Imou (`#74cf3a`).
+     - Thước vạch phụ (Sub-ticks) nằm phía dưới dải xanh.
+     - Kim chỉ giờ màu trắng 1.5px nối liền từ mũi tên tam giác chạy thẳng đứng xuyên tâm.
+  2. Đồng bộ `release/2.1.0/index.html` cùng mã băm SHA-256.
+- Verification results:
+  - Node tests: **22/22 PASS**.
+  - Python unittests: **92/92 PASS**.
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check`: PASS (0 trailing whitespace).
+  - Screenshots `render_replay.png`, `render_live.png`, `render_cat_video.png` đối chiếu trực quan 1-1 với ảnh chụp mẫu `crop_timeline_ref.png`.
+- Status: COMPLETED.
+
+## Light theme harmonious timeline with Imou layout handoff — 2026-09-21
+- Task: `cambida-ui-timeline-light-harmonious-20260921`.
+- Changes made:
+  1. `index.html`:
+     - Chuyển màu nền timeline sang `transparent` hòa nhập hoàn hảo với card trắng, xóa bỏ mảng đen tối.
+     - Bong bóng thời gian chuyển sang nền xanh dương `var(--blue)` với mũi tên xanh trỏ xuống, tiệp màu với hệ thống icon/nút của app.
+     - Hàng số đo giờ hiển thị màu xám slate `#64748b` nằm trên dải xanh.
+     - Dải ghi hình nền `#f1f5f9` với các đoạn video xanh lá tươi `var(--green)`.
+     - Thước vạch phụ màu `#94a3b8` nằm phía dưới dải xanh.
+     - Kim chỉ giờ chuyển sang màu xanh dương `var(--blue)` 2px chạy dọc xuyên tâm.
+  2. Đồng bộ `release/2.1.0/index.html` cùng mã băm SHA-256.
+- Verification results:
+  - Node tests: **22/22 PASS**.
+  - Python unittests: **92/92 PASS**.
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check`: PASS (0 trailing whitespace).
+  - Screenshots `render_replay.png`, `render_live.png`, `render_cat_video.png` hoàn toàn hòa nhập với giao diện card sáng.
+- Status: COMPLETED.
+
+## UI Refinements: Remove home indicator, 1X active emphasis, theme timeline, previous day display, 70% transparent zoom overlay — 2026-09-21
+- Task: `cambida-ui-refinements-5items-20260921`.
+- Changes made:
+  1. `index.html`:
+     - Xóa bỏ `.home-indicator` khỏi CSS và `<div class="home-indicator" aria-hidden="true"></div>` khỏi HTML.
+     - Đổi nhãn `1x` thành `1X` hoa tại replay và cut HTML; cập nhật JS `updatePlaybackRateButton` sinh nhãn `1X`; bỏ chặn `rate > 1` để mức 1X luôn giữ class `.is-active`; bổ sung styling điểm nhấn viền xanh, nền `#eff6ff` và shadow nổi bật cho `.rate-button.is-active`.
+     - Chuyển màu dải ghi hình `.filmstrip-cell` từ `var(--green)` sang `var(--blue)` đồng bộ màu giao diện, đổi dải vùng cắt `.cut-selection` sang tone gradient xanh tím `linear-gradient(90deg, #1d72f2 0%, #3b82f6 40%, #8b5cf6 100%)`.
+     - Khôi phục mốc `Hôm trước` tại vị trí `hour === 0` trên thước đo timeline (click để chuyển ngày); bổ sung hàm `formatBubbleTime` tự động hiển thị `(Hôm trước)` trên bong bóng thời gian khi phát/kéo timeline ở các phân đoạn thuộc ngày hôm trước.
+     - Chuyển `.video-overlay-button` sang nền trong suốt nhẹ `background: rgba(15, 23, 42, 0.3)` và `opacity: 0.7` (70% trong suốt), hover tăng lên `opacity: 1`.
+  2. `release/2.1.0/index.html`: Đồng bộ sidecar runtime byte-identically (SHA-256: `51E2014130B5909978C0B6233983986441DE9602952120B4BD03E64ACE6699DB`).
+  3. `tests/`:
+     - `replay_timeline_ui.test.js`: Cập nhật match `1X`, kiểm tra mốc `Hôm trước` tại hour 0, bổ sung querySelector mock.
+     - `test_nvr_per_camera.py`: Cập nhật assertion `background:var(--blue)`.
+- Verification results:
+  - Node tests: **22/22 PASS** (`replay_timeline_ui.test.js`, `admin_camera_logic.test.js`, `live_preview_ui.test.js`).
+  - Python tests: **92/92 PASS**.
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check index.html tests/`: PASS.
 - Status: COMPLETED.

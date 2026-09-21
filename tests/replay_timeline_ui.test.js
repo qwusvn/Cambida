@@ -148,16 +148,15 @@ test('player controls are streamlined with overlay fullscreen and no external pl
   assert.match(html, /id="fullscreenButton" class="video-overlay-button"/);
 });
 
-test('playback rate controls sit together on the left and zoom buttons are restored defaulting to 5 hours', () => {
+test('preset playback rate buttons (0.5X, 1X, 2X, 4X) sit with section headers and zoom controls', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   const { context } = loadReplayScript();
-  assert.equal((html.match(/data-timeline-context="replay" data-direction="reverse"/g) || []).length, 1);
-  assert.equal((html.match(/data-timeline-context="replay" data-direction="forward"/g) || []).length, 1);
-  assert.equal((html.match(/data-timeline-context="cut" data-direction="reverse"/g) || []).length, 1);
-  assert.equal((html.match(/data-timeline-context="cut" data-direction="forward"/g) || []).length, 1);
-  assert.match(html, /data-direction="reverse" data-rate="1"[^>]*>[\s\S]*?<span class="rate-label">1X<\/span>/);
-  assert.match(html, /data-direction="forward" data-rate="1"[^>]*>[\s\S]*?<span class="rate-label">1X<\/span>/);
-  assert.deepEqual([2, 4, 1], [context.getNextPlaybackRate(1), context.getNextPlaybackRate(2), context.getNextPlaybackRate(4)]);
+  ['0.5', '1', '2', '4'].forEach(rate => {
+    assert.equal((html.match(new RegExp(`data-timeline-context="replay" data-rate="${rate}"`, 'g')) || []).length, 1);
+    assert.equal((html.match(new RegExp(`data-timeline-context="cut" data-rate="${rate}"`, 'g')) || []).length, 1);
+  });
+  assert.ok(html.includes('Tốc độ phát'));
+  assert.ok(html.includes('Thu phóng'));
   assert.ok(html.includes('id="timelineZoomOut"'));
   assert.ok(html.includes('id="cutTimelineZoomOut"'));
   assert.ok(Math.abs(context.DEFAULT_TIMELINE_ZOOM - 9.6) < 0.1);
@@ -201,26 +200,29 @@ test('cut live mode uses the same explicit low-latency sub preview stream', () =
   assert.equal(elements.get('cutScreen').classList.contains('is-live'), true);
 });
 
-test('playback direction buttons cycle active speed immediately on first click (2x -> 4x -> 1x -> 2x)', () => {
-  const { context, elements } = loadReplayScript();
+test('preset playback rate buttons switch playbackRate directly and stopPlayback resets to 1X', () => {
+  const { context } = loadReplayScript();
   vm.runInContext("currentVideo={started_at:'2026-09-20T00:00:00',end_at:'2026-09-20T00:10:00'}", context);
-  const forward = makeElement('forwardRate');
-  const forwardLabel = makeElement('forwardLabel');
-  forward.dataset = { direction: 'forward', rate: '1' };
-  forward.querySelector = selector => selector === '.rate-label' ? forwardLabel : null;
-  context.setPlaybackRate('replay', 'forward', forward);
-  const player = elements.get('videoPlayer');
-  assert.equal(forward.dataset.rate, '2');
+  const player = context.document.getElementById('videoPlayer');
+
+  const btn05 = makeElement('btn05'); btn05.dataset = { rate: '0.5' };
+  const btn2 = makeElement('btn2'); btn2.dataset = { rate: '2' };
+  const btn4 = makeElement('btn4'); btn4.dataset = { rate: '4' };
+
+  context.setPlaybackRate('replay', 0.5, btn05);
+  assert.equal(player.playbackRate, 0.5);
+  assert.ok(btn05.classList.contains('is-active'));
+
+  context.setPlaybackRate('replay', 2, btn2);
   assert.equal(player.playbackRate, 2);
-  context.setPlaybackRate('replay', 'forward', forward);
-  assert.equal(forward.dataset.rate, '4');
+  assert.ok(btn2.classList.contains('is-active'));
+
+  context.setPlaybackRate('replay', 4, btn4);
   assert.equal(player.playbackRate, 4);
-  context.setPlaybackRate('replay', 'forward', forward);
-  assert.equal(forward.dataset.rate, '1');
+  assert.ok(btn4.classList.contains('is-active'));
+
+  context.stopPlayback(player, 'replay');
   assert.equal(player.playbackRate, 1);
-  context.setPlaybackRate('replay', 'forward', forward);
-  assert.equal(forward.dataset.rate, '2');
-  assert.equal(player.playbackRate, 2);
 });
 
 test('manual replay scrub selects the exact recording and starts playback', () => {
@@ -467,4 +469,37 @@ test('in cut mode, timeline cannot be dragged or sought outside the clip range b
   context.timelineStates.cut.progress = maxProg;
   cutHit.dispatch('keydown', { key: 'ArrowRight', shiftKey: false, preventDefault() {} });
   assert.equal(context.timelineStates.cut.progress, maxProg);
+});
+
+test('cut mode shows (Hôm trước) when clip range starts or ends on previous day', () => {
+  const { context, elements } = loadReplayScript();
+  elements.get('filterDate').value = '2026-09-20';
+  vm.runInContext(`
+    clipStartAt = new Date('2026-09-19T23:30:00');
+    clipEndAt = new Date('2026-09-20T00:00:00');
+    updateClipVisual();
+  `, context);
+  assert.equal(elements.get('clipStartLabel').textContent, '23:30:00 (Hôm trước)');
+  assert.equal(elements.get('clipEndLabel').textContent, '00:00:00');
+});
+
+test('live button icon uses clean radio broadcast waves SVG path', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.ok(html.includes('d="M4.93 19.07a10 10 0 0 1 0-14.14M19.07 4.93a10 10 0 0 1 0 14.14M7.76 16.24a6 6 0 0 1 0-8.48M16.24 7.76a6 6 0 0 1 0 8.48"'));
+  assert.doesNotMatch(html, /M7\.76 4\.76a10/);
+});
+
+test('showCut triggers requestAnimationFrame rendering for cutFilmstrip and cutRuler', () => {
+  const { context, elements } = loadReplayScript();
+  let rafCallback = null;
+  context.requestAnimationFrame = cb => { rafCallback = cb; return 1; };
+  vm.runInContext(`visibleVideos = [
+    { name: 'cam1', started_at: '2026-09-20T00:00:00', end_at: '2026-09-20T23:59:59' }
+  ]; currentVideo = visibleVideos[0];`, context);
+
+  context.showCut();
+  assert.equal(elements.get('cutScreen').hidden, false);
+  assert.ok(typeof rafCallback === 'function');
+  rafCallback();
+  assert.ok(elements.get('cutRuler').children.length > 0);
 });

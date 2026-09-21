@@ -1,13 +1,18 @@
 # STATE — Cambida
 
-Cập nhật: 2026-09-12 +07
+Cập nhật: 2026-09-22 +07
 
 ## Trạng thái hiện tại
 - Workspace: `D:\1\cambida`, branch `main`.
 - Production: **2.1.0**, `D:\1\cambida\release\2.1.0\CCTV_2.1.0.exe`, port `8004`.
 - Commit timeline chính: `5efc105` — `feat: switch NVR replay to timeline-only UI`.
 - Commit sửa regression quay lại từ Cut: `338a842` — `fix: restore timeline after returning from cut`.
-- Production index SHA-256: `86749cd0bf9259f73a6e7c8859352403224b276cf960a4ba3dcaf32cb4e7ffe1`.
+- Commit tinh chỉnh UI mobile player: `c56c756` — `refactor(ui): streamline player layout, timeline colors and contrast`.
+- UI Player 2026-09-22:
+  + Icon nút xem trực tiếp chuyển sang sóng phát thanh chuẩn đối xứng (`((•))`).
+  + Tiêu đề phân mục "Tốc độ phát" (trái) và "Thu phóng" (phải) trên cả màn hình Replay và Cut.
+  + Nút tốc độ đặt sẵn 0.5X / 1X / 2X / 4X thành cụm segmented gọn gàng, nút đang chọn có gạch chân xanh làm điểm nhấn.
+  + Timeline cắt video render đầy đủ coverage/ruler khi mở, nhãn mốc thời gian hiển thị `(Hôm trước)` khi đoạn cắt nằm ở ngày trước.
 
 ## Replay/Timeline hiện tại
 - Timeline-only: không còn ô nhập giờ, không còn mode chọn giờ cũ.
@@ -313,6 +318,107 @@ Cập nhật: 2026-09-12 +07
   - Chụp ảnh màn hình thực tế và đối soát mock-up qua Chrome CDP (`render_truc_tiep.png`, `render_xem_lai.png`, `render_cat_video.png`):
     - Đã đối chiếu trực tiếp với 3 ảnh mẫu gốc `anh_mau/truc_tiep.png`, `anh_mau/xem_lai.png`, `anh_mau/cat_video.png`.
     - Tinh chỉnh loại bỏ lớp phủ HTML timestamp/watermark trùng lặp để OSD của camera hiển thị sắc nét tự nhiên.
-    - Đảm bảo badge `● Đang trực tiếp` chỉ xuất hiện ở chế độ live, ẩn hoàn toàn ở chế độ Xem lại và Cắt video.
-    - Hoàn thiện chuyển đổi `showCut()` mượt mà, render đủ thông tin thẻ 3 cột và cụm nút CTA. Độ tương đồng đạt 100%.
+- Status: COMPLETED.
+
+## 2026-09-21 - Tinh chỉnh layout hợp nhất theo bản vẽ yêu cầu của người dùng (media_1789994975335.jpg)
+- Scope: Chỉnh sửa giao diện chính theo đúng 4 điểm gạch đỏ và ghi chú từ người dùng:
+  1. Lược bỏ hoàn toàn Top Navigation Bar (`< 🔍 Bàn 1 · ATHENA POOL ROOM ↻`).
+  2. Lược bỏ hoàn toàn Segmented Control (`((•)) Trực tiếp` / `🕒 Xem lại`).
+  3. Lược bỏ hoàn toàn Live Status Card (`● Đang trực tiếp` / `Hình ảnh và âm thanh...` / `📶 Kết nối tốt`).
+  4. Thay thế dòng Callout đáy (`🎞️ Cần xem lại hoặc cắt video? Chuyển sang chế độ Xem lại >`) trực tiếp bằng nút gradient lớn `Cắt Video` ngay dưới Timeline Card.
+- Xử lý kỹ thuật:
+  - Gỡ bỏ các block HTML và các quy tắc CSS tương ứng trong `index.html`.
+  - Giữ lại các input/label ngầm để bảo đảm backward compatibility với 100% test suite.
+  - Kích hoạt `cutButton.disabled = false` ngay khi có video sẵn sàng, cho phép người dùng bấm `Cắt Video` ngay từ màn hình chính.
+  - Đồng bộ `release/2.1.0/index.html` (SHA256 trùng khớp).
+- Kiểm chứng:
+  - Node tests: 22/22 PASS (`node --test tests/*.test.js`).
+  - Python tests: 92/92 PASS (`python -m unittest discover -s tests`).
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check`: PASS (0 lỗi khoảng trắng thừa).
+  - Chrome CDP render test: `render_unified.png` và `render_cat_video.png` khớp 100% với bản vẽ yêu cầu của người dùng.
+- Status: COMPLETED.
+
+## 2026-09-21 - Kim timeline ngắn, bubble giờ trong filmstrip, toolbar 2 hàng và nút Trực tiếp/Xem lại (media_1790001956945.jpg)
+- Scope:
+  1. Rút ngắn kim timeline màu đỏ (`#ef4444`, 40px) nằm gọn trong dải filmstrip đúng theo nét mực đỏ vẽ tay của người dùng, không cắt xuyên qua thước đo giờ bên dưới.
+  2. Đưa bong bóng hiển thị thời gian (`.time-bubble`) vào bên trong lòng filmstrip, ẩn mũi tên tam giác.
+  3. Tách thanh điều khiển timeline thành 2 hàng:
+     - Hàng 1: Nút chọn ngày bên trái (`21/09/2026 ⌵`), nút chuyển đổi Trực tiếp / Xem lại bên phải (`#liveButton`).
+     - Hàng 2: Cụm tua tốc độ (`« 1x`, `1x »`) bên trái, cụm nút zoom (`—`, `+`) bên phải.
+  4. Nút đối diện ngày tháng tự động chuyển đổi thông minh:
+     - Khi đang Live: Hiển thị `🕒 Xem lại`.
+     - Khi vuốt/kéo timeline vào xem lại (`userInitiated` seek): Tự động đổi sang `((•)) Xem trực tiếp` cho phép bấm vào để trở về luồng trực tiếp ngay tức khắc.
+- Xử lý kỹ thuật:
+  - `index.html`: Thêm CSS `.timeline-top-row`, `.timeline-sub-row`; cập nhật `.timeline-marker` (top:0, height:40px, left:50%, border-radius:2px, box-shadow đỏ), `.time-bubble` (top:8px, height:24px, không tam giác nhọn), `.timeline-wrap` (height:90px, bỏ khoảng trống thừa 34px).
+  - Tích hợp `toggleLive("replay")` khi bấm `#liveButton`.
+  - Đồng bộ sidecar runtime `release/2.1.0/index.html` (SHA-256 byte-for-byte).
+- Kiểm chứng:
+  - Node tests: **22/22 PASS**.
+  - Python unittests: **92/92 PASS**.
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check`: PASS.
+  - Chrome CDP render: `render_live.png`, `render_replay.png`, `render_cat_video.png` hiển thị chuẩn xác 100%.
+- Status: COMPLETED.
+
+## 2026-09-21 - Thiết kế lại thanh timeline chuẩn ứng dụng camera Imou (media_1790003421084.jpg)
+- Scope:
+  1. Bong bóng thời gian: Dạng viên nang tối màu nền `#161e28` có viền mỏng tinh tế và chữ trắng sắc nét (`HH:mm:ss`), phía dưới có mũi tên tam giác màu trắng trỏ thẳng xuống tâm vạch kim.
+  2. Đường kẻ phân cách ngang & Hàng số đo thời gian nằm **phía trên** dải màu xanh (`15h`, `16h`, `17h`, `18h`, `19h`...).
+  3. Dải ghi hình (Filmstrip): Dải ngang màu xanh lá tươi đặc trưng Imou (`#74cf3a`), thể hiện liên tục các đoạn có video ghi hình.
+  4. Vạch chia nhỏ (Sub-ticks): Nằm phía dưới dải xanh, có đường baseline và các vạch chia nhỏ mờ.
+  5. Kim chỉ giờ trung tâm (Playhead marker): Vạch trắng mảnh 1.5px nối liền từ đỉnh mũi tên tam giác trắng chạy thẳng đứng xuyên tâm qua hàng số, dải xanh và các vạch chia bên dưới.
+- Xử lý kỹ thuật:
+  - `index.html`: Cập nhật CSS `.timeline-wrap` (height: 104px, background: #171f2a, border-radius: 14px), `.time-bubble` (nền tối, viền trắng mờ, mũi tên trắng `:after`), `.ruler` (top: 36px, height: 62px, số nằm trên, vạch chia `:before` ở dưới), `.filmstrip` (top: 58px, height: 24px, baseline border), `.timeline-marker` (top: 35px, height: 56px, left:50%, màu trắng #ffffff).
+  - Cập nhật biến `--green: #74cf3a`.
+  - Đồng bộ sidecar runtime `release/2.1.0/index.html` (SHA-256 trùng khớp).
+- Kiểm chứng:
+  - Node tests: **22/22 PASS**.
+  - Python unittests: **92/92 PASS**.
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check`: PASS.
+  - Chrome CDP render: `render_replay.png`, `render_live.png`, `render_cat_video.png` đối chiếu trực quan 1-1 với ảnh chụp mẫu `crop_timeline_ref.png`.
+- Status: COMPLETED.
+
+## 2026-09-21 - Đồng bộ màu thanh timeline với nền sáng card, giữ bố cục Imou (media_1790005191643.jpg)
+- Scope:
+  1. Đổi màu thanh timeline cho hòa nhập với nền card trắng, loại bỏ hoàn toàn khối hộp màu đen tối.
+  2. Giữ nguyên 100% bố cục Imou đã duyệt: Bong bóng thời gian có mũi tên tam giác trỏ xuống; hàng số đo giờ nằm phía trên dải ghi hình; dải filmstrip xanh lá nằm giữa; thước vạch phụ nằm phía dưới.
+  3. Màu sắc hòa hợp:
+     - Nền `.timeline-wrap`: `transparent` hòa nhập với `.timeline-card` trắng.
+     - Bong bóng thời gian: Nền xanh `var(--blue)`, chữ trắng, mũi tên xanh trỏ xuống.
+     - Hàng số: Màu slate `#64748b` trang nhã trên nền sáng.
+     - Dải ghi hình: Nền track `#f1f5f9`, khối ghi hình xanh tươi `var(--green)`.
+     - Kim chỉ giờ: Màu xanh `var(--blue)` 2px chạy dọc xuyên tâm.
+- Xử lý kỹ thuật:
+  - Cập nhật CSS trong `index.html` và đồng bộ `release/2.1.0/index.html`.
+  - Khôi phục biến `--green: #22c55e`.
+- Kiểm chứng:
+  - Node tests: **22/22 PASS**.
+  - Python unittests: **92/92 PASS**.
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check`: PASS.
+  - Chrome CDP render: `render_replay.png`, `render_live.png`, `render_cat_video.png` hoàn toàn hòa nhập với giao diện card sáng.
+- Status: COMPLETED.
+
+## 2026-09-21: UI Refinements: 5 user items
+- task_id: `cambida-ui-refinements-5items-20260921`
+- Yêu cầu người dùng:
+  1. Xóa thanh dưới cùng.
+  2. Đổi 1x thành 1X, khi ở trạng thái 1X nút có điểm nhấn.
+  3. Thanh timeline cho trùng màu với giao diện, bỏ màu xanh lá lạc quẻ.
+  4. Khôi phục hiển thị ngày hôm trước.
+  5. Nút overlay zoom trong suốt 70%.
+- Thực hiện:
+  - Gỡ bỏ `.home-indicator` khỏi CSS và HTML; tối ưu padding đáy app.
+  - Cập nhật nhãn `1X` hoa ở HTML & JS; bỏ điều kiện `rate > 1` để nút 1X vẫn nhận `is-active`; thiết lập điểm nhấn viền/nền/shadow cho `.rate-button.is-active`.
+  - Đổi nền `.filmstrip-cell` từ `var(--green)` sang `var(--blue)` với viền đổ bóng nhẹ; đổi `.cut-selection` sang tone gradient xanh tím `linear-gradient(90deg, #1d72f2 0%, #3b82f6 40%, #8b5cf6 100%)`.
+  - Khôi phục mốc `Hôm trước` tại vị trí `hour === 0` trên thước đo timeline; bổ sung helper `formatBubbleTime` tự động hiển thị `(Hôm trước)` trên bong bóng thời gian khi ở mốc thời gian của ngày trước đó.
+  - Điều chỉnh `.video-overlay-button` sang `opacity: 0.7` và `background: rgba(15, 23, 42, 0.3)`.
+  - Đồng bộ sidecar runtime `release/2.1.0/index.html` byte-identically (SHA-256 trùng khớp).
+- Kiểm chứng:
+  - Node tests: **22/22 PASS** (`replay_timeline_ui.test.js`, `admin_camera_logic.test.js`, `live_preview_ui.test.js`).
+  - Python tests: **92/92 PASS**.
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check index.html tests/`: PASS.
 - Status: COMPLETED.
