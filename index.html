@@ -16,8 +16,8 @@
       --blue-gradient: linear-gradient(135deg, #1680f8 0%, #1d72f2 100%);
       --blue-soft: #edf5ff;
       --blue-border: #bfdbfe;
-      --green: #74cf3a;
-      --green-dark: #4d9a1e;
+      --green: #22c55e;
+      --green-dark: #15803d;
       --green-bg: #f0fdf4;
       --green-border: #dcfce7;
       --border: #e2e8f0;
@@ -518,14 +518,13 @@
       outline: none;
     }
 
-    /* Timeline Viewport & Track (Imou Camera Style) */
+    /* Timeline Viewport & Track (Imou Layout on Light Card Theme) */
     .timeline-wrap {
       position: relative;
       height: 104px;
-      background: #171f2a;
+      background: transparent;
       border-radius: 14px;
       overflow: hidden;
-      box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.4);
     }
     .time-bubble {
       position: absolute;
@@ -539,13 +538,12 @@
       justify-content: center;
       padding: 0 12px;
       border-radius: 12px;
-      background: rgba(22, 30, 42, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: var(--blue);
       color: #ffffff;
       font-size: 12.5px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+      font-weight: 750;
+      letter-spacing: 0.3px;
+      box-shadow: 0 2px 8px rgba(29, 114, 242, 0.35);
       white-space: nowrap;
       pointer-events: none;
     }
@@ -560,7 +558,7 @@
       height: 0;
       border-left: 4.5px solid transparent;
       border-right: 4.5px solid transparent;
-      border-top: 5.5px solid #ffffff;
+      border-top: 5.5px solid var(--blue);
     }
     .timeline-viewport {
       position: absolute;
@@ -585,8 +583,8 @@
       top: 36px;
       width: 100%;
       height: 62px;
-      border-top: 1px solid rgba(255, 255, 255, 0.12);
-      background: repeating-linear-gradient(90deg, transparent 0, transparent calc(2.0833% - 1px), rgba(255, 255, 255, 0.2) calc(2.0833% - 1px), rgba(255, 255, 255, 0.2) 2.0833%);
+      border-top: 1px solid #e2e8f0;
+      background: repeating-linear-gradient(90deg, transparent 0, transparent calc(2.0833% - 1px), #cbd5e1 calc(2.0833% - 1px), #cbd5e1 2.0833%);
       background-position: 0 46px;
       background-size: 100% 4px;
       background-repeat: no-repeat;
@@ -596,9 +594,9 @@
       position: absolute;
       top: 3px;
       transform: translateX(-50%);
-      color: #ffffff;
+      color: #64748b;
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 600;
       white-space: nowrap;
     }
     .ruler-major:before {
@@ -608,7 +606,7 @@
       left: 50%;
       width: 1px;
       height: 7px;
-      background: rgba(255, 255, 255, 0.4);
+      background: #94a3b8;
     }
     .ruler-major.ruler-midnight {
       transform: translateX(-50%);
@@ -616,8 +614,8 @@
       align-items: center;
       gap: 4px;
     }
-    .ruler-midnight-prev { color: #94a3b8; }
-    .ruler-midnight-next { color: #38bdf8; font-weight: 700; }
+    .ruler-midnight-prev { color: #64748b; }
+    .ruler-midnight-next { color: var(--blue); font-weight: 750; }
 
     .filmstrip {
       position: absolute;
@@ -625,31 +623,31 @@
       top: 58px;
       width: 100%;
       height: 24px;
-      border-radius: 2px;
-      background: #232d3b;
+      border-radius: 6px;
+      background: #f1f5f9;
       overflow: hidden;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      border-bottom: 1px solid #e2e8f0;
     }
     .filmstrip-cell {
       position: absolute;
       top: 0;
       height: 24px;
       min-width: 1px;
-      border-radius: 0;
+      border-radius: 4px;
       background:var(--green);
-      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(8, 133, 68, 0.08);
     }
     .cut-mask {
       position: absolute;
       top: 58px;
       height: 24px;
-      background: rgba(15, 23, 42, 0.75);
+      background: rgba(71, 85, 105, 0.55);
       backdrop-filter: blur(1px);
       z-index: 4;
       pointer-events: none;
     }
-    .cut-mask-left { left: 0; width: 0; border-top-left-radius: 2px; border-bottom-left-radius: 2px; }
-    .cut-mask-right { right: 0; width: 0; border-top-right-radius: 2px; border-bottom-right-radius: 2px; }
+    .cut-mask-left { left: 0; width: 0; border-top-left-radius: 6px; border-bottom-left-radius: 6px; }
+    .cut-mask-right { right: 0; width: 0; border-top-right-radius: 6px; border-bottom-right-radius: 6px; }
     .cut-selection {
       position: absolute;
       z-index: 5;
@@ -657,9 +655,9 @@
       height: 24px;
       left: 33%;
       width: 36%;
-      background: var(--green);
-      border-top: 2px solid #38bdf8;
-      border-bottom: 2px solid #38bdf8;
+      background: #10b981;
+      border-top: 2px solid #059669;
+      border-bottom: 2px solid #059669;
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
       pointer-events: none;
     }
@@ -670,8 +668,8 @@
       width: 16px;
       height: 32px;
       border-radius: 6px;
-      background: #38bdf8;
-      box-shadow: 0 2px 6px rgba(56, 189, 248, 0.45);
+      background: var(--blue);
+      box-shadow: 0 2px 8px rgba(29, 114, 242, 0.45);
       pointer-events: none;
     }
     .cut-handle:after {
@@ -693,12 +691,12 @@
       top: 35px;
       height: 56px;
       left:50%;
-      width: 1.5px;
+      width: 2px;
       border-radius: 1px;
-      background: #ffffff;
+      background: var(--blue);
       transform: translateX(-50%);
       pointer-events: none;
-      box-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
+      box-shadow: 0 0 4px rgba(29, 114, 242, 0.4);
     }
     .timeline-marker:before { display: none; }
 
