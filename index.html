@@ -442,6 +442,18 @@
       margin-bottom: 10px;
       min-height: 36px;
     }
+    .timeline-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .timeline-sub-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
     .live-date-wrap { margin-right: auto; }
     .pill-toolbar {
       height: 36px;
@@ -509,42 +521,34 @@
     /* Timeline Viewport & Track */
     .timeline-wrap {
       position: relative;
-      height: 122px;
+      height: 90px;
       overflow: hidden;
     }
     .time-bubble {
       position: absolute;
       z-index: 12;
       left: 50%;
-      top: 0;
+      top: 8px;
       transform: translateX(-50%);
-      height: 28px;
+      height: 24px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0 12px;
-      border-radius: 14px;
+      padding: 0 10px;
+      border-radius: 12px;
       background: var(--blue);
       color: #ffffff;
-      font-size: 12px;
-      font-weight: 750;
-      box-shadow: 0 3px 10px rgba(29, 114, 242, 0.35);
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      box-shadow: 0 2px 8px rgba(29, 114, 242, 0.4);
       white-space: nowrap;
       pointer-events: none;
     }
-    .time-bubble:after {
-      content: "";
-      position: absolute;
-      bottom: -5px;
-      left: 50%;
-      transform: translateX(-50%);
-      border-left: 5px solid transparent;
-      border-right: 5px solid transparent;
-      border-top: 6px solid var(--blue);
-    }
+    .time-bubble:after { display: none; }
     .timeline-viewport {
       position: absolute;
-      inset: 34px 0 0;
+      inset: 0 0 0;
       overflow: hidden;
       border-radius: 6px;
     }
@@ -562,9 +566,9 @@
     .filmstrip {
       position: absolute;
       left: 0;
-      top: 2px;
+      top: 0;
       width: 100%;
-      height: 38px;
+      height: 40px;
       border-radius: 8px;
       background: #f1f5f9;
       overflow: hidden;
@@ -572,7 +576,7 @@
     .filmstrip-cell {
       position: absolute;
       top: 0;
-      height: 38px;
+      height: 40px;
       min-width: 1px;
       border-radius: 6px;
       background:var(--green);
@@ -580,8 +584,8 @@
     }
     .cut-mask {
       position: absolute;
-      top: 2px;
-      height: 38px;
+      top: 0;
+      height: 40px;
       background: rgba(71, 85, 105, 0.65);
       backdrop-filter: blur(1px);
       z-index: 4;
@@ -592,8 +596,8 @@
     .cut-selection {
       position: absolute;
       z-index: 5;
-      top: 2px;
-      height: 38px;
+      top: 0;
+      height: 40px;
       left: 33%;
       width: 36%;
       background: #10b981;
@@ -605,7 +609,7 @@
     .cut-handle {
       position: absolute;
       z-index: 7;
-      top: 3px;
+      top: 2px;
       width: 18px;
       height: 36px;
       border-radius: 8px;
@@ -629,26 +633,17 @@
     .timeline-marker {
       position: absolute;
       z-index: 9;
-      top: 28px;
-      bottom: 0;
+      top: 0;
+      height: 40px;
       left:50%;
-      width: 2.5px;
+      width: 3px;
       border-radius: 2px;
-      background: var(--blue);
+      background: #ef4444;
       transform: translateX(-50%);
       pointer-events: none;
+      box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
     }
-    .timeline-marker:before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--blue);
-    }
+    .timeline-marker:before { display: none; }
     .ruler {
       position: absolute;
       left: 0;
@@ -935,12 +930,10 @@
       <button id="fullscreenButton" class="video-overlay-button" type="button" aria-label="Toàn màn hình" title="Toàn màn hình"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
     </div>
 
-    <!-- Hidden compatibility button for JS hooks -->
-    <button id="liveButton" hidden><span id="liveButtonText"></span></button>
-
     <!-- Timeline Card (Common to Live & Replay) -->
     <div class="timeline-card" id="timelineCard">
-      <div class="timeline-toolbar" role="toolbar" aria-label="Điều khiển timeline">
+      <!-- Row 1: Date picker on left, Live/Replay switch button on right -->
+      <div class="timeline-top-row" role="toolbar" aria-label="Điều khiển ngày và chế độ phát">
         <div class="live-date-wrap" id="liveDateWrap">
           <label class="pill date-control pill-toolbar" aria-label="Chọn ngày">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
@@ -951,6 +944,14 @@
             <span id="liveDateLabel" hidden></span>
           </label>
         </div>
+        <button id="liveButton" class="pill live-switch-pill pill-toolbar" type="button" aria-label="Xem trực tiếp">
+          <svg id="liveButtonIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8a4 4 0 0 1 0 8M7.76 4.76a10 10 0 0 0 0 14.48M16.24 4.76a10 10 0 0 1 0 14.48"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
+          <span id="liveButtonText">Xem trực tiếp</span>
+        </button>
+      </div>
+
+      <!-- Row 2: Tua (rate) on left, Zoom on right -->
+      <div class="timeline-sub-row" role="toolbar" aria-label="Điều khiển tua và thu phóng timeline">
         <div class="timeline-rate-group">
           <button class="rate-button" type="button" data-timeline-context="replay" data-direction="reverse" data-rate="1" title="Phát lùi 1 lần" aria-label="Phát lùi 1 lần"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 6-6 6 6 6M20 6l-6 6 6 6"/></svg><span class="rate-label">1x</span></button>
           <button class="rate-button" type="button" data-timeline-context="replay" data-direction="forward" data-rate="1" title="Phát tiến 1 lần" aria-label="Phát tiến 1 lần"><span class="rate-label">1x</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 6 6-6 6M11 6l6 6-6 6"/></svg></button>
@@ -1013,7 +1014,7 @@
         <input id="cutFilterDate" class="date-input" type="date">
       </label>
       <button id="cutLiveButton" class="pill live-switch-pill" type="button" aria-label="Xem trực tiếp">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8a4 4 0 0 1 0 8M7.76 4.76a10 10 0 0 0 0 14.48M16.24 4.76a10 10 0 0 1 0 14.48"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
+        <svg id="cutLiveButtonIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8a4 4 0 0 1 0 8M7.76 4.76a10 10 0 0 0 0 14.48M16.24 4.76a10 10 0 0 1 0 14.48"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
         <span id="cutLiveButtonText">Xem trực tiếp</span>
       </button>
     </div>
@@ -1515,6 +1516,8 @@
       stream.src=`/cam${CAMERA_ID}?stream=sub&view=live_preview&live=${Date.now()}`;
       if(buttonText)buttonText.textContent="Xem lại";
       if(button)button.setAttribute("aria-label","Quay về xem lại");
+      const iconLive=$(cut?"cutLiveButtonIcon":"liveButtonIcon");
+      if(iconLive)iconLive.innerHTML='<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>';
       updateModeBadge(true);
       updateLiveTimestampTicker();
     }else{
@@ -1524,6 +1527,8 @@
       stream.onload=null;stream.onerror=null;stream.removeAttribute("src");stream.hidden=true;
       if(buttonText)buttonText.textContent="Xem trực tiếp";
       if(button)button.setAttribute("aria-label","Xem trực tiếp");
+      const iconReplay=$(cut?"cutLiveButtonIcon":"liveButtonIcon");
+      if(iconReplay)iconReplay.innerHTML='<path d="M12 8a4 4 0 0 1 0 8M7.76 4.76a10 10 0 0 0 0 14.48M16.24 4.76a10 10 0 0 1 0 14.48"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>';
       if(currentVideo)syncPlayerUi(video,screen,$(cut?"cutPlayerTime":"playerTime"));
       updateModeBadge(false);
     }
@@ -1650,7 +1655,7 @@
     $("navSearchBtn")?.addEventListener("click",()=>window.location.href="/");
 
     // Replay & Cut Live toggles
-    $("liveButton")?.addEventListener("click",()=>setScreenLive("replay",true));
+    $("liveButton")?.addEventListener("click",()=>toggleLive("replay"));
     $("cutLiveButton")?.addEventListener("click",()=>toggleLive("cut"));
 
     // Date change listeners
