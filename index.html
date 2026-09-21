@@ -16,8 +16,8 @@
       --blue-gradient: linear-gradient(135deg, #1680f8 0%, #1d72f2 100%);
       --blue-soft: #edf5ff;
       --blue-border: #bfdbfe;
-      --green: #22c55e;
-      --green-dark: #15803d;
+      --green: #74cf3a;
+      --green-dark: #4d9a1e;
       --green-bg: #f0fdf4;
       --green-border: #dcfce7;
       --border: #e2e8f0;
@@ -518,39 +518,55 @@
       outline: none;
     }
 
-    /* Timeline Viewport & Track */
+    /* Timeline Viewport & Track (Imou Camera Style) */
     .timeline-wrap {
       position: relative;
-      height: 90px;
+      height: 104px;
+      background: #171f2a;
+      border-radius: 14px;
       overflow: hidden;
+      box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.4);
     }
     .time-bubble {
       position: absolute;
       z-index: 12;
       left: 50%;
-      top: 8px;
+      top: 6px;
       transform: translateX(-50%);
       height: 24px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0 10px;
+      padding: 0 12px;
       border-radius: 12px;
-      background: var(--blue);
+      background: rgba(22, 30, 42, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.25);
       color: #ffffff;
-      font-size: 11.5px;
-      font-weight: 800;
-      letter-spacing: 0.2px;
-      box-shadow: 0 2px 8px rgba(29, 114, 242, 0.4);
+      font-size: 12.5px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
       white-space: nowrap;
       pointer-events: none;
     }
-    .time-bubble:after { display: none; }
+    .time-bubble:after {
+      content: "";
+      display: block;
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 4.5px solid transparent;
+      border-right: 4.5px solid transparent;
+      border-top: 5.5px solid #ffffff;
+    }
     .timeline-viewport {
       position: absolute;
       inset: 0 0 0;
       overflow: hidden;
-      border-radius: 6px;
+      border-radius: 14px;
     }
     .timeline-track {
       position: absolute;
@@ -563,115 +579,36 @@
       transform: translate3d(0, 0, 0);
       will-change: width, transform;
     }
-    .filmstrip {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 40px;
-      border-radius: 8px;
-      background: #f1f5f9;
-      overflow: hidden;
-    }
-    .filmstrip-cell {
-      position: absolute;
-      top: 0;
-      height: 40px;
-      min-width: 1px;
-      border-radius: 6px;
-      background:var(--green);
-      box-shadow: inset 0 0 0 1px rgba(8, 133, 68, 0.08);
-    }
-    .cut-mask {
-      position: absolute;
-      top: 0;
-      height: 40px;
-      background: rgba(71, 85, 105, 0.65);
-      backdrop-filter: blur(1px);
-      z-index: 4;
-      pointer-events: none;
-    }
-    .cut-mask-left { left: 0; width: 0; border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
-    .cut-mask-right { right: 0; width: 0; border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
-    .cut-selection {
-      position: absolute;
-      z-index: 5;
-      top: 0;
-      height: 40px;
-      left: 33%;
-      width: 36%;
-      background: #10b981;
-      border-top: 2px solid #059669;
-      border-bottom: 2px solid #059669;
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
-      pointer-events: none;
-    }
-    .cut-handle {
-      position: absolute;
-      z-index: 7;
-      top: 2px;
-      width: 18px;
-      height: 36px;
-      border-radius: 8px;
-      background: var(--blue);
-      box-shadow: 0 2px 8px rgba(29, 114, 242, 0.45);
-      pointer-events: none;
-    }
-    .cut-handle:after {
-      content: "";
-      position: absolute;
-      top: 10px;
-      bottom: 10px;
-      left: 8px;
-      width: 2px;
-      border-radius: 2px;
-      background: rgba(255, 255, 255, 0.85);
-    }
-    .handle-start { left: calc(33% - 9px); }
-    .handle-end { left: calc(69% - 9px); }
-
-    .timeline-marker {
-      position: absolute;
-      z-index: 9;
-      top: 0;
-      height: 40px;
-      left:50%;
-      width: 3px;
-      border-radius: 2px;
-      background: #ef4444;
-      transform: translateX(-50%);
-      pointer-events: none;
-      box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
-    }
-    .timeline-marker:before { display: none; }
     .ruler {
       position: absolute;
       left: 0;
-      top: 44px;
+      top: 36px;
       width: 100%;
-      height: 42px;
-      border-top: 1px solid #e2e8f0;
-      background: repeating-linear-gradient(90deg, transparent 0, transparent calc(2.0833% - 1px), #cbd5e1 calc(2.0833% - 1px), #cbd5e1 2.0833%);
-      background-size: 100% 8px;
+      height: 62px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      background: repeating-linear-gradient(90deg, transparent 0, transparent calc(2.0833% - 1px), rgba(255, 255, 255, 0.2) calc(2.0833% - 1px), rgba(255, 255, 255, 0.2) 2.0833%);
+      background-position: 0 46px;
+      background-size: 100% 4px;
       background-repeat: no-repeat;
+      pointer-events: none;
     }
     .ruler-major {
       position: absolute;
-      top: 12px;
+      top: 3px;
       transform: translateX(-50%);
-      color: #64748b;
+      color: #ffffff;
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 500;
       white-space: nowrap;
     }
     .ruler-major:before {
       content: "";
       position: absolute;
-      top: -12px;
+      top: 46px;
       left: 50%;
       width: 1px;
-      height: 8px;
-      background: #94a3b8;
+      height: 7px;
+      background: rgba(255, 255, 255, 0.4);
     }
     .ruler-major.ruler-midnight {
       transform: translateX(-50%);
@@ -679,8 +616,91 @@
       align-items: center;
       gap: 4px;
     }
-    .ruler-midnight-prev { color: #64748b; }
-    .ruler-midnight-next { color: var(--blue); font-weight: 750; }
+    .ruler-midnight-prev { color: #94a3b8; }
+    .ruler-midnight-next { color: #38bdf8; font-weight: 700; }
+
+    .filmstrip {
+      position: absolute;
+      left: 0;
+      top: 58px;
+      width: 100%;
+      height: 24px;
+      border-radius: 2px;
+      background: #232d3b;
+      overflow: hidden;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .filmstrip-cell {
+      position: absolute;
+      top: 0;
+      height: 24px;
+      min-width: 1px;
+      border-radius: 0;
+      background:var(--green);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+    }
+    .cut-mask {
+      position: absolute;
+      top: 58px;
+      height: 24px;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(1px);
+      z-index: 4;
+      pointer-events: none;
+    }
+    .cut-mask-left { left: 0; width: 0; border-top-left-radius: 2px; border-bottom-left-radius: 2px; }
+    .cut-mask-right { right: 0; width: 0; border-top-right-radius: 2px; border-bottom-right-radius: 2px; }
+    .cut-selection {
+      position: absolute;
+      z-index: 5;
+      top: 58px;
+      height: 24px;
+      left: 33%;
+      width: 36%;
+      background: var(--green);
+      border-top: 2px solid #38bdf8;
+      border-bottom: 2px solid #38bdf8;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+      pointer-events: none;
+    }
+    .cut-handle {
+      position: absolute;
+      z-index: 7;
+      top: 54px;
+      width: 16px;
+      height: 32px;
+      border-radius: 6px;
+      background: #38bdf8;
+      box-shadow: 0 2px 6px rgba(56, 189, 248, 0.45);
+      pointer-events: none;
+    }
+    .cut-handle:after {
+      content: "";
+      position: absolute;
+      top: 8px;
+      bottom: 8px;
+      left: 7px;
+      width: 2px;
+      border-radius: 1px;
+      background: rgba(255, 255, 255, 0.9);
+    }
+    .handle-start { left: calc(33% - 8px); }
+    .handle-end { left: calc(69% - 8px); }
+
+    .timeline-marker {
+      position: absolute;
+      z-index: 9;
+      top: 35px;
+      height: 56px;
+      left:50%;
+      width: 1.5px;
+      border-radius: 1px;
+      background: #ffffff;
+      transform: translateX(-50%);
+      pointer-events: none;
+      box-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
+    }
+    .timeline-marker:before { display: none; }
 
     .timeline-hit {
       position: absolute;
