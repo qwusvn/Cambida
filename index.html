@@ -51,7 +51,7 @@
       min-height: 100svh;
       margin: 0 auto;
       background: var(--bg);
-      padding: calc(8px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
+      padding: calc(16px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
       display: flex;
       flex-direction: column;
     }
@@ -894,21 +894,12 @@
       opacity: 0.85;
     }
 
-    /* Dynamic Visibility Rules between Live & Replay */
-    .screen.is-live .replay-control-bar,
-    .screen.is-live [data-replay-only],
+    /* Dynamic Visibility Rules */
     .screen.is-live [data-cut-only],
     .screen.is-live .warning,
     .screen.is-live .inline-error,
     .screen.is-live .progress-box { display: none; }
 
-    .screen.is-live .live-status-card,
-    .screen.is-live .bottom-callout-card,
-    .screen.is-live .live-date-wrap { display: flex; }
-
-    .screen:not(.is-live) .live-status-card,
-    .screen:not(.is-live) .bottom-callout-card,
-    .screen:not(.is-live) .live-date-wrap,
     .screen:not(.is-live) .player-badge-live { display: none; }
 
     .screen.is-live .player-badge-live { display: inline-flex; }
@@ -927,30 +918,10 @@
 </head>
 <body>
 <main class="app">
-  <!-- Top Navigation Bar -->
-  <nav class="top-nav" aria-label="Điều hướng">
-    <button class="nav-btn" id="navBackBtn" type="button" aria-label="Quay lại"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-    <button class="nav-btn" id="navSearchBtn" type="button" aria-label="Tìm kiếm"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
-    <div class="nav-breadcrumb" id="navBreadcrumb">{{ camera_name }} · {{ site.name }}</div>
-    <button class="nav-btn" id="navRefreshBtn" type="button" aria-label="Làm mới"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6"/><path d="M18.83 8.17A9 9 0 0 0 4.17 15.83M5.17 15.83A9 9 0 0 0 19.83 8.17"/></svg></button>
-  </nav>
-
   <!-- Title Row for Replay & Live -->
   <div class="title-section" id="mainTitleSection">
     <h1 id="headerTitle" class="main-title">{{ camera_name }}</h1>
     <div class="main-subtitle" id="headerSubtitle">{{ site.name }}</div>
-  </div>
-
-  <!-- Segmented Control (Tabs Trực tiếp / Xem lại) -->
-  <div class="segmented-control" id="segmentedControl" role="tablist">
-    <button class="segment-tab is-active" id="tabLive" type="button" role="tab" aria-selected="true">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8a4 4 0 0 1 0 8M7.76 4.76a10 10 0 0 0 0 14.48M16.24 4.76a10 10 0 0 1 0 14.48"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
-      <span>Trực tiếp</span>
-    </button>
-    <button class="segment-tab" id="tabReplay" type="button" role="tab" aria-selected="false">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-      <span>Xem lại</span>
-    </button>
   </div>
 
   <!-- Screen 1 & Screen 2: Replay & Live Screen -->
@@ -964,34 +935,8 @@
       <button id="fullscreenButton" class="video-overlay-button" type="button" aria-label="Toàn màn hình" title="Toàn màn hình"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
     </div>
 
-    <!-- Status Card on Trực tiếp (Live) -->
-    <div class="live-status-card" id="liveStatusCard">
-      <div class="live-status-left">
-        <span class="status-green-circle"></span>
-        <div class="status-text-wrap">
-          <div class="status-main-title">Đang trực tiếp</div>
-          <div class="status-sub-title">Hình ảnh và âm thanh theo thời gian thực</div>
-        </div>
-      </div>
-      <div class="status-wifi-badge">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
-        <span>Kết nối tốt</span>
-      </div>
-    </div>
-
-    <!-- Controls Bar on Xem lại (Replay) -->
-    <div class="replay-control-bar" id="replayControlBar">
-      <label class="pill date-control" aria-label="Chọn ngày">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
-        <span id="dateLabel">--/--/----</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg>
-        <input id="filterDate" class="date-input" type="date">
-      </label>
-      <button id="liveButton" class="pill live-switch-pill" type="button" aria-label="Xem trực tiếp">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8a4 4 0 0 1 0 8M7.76 4.76a10 10 0 0 0 0 14.48M16.24 4.76a10 10 0 0 1 0 14.48"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>
-        <span id="liveButtonText">Xem trực tiếp</span>
-      </button>
-    </div>
+    <!-- Hidden compatibility button for JS hooks -->
+    <button id="liveButton" hidden><span id="liveButtonText"></span></button>
 
     <!-- Timeline Card (Common to Live & Replay) -->
     <div class="timeline-card" id="timelineCard">
@@ -999,9 +944,11 @@
         <div class="live-date-wrap" id="liveDateWrap">
           <label class="pill date-control pill-toolbar" aria-label="Chọn ngày">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
-            <span id="liveDateLabel">--/--/----</span>
+            <span id="dateLabel">--/--/----</span>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg>
-            <input id="liveFilterDate" class="date-input" type="date">
+            <input id="filterDate" class="date-input" type="date">
+            <input id="liveFilterDate" class="date-input" type="date" hidden>
+            <span id="liveDateLabel" hidden></span>
           </label>
         </div>
         <div class="timeline-rate-group">
@@ -1029,23 +976,9 @@
     <div id="codecWarning" class="warning" hidden><span class="warning-icon">!</span><span>Video này sử dụng codec H.265/HEVC. Vui lòng tải về máy để xem bằng phần mềm phù hợp hoặc đổi camera sang H.264.</span></div>
     <div id="watchError" class="inline-error" hidden></div>
 
-    <!-- Bottom Callout Card on Trực tiếp (Live) -->
-    <div class="bottom-callout-card" id="bottomCalloutCard" role="button" tabindex="0" aria-label="Chuyển sang chế độ Xem lại">
-      <div class="callout-icon">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="3"/><path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4M7 12h10"/></svg>
-      </div>
-      <div class="callout-content">
-        <div class="callout-sub">Cần xem lại hoặc cắt video?</div>
-        <div class="callout-title">Chuyển sang chế độ Xem lại</div>
-      </div>
-      <div class="callout-arrow">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-      </div>
-    </div>
-
-    <!-- Cắt Video Button on Xem lại (Replay) -->
-    <div class="actions replay-actions" data-replay-only>
-      <button id="cutButton" class="action primary cut-primary" type="button" disabled>
+    <!-- Cắt Video Button -->
+    <div class="actions replay-actions">
+      <button id="cutButton" class="action primary cut-primary" type="button">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="m20 4-8.5 8.5M20 20l-5-5M11.5 12.5 8.5 15.5"/></svg>Cắt Video</button>
     </div>
   </section>
@@ -1331,6 +1264,7 @@
     const day=getTimelineDayBounds();
     visibleVideos=allVideos.filter(v=>{const r=getVideoRange(v);return !r||(r.end>day.start&&r.start<day.end)}).sort((a,b)=>(getVideoRange(a)?.start||0)-(getVideoRange(b)?.start||0));
     renderTimelineCoverage("filmstrip");renderTimelineCoverage("cutFilmstrip");updateRuler("ruler");updateRuler("cutRuler");
+    if(visibleVideos.length){$("cutButton").disabled=false;if(!currentVideo)currentVideo=visibleVideos[visibleVideos.length-1];}
     if(isScreenLive("replay")||isScreenLive("cut"))return;
     if(!visibleVideos.length){$("watchError").textContent="Không có video cho ngày đã chọn.";$("watchError").hidden=false;currentVideo=null;$("cutButton").disabled=true;renderTimeline("replay",.75);renderTimeline("cut",.75);return;}
     $("watchError").hidden=true;
@@ -1604,7 +1538,7 @@
     $("cutScreen").hidden=true;
     $("doneScreen").hidden=true;
     $("mainTitleSection").hidden=false;
-    $("segmentedControl").hidden=false;
+    if($("segmentedControl")) $("segmentedControl").hidden=false;
     activeScreen="replay";
     $("headerTitle").textContent=replayTitle||"{{ camera_name }}";
     $("cutPlayer").pause();
@@ -1633,7 +1567,7 @@
     $("cutScreen").hidden=false;
     $("doneScreen").hidden=true;
     $("mainTitleSection").hidden=true;
-    $("segmentedControl").hidden=true;
+    if($("segmentedControl")) $("segmentedControl").hidden=true;
     activeScreen="cut";
     $("videoPlayer").pause();
     loadPlayer($("cutPlayer"),currentVideo,targetDate);
@@ -1649,7 +1583,7 @@
     $("cutScreen").hidden=true;
     $("doneScreen").hidden=false;
     $("mainTitleSection").hidden=true;
-    $("segmentedControl").hidden=true;
+    if($("segmentedControl")) $("segmentedControl").hidden=true;
     updateModeBadge(false);
     window.scrollTo({top:0,behavior:"smooth"});
   }
