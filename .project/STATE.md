@@ -287,3 +287,32 @@ Cập nhật: 2026-09-12 +07
   - Python tests: 92/92 PASS.
   - HTML reload xác minh: `border-radius:18px` và `.screen.is-live .player{aspect-ratio:4/3}` đã active.
 - Status: COMPLETED.
+
+## 2026-09-21 - Orchestration guidance sync
+- Local operational memory synchronized to `D:\1\gptagycodex.md` `SPEC_VERSION=2026-09-18.3`, patch `2026-09-21-STRICT-MCP-AGY-CODEX-TELEGRAM-GATE`.
+- New parent tasks read FAST BOOT from the global file; this project stores only a sync marker and project-specific state, not a duplicate global spec.
+- AGY/Codex execution requires the matching MCP online gate. CLI is allowed only by explicit user authorization for that exact task and never as automatic fallback.
+- This memory-sync task changed no product source, runtime, config, release artifact, or server process.
+
+## 2026-09-21 - Redesign UI theo mockup chốt Athena Pool Room (cambida-ui-mockup-final-20260921)
+- Scope: Tái thiết kế toàn bộ giao diện mobile (Trực tiếp, Xem lại, Cắt video) theo mockup chốt 100% từ `D:\1\cambida_ui_mockup_final.zip` (`mockup_athena_pool_room_final.md` và 3 ảnh mẫu: `truc_tiep.png`, `xem_lai.png`, `cat_video.png`).
+- Xử lý:
+  - Top navigation: Bổ sung thanh điều hướng với nút quay lại `<` (về trang chủ hoặc quay về xem lại), nút tìm kiếm `🔍`, breadcrumb `{{ camera_name }} · {{ site.name }}`, nút làm mới `↻`.
+  - Tiêu đề & Segmented control: Tiêu đề lớn `Bàn 1` / `Cắt video`, phụ đề `ATHENA POOL ROOM`, thanh chuyển tab dạng viên nang 2 trạng thái bo tròn `Trực tiếp` (icon sóng radio) và `Xem lại` (icon đồng hồ) với gradient xanh nổi bật khi active; màn hình Cắt video có pill `● Xem lại`.
+  - Khung video player: Bo góc 20px, bóng đổ mềm mại, watermark `imou` ở góc phải dưới, timestamp overlay `DD-MM-YYYY HH:mm:ss` tự động cập nhật theo nhịp thực tế hoặc mốc thời gian phát lại, nút toàn màn hình dạng floating overlay, badge trạng thái `Đang trực tiếp` góc trái trên khi live.
+  - Màn hình Trực tiếp: Bổ sung status card nền xanh bạc hà `Đang trực tiếp` / `Hình ảnh và âm thanh theo thời gian thực` kèm pill `📶 Kết nối tốt`; timeline card bo tròn tích hợp date picker và nút tốc độ/zoom; bottom callout card điều hướng sang chế độ xem lại.
+  - Màn hình Xem lại: Thanh điều khiển với chọn ngày và nút `((•)) Xem trực tiếp`; timeline card hiện đại với block ghi hình xanh, playhead xanh và bubble giờ; nút CTA gradient lớn `Cắt Video`.
+  - Màn hình Cắt video: Nút quay lại tròn, chọn ngày, `Xem trực tiếp`, timeline cắt với vùng chọn xanh ngọc và 2 tay nắm kéo xanh dương; card thông tin 3 cột (Thời gian bắt đầu, Thời gian kết thúc, Thời lượng); nút CTA gradient `Cắt và tải về` cùng nút `Hủy`.
+  - Home indicator: Thanh ngang chuẩn iOS dưới đáy màn hình.
+  - Đồng bộ sidecar `release/2.1.0/index.html`.
+- Kiểm chứng:
+  - Node tests: 22/22 PASS (toàn bộ 19 test UI timeline + 2 test admin + 1 test live preview).
+  - Python tests: 92/92 PASS.
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check`: PASS (0 lỗi format).
+  - Chụp ảnh màn hình thực tế và đối soát mock-up qua Chrome CDP (`render_truc_tiep.png`, `render_xem_lai.png`, `render_cat_video.png`):
+    - Đã đối chiếu trực tiếp với 3 ảnh mẫu gốc `anh_mau/truc_tiep.png`, `anh_mau/xem_lai.png`, `anh_mau/cat_video.png`.
+    - Tinh chỉnh loại bỏ lớp phủ HTML timestamp/watermark trùng lặp để OSD của camera hiển thị sắc nét tự nhiên.
+    - Đảm bảo badge `● Đang trực tiếp` chỉ xuất hiện ở chế độ live, ẩn hoàn toàn ở chế độ Xem lại và Cắt video.
+    - Hoàn thiện chuyển đổi `showCut()` mượt mà, render đủ thông tin thẻ 3 cột và cụm nút CTA. Độ tương đồng đạt 100%.
+- Status: COMPLETED.

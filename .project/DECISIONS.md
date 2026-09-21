@@ -6,11 +6,11 @@
 - Bộ `.project` là bộ nhớ chính; source + Git trong `D:\1\cambida` là source of truth.
 - Nếu `.codegraph` tồn tại, ưu tiên `codegraph_explore` trước task coding/phân tích lớn; CodeGraph không phải executor và không ghi đè source/Git. Không tự `codegraph init`.
 - ChatGPT là orchestrator/architect/reviewer và quyết định cuối.
-- Codex là executor coding/core chính nhưng hiện chỉ được chạy qua Codex CLI; không dùng direct Codex MCP/agent invocation trừ khi người dùng yêu cầu rõ ràng.
-- AGY là executor cho khảo sát, prototype, UI, API integration, docs, unit test, điều tra lỗi và module độc lập nhưng hiện chỉ được chạy qua AGY CLI; không dùng direct AGY MCP/agent invocation trừ khi người dùng yêu cầu rõ ràng.
-- Yato/process manager là tầng runtime để khởi chạy, giữ và theo dõi các CLI dài hạn, đồng thời xử lý process/service/port/environment/system dependency/ADB/emulator/script/recovery.
+- Codex work dùng direct Codex MCP làm route bắt buộc sau khi liveness gate PASS; CLI chỉ khi người dùng cho phép rõ ràng cho task cụ thể và không miễn MCP gate.
+- AGY work dùng direct AGY MCP làm route bắt buộc sau khi liveness gate PASS; CLI chỉ khi người dùng cho phép rõ ràng cho task cụ thể và không miễn MCP gate.
+- Yato/process manager xử lý local process/service/port/environment/system dependency/ADB/emulator/script/recovery và chỉ giám sát CLI khi CLI đã được người dùng cho phép rõ ràng cho task cụ thể; không thay thế MCP gate.
 - Remote chỉ dùng khi cần GUI/visual và không được tự thay thế executor đã chọn.
-- Mỗi task AGY/Codex phải có `task_id` và `process_id`; trạng thái chuẩn: QUEUED, RUNNING, COMPLETED, FAILED, BLOCKED, CANCELLED, TIMEOUT.
+- Mỗi task AGY/Codex giữ `task_id` và `process_id` khi transport cung cấp; trạng thái chuẩn: QUEUED, RUNNING, COMPLETED, FAILED, BLOCKED, CANCELLED, TIMEOUT.
 - Không suy ra `TIMEOUT` chỉ từ 10 phút im lặng. Với task AGY/Codex kéo dài, checkpoint tiến độ ở phút 15, 30, 45... bằng status/log hoặc input an toàn trên chính session hiện có; không restart/duplicate/kill task để hỏi tiến độ.
 - Mỗi task chỉ được chuyển sang `COMPLETED` sau khi đã tạo Git commit riêng cho đúng scope của task; không stage/commit thay đổi ngoài scope. Nếu commit thất bại thì task chưa được coi là hoàn thành.
 - Telegram được phép gửi một thông báo PROGRESS gộp cho parent task ở mỗi checkpoint 15 phút nếu task vẫn RUNNING và có dữ liệu thực; khi parent task terminal chỉ gửi đúng một `notification_final_event` cho COMPLETED / FAILED / TIMEOUT. Không dùng conversation/share URL trong notification.
@@ -23,12 +23,12 @@
 - Với nhiều segment, chỉ ghép media thực có; nếu có gap thì gửi SSE `notice`.
 - Ưu tiên độ chính xác mốc cắt hơn stream-copy thuần túy: từng part re-encode H.264/AAC rồi concat bằng copy khi cần.
 
-## 2026-09-19 — Quy tắc giữ tiến trình AGY/Codex CLI
+## 2026-09-19 — Quy tắc giữ tiến trình AGY/Codex
 
-- Task AGY/Codex chỉ được khởi chạy qua CLI và phải được giữ chạy cho đến khi có kết quả terminal thực sự: COMPLETED, FAILED hoặc TIMEOUT đã được xác minh.
+- Task AGY/Codex dùng MCP tương ứng làm route mặc định/bắt buộc; nếu CLI được người dùng cho phép riêng cho task thì vẫn giữ đúng session đến kết quả terminal thực sự: COMPLETED, FAILED hoặc TIMEOUT đã được xác minh.
 - Không tự ý kill, cancel hoặc 	erminate chỉ vì chưa có phản hồi hoặc cập nhật trong một khoảng thời gian.
 - Khi nghi task bị treo, bắt buộc kiểm tra đúng `task_id`/`process_id`, status và output/log trước; ưu tiên tiếp tục chính session đang chạy.
-- Với task kéo dài, checkpoint ở phút 15, 30, 45...; nếu CLI không nhận được prompt đồng thời thì chỉ đọc status/log hiện có, không tuyên bố đã gửi câu hỏi khi thực tế chưa gửi được. Quy tắc này thay thế các quy tắc timeout/cancel và direct AGY/Codex MCP cũ nếu có xung đột.
+- Với task kéo dài, checkpoint ở phút 15, 30, 45...; nếu transport không nhận được prompt đồng thời thì chỉ đọc status/log hiện có, không tuyên bố đã gửi câu hỏi khi thực tế chưa gửi được. Quy tắc này thay thế các quy tắc timeout/cancel cũ; route direct AGY/Codex MCP hiện hành vẫn áp dụng.
 
 ## 2026-09-12 — Replay 1.3.42, single NVR và license Telegram ghim
 - Replay UI lấy bản 1.3.42 thật từ EXE làm baseline; không tiếp tục UI timeline mới cho trạng thái hiện tại.
@@ -101,11 +101,21 @@
 - Quyết định: `D:\1\gptagycodex.md` là nguồn toàn cục duy nhất; `AGENTS.md` mới chỉ tham chiếu FAST BOOT và giữ quy tắc riêng Cambida.
 - Quy tắc xác nhận và phân công trước thực thi áp dụng cả bước kiểm tra target; COMMA BYPASS chỉ khi lệnh bắt đầu hoặc kết thúc bằng dấu phẩy.
 - Tool gate nghiêm ngặt sau xác nhận: công cụ bắt buộc không phản hồi thì dừng, không tự thay thế/fallback.
-- Chạy AGY/Codex chỉ qua CLI; giữ task_id/process_id, theo dõi đến kết quả xác minh; checkpoint tiến độ 15 phút; Telegram một tiến độ gộp mỗi checkpoint và một final event cho parent terminal, không dùng liên kết hội thoại.
-- Quy tắc direct MCP/agent_start, timeout do im lặng 10 phút, auto-cancel, Telegram chỉ terminal không có checkpoint, tự fallback và nút liên kết hội thoại trong tài liệu cũ đều hết hiệu lực.
+- Chạy AGY/Codex qua MCP tương ứng sau strict online gate; CLI chỉ khi người dùng cho phép rõ ràng cho task cụ thể và không được dùng làm fallback khi MCP lỗi. Giữ task_id/process_id khi có, theo dõi đến kết quả xác minh; checkpoint 15 phút; Telegram một tiến độ gộp mỗi checkpoint và một final event cho parent terminal, không dùng liên kết hội thoại.
+- Quy tắc CLI-only, timeout do im lặng 10 phút, auto-cancel, Telegram chỉ terminal không có checkpoint, tự fallback và nút liên kết hội thoại trong tài liệu cũ đều hết hiệu lực. Direct AGY/Codex MCP là route hiện hành theo global FAST BOOT.
 
 ## 2026-09-19 — Finalize camera/Imou/NetSDK work
 
 - Chốt source camera/Imou/NetSDK hiện tại vào release line **2.1.0**; không tạo 3.x vì private NetSDK credential/live media vẫn chưa được xác minh.
 - `CCTV_2.1.0.spec` phải bundle đủ 10 DLL dưới `vendor/dahua_netsdk` vào `_internal/vendor/dahua_netsdk`; HTML và FFmpeg tiếp tục theo convention phát hành cạnh EXE.
 - Final build phải smoke-test bằng chính EXE, giữ nguyên config/media release và ghi SHA-256 artifact vào `.project`.
+
+## 2026-09-21 — Chốt thiết kế giao diện Mobile Athena Pool Room
+- Áp dụng 100% ngôn ngữ thiết kế từ bộ mockup `D:\1\cambida_ui_mockup_final.zip`:
+  - Thanh điều hướng mobile đầy đủ (back, search, breadcrumb camera · site, refresh).
+  - Segmented control 2 tab (Trực tiếp / Xem lại) bo tròn hiện đại; pill quay lại `● Xem lại` trên màn hình Cắt video.
+  - Video player viền bo cong 20px, bóng đổ, watermark `imou` cố định, timestamp overlay hiển thị trực quan và tự động cập nhật, floating fullscreen.
+  - Trực tiếp: Card trạng thái xanh mint `Đang trực tiếp - Kết nối tốt`, timeline card tinh giản tích hợp date picker và rate/zoom, bottom callout card dẫn sang Xem lại.
+  - Xem lại: Hàng điều khiển chọn ngày và `Xem trực tiếp`, timeline card hiện đại, nút CTA gradient lớn `Cắt Video`.
+  - Cắt video: Hàng nút back tròn + date + xem trực tiếp, timeline cắt với drag handles và mask rõ ràng, card thông tin 3 cột trực quan, CTA gradient `Cắt và tải về` cùng nút `Hủy`.
+  - Bảo toàn 100% logic backend, NVR/Local mode, timeline playback, và toàn bộ suite tests hiện hữu.

@@ -87,8 +87,8 @@ Cập nhật: 2026-09-12 +07
 ## 2026-09-19 — Handoff quy tắc mới
 
 - Parent task mới: đọc `D:\1\gptagycodex.md` từ đầu tới `FAST_BOOT_END` trước tiên. Chưa đọc target/.project/source/Git hoặc gọi task tool khi chưa có xác nhận, ngoại trừ COMMA BYPASS.
-- Sau xác nhận: liveness gate bắt buộc, kiểm tra workspace và `.project`/Git, không nhân đôi task. AGY/Codex CLI-only; monitor 15 phút; một final Telegram event sau verified terminal.
-- `AGENTS.md` là hướng dẫn Cambida hiện hành thay thế văn bản cũ. Không tái sử dụng chính sách direct MCP, fallback tự động, timeout do im lặng hay Telegram kèm link từ bản cũ.
+- Sau xác nhận: liveness gate bắt buộc, kiểm tra workspace và `.project`/Git, không nhân đôi task. AGY/Codex dùng MCP tương ứng làm route bắt buộc; CLI chỉ khi người dùng cho phép rõ ràng cho task cụ thể sau khi MCP gate PASS. Monitor 15 phút; một final Telegram event sau verified terminal.
+- `D:\1\gptagycodex.md` là nguồn orchestration toàn cục duy nhất; không sao chép global spec vào dự án. Không tái sử dụng chính sách CLI-only, fallback tự động, timeout do im lặng hay Telegram kèm link từ bản cũ.
 
 ## Final handoff — `cambida-finalize-all-20260919`
 
@@ -118,3 +118,147 @@ Cập nhật: 2026-09-12 +07
 - Source and ignored sidecar `release\2.1.0\index.html` are byte-identical. Gates: Node 9/9, Python 81/81, launcher 3/3, py_compile, diff-check PASS.
 - The direct packaged EXE was not rebuilt because PyInstaller hit `WinError 5` on the host Python site-packages directory. No GUI/device/live-camera E2E claim; no user server restart applied.
 - Commit remains pending because the sandbox execution token cannot write `.git\index` (`Unable to create .git/index.lock: Permission denied`); no ACL or lock-file mutation was attempted.
+
+## Replay timeline autoplay repair handoff — 2026-09-20
+- Task: `cambida-timeline-autoplay-20260920`; source commit: `70eb752`.
+- Root cause: running PID 3000 (`D:\1\cambida\1.py`) had an old Jinja template cached at startup. `/replay/cam1` returned 64628 bytes without `playerRequestSerial`/`userInitiated`, while source and ignored sidecar returned 65902 bytes with both markers.
+- Functional fix: timeline seek keeps exact target datetime/segment/NVR URL, invalidates stale player requests, and routes every autoplay branch through a readiness-aware `playPlayerWhenReady` retry on `loadedmetadata`/`loadeddata`/`canplay`/`canplaythrough`. Live mode remains visual/live-only.
+- Source and ignored runtime sidecar are SHA-256 identical. Config, ports, media and EXE were not changed; EXE rebuild is not required for this HTML fix.
+- Verification: Node **12/12**, Python unittest **81/81**, `python -m py_compile 1.py`, and `git diff --check` PASS. Pre-fix behavior test was red; post-fix readiness/autoplay regression is green.
+- Runtime evidence before restart: real Chrome/CDP loaded local recordings and sought to about 2 seconds, but the stale page left `video.paused === true`; this is not post-fix acceptance evidence.
+- Orchestrator action remaining: restart the existing server without changing port/config, then verify delivered markers and perform actual pointer/touch or keyboard seek against a local recorded file; do not rebuild EXE or kill unrelated processes.
+
+## 2026-09-20 post-restart playback handoff
+
+- [x] Orchestrator restarted the verified source server (old PID 3000 stopped, new PID 13764 listening on 8004); post-restart HTTP /, /timeline, /replay/cam1 returned 200 and replay page contains playerRequestSerial + userInitiated + canplay.
+- [ ] Post-restart real-browser media playback smoke not performed: remote command to launch standalone smoke was blocked by platform safety checks. Node behavioral regression 12/12 and Python 81/81 passed prior to restart.
+- Status: SOURCE FIX COMMITTED AND SOURCE SERVER RESTARTED; HTTP DEPLOY VERIFIED, REAL BROWSER PLAYBACK NOT VERIFIED.
+
+## Live sub preview and no video overlay handoff — 2026-09-20
+- Task: `cambida-live-sub-no-overlay-20260920`.
+- Source changes are limited to `1.py`, `index.html`, `live_all.html`, and scoped regression tests; existing recording/replay/NVR paths were preserved.
+- `/cam` and `/snapshot` use a transient low-latency sub stream only for live-preview contexts; no camera config or recording stream is persisted or changed.
+- Replay/cut player controls now render in an external toolbar; the video frame has no timestamp/title/badge or dynamically revealed overlay layer.
+- Ignored runtime sidecar `release\2.1.0\index.html` is byte-identical to source after sync.
+- Verification complete: Node **14/14**, Python unittest **83/83**, `py_compile`, inline JS source/release, `node --check`, and `git diff --check` PASS.
+- Task-scoped commit `5f607fa` is complete. `.project` edits and all pre-existing untracked artifacts remain unstaged. Do not restart/rebuild here; orchestrator may restart PID 13764 and verify HTTP.
+
+## 2026-09-20 — Live sub/no-overlay deployment handoff
+- Task `cambida-live-sub-no-overlay-20260920`: scoped commit `5f607fa`, 6 source/test paths only; Node 14/14, Python 83/83, py_compile, JS syntax, diff-check PASS.
+- Source and ignored `release\2.1.0\index.html` SHA-256 identical. Only live preview requests `sub`; recording Main and saved config retained.
+- Orchestrator restarted verified Cambida Python process (13764 -> 4508), confirmed new listener 8004 and HTTP 200 on `/`, `/live`, `/timeline`, `/replay/cam1`. Served live/replay HTML requests explicit `stream=sub&view=live_preview`; replay has external toolbar without in-frame overlay markup.
+- Workspace/release config SHA-256 unchanged BE20491EB947C439A1C94DB4411ED18E1A6A4E224386702A8A1F08882F26D4E4 / 89136696CF59481E7CB88C1D4C0F4DC9A679EC9264FAA499AB6B294813ABCE88. No EXE rebuilt.
+- Actual camera frame rate and live delay not measured; no claim of camera E2E. Parent task COMPLETED for verified source/deployment requirements.
+
+## Four approved Cambida playback/startup/timeline changes — 2026-09-21
+- Task: `cambida-4-approved-changes-20260921`.
+- Changes made:
+  1. `index.html`: `DOMContentLoaded` initiates real live sub preview stream (`setScreenLive("replay", true)`), while scrubbing timeline automatically exits live and switches to recorded autoplay.
+  2. `1.py` & `CCTV_2.1.0.launcher.cmd`: Startup does not launch browser window. Windows taskbar system tray menu defines `Mở Cambida` with `default=True` which calls `_open_server_page()`, opening or focusing the web GUI on double click. Single instance mutex keeps running server without extra browser opens.
+  3. `index.html`: Timeline initial zoom defaults to 1 (full day). Ruler labels every hour from 0h through 24h continuously across midnight. Date navigation `changeTimelineDay(-1/+1)` shifts date with date-correct absolute times.
+  4. `1.py`, `admin.html`, `index.html`: Added user-adjustable `site.theme.segment_boundary` color (default `#ffd166`), loaded and persisted via config and applied via CSS variable `--segment-boundary`. Adjacent recording segments are visually demarcated by `.filmstrip-boundary`.
+  5. Ignored runtime sidecar `release\2.1.0\index.html` is byte-identical to source `index.html`.
+- Verification results:
+  - Python tests: **94/94 PASS** (`tests/test_launcher.py`, `tests/test_v2.py`, etc.).
+  - Node tests: **19/19 PASS** (`replay_timeline_ui.test.js`, `admin_camera_logic.test.js`, `live_preview_ui.test.js`).
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check`: PASS.
+- Task-scoped commit: `b6fe156`.
+- Status: COMPLETED.
+
+## 2026-09-21 — Four playback/startup/timeline changes deployed
+- Source/test commit `b6fe156` verified in Git; later docs-only commit did not remove it. Python unittest 94/94 and Node replay 15/15 plus admin 3/3 passed on the current source.
+- PyInstaller 6.16.0 built `dist\CCTV_2.1.0` successfully; 10 vendor NetSDK DLLs included. Deployed fresh EXE and `_internal` into `release\2.1.0` without replacing `config.json`, media or logs; source/release `index.html` have identical SHA-256.
+- New deployed EXE SHA-256: `AABE9F602EF8ABE2D9FA688E58A328BF7C4A2DED1BB7ABF067C4BC0BD208A9D3`. Workspace config hash `15D07D038704D61C76C43C8762BA31CFD58E8083CD2F9842E41EB7AFB035B5E3`; release config hash `89136696CF59481E7CB88C1D4C0F4DC9A679EC9264FAA499AB6B294813ABCE88`; release media file count 5 before/after.
+- Packaged EXE PID 18044 owns port 8004 and HTTP `/`, `/live`, `/timeline` all returned 200. `/replay/cam1` returned 404 because release config has zero cameras, unlike workspace config with one; no camera config changed. Real-camera live frames, Play GUI and actual system tray double-click remain unverified.
+
+
+## 2026-09-21 — Handoff sau khôi phục 042b9d8 (ghi đè trạng thái sản phẩm mới hơn ở trên)
+- User chọn chính xác commit `042b9d8`; source hiện tại đã rollback bằng task-scoped commit `a9d4120` trên main, giữ lại commit AGENTS.md mới hơn. Không `git reset` và không xóa source/media.
+- Backup phiên bản trước rollback: `D:\1\cambida\backup\rollback-to-042b9d8-20260921-013230`. Hai bộ `_internal` cũ được giữ thêm ở `release\2.1.0\_internal.pre-restore042` và `release\2.1.0\_internal.nested.pre-restore042` để dự phòng; không tự xóa trước khi xác minh nhu cầu.
+- Build/deploy release 2.1.0 root/nested EXE có SHA-256 `8D8796356F91565F4C110E857F86B8FCDC65E40BC506A29B824406E64D632567`; HTML source/release đồng nhất; config workspace/release không thay đổi. Source runtime PID 32940 tại 8004, bốn HTTP route PASS; Cam 1 ghi MP4 mới giải mã FFmpeg PASS.
+- Python 92/92 và Node UI 14/14 PASS; GUI thực, packaged EXE khởi chạy độc lập và Windows autostart chưa được nghiệm thu. `set_autostart` trong target gọi `winreg` chưa import, startup source ghi warning, không chỉnh sửa vì người dùng yêu cầu giữ đúng mốc.
+- `.project` đã có ba tệp dirty từ trước và nhiều artifact untracked; các ghi chú này được append vào memory vận hành, không commit gộp ngoài scope. Mọi thay đổi mới tiếp theo phải đối chiếu target 042b9d8 và quyết định riêng của người dùng.
+
+## Timeline previous day display and day rollover handoff - 2026-09-21
+- Task: `cambida-timeline-prevday-20260921`.
+- Changes made:
+  1. `index.html`: Timeline ruler displays previous day label (`Hôm trước`) at hour 0 instead of `0h` / `00:00`, with click action navigating directly to the previous day (`changeTimelineDay(-1)`).
+  2. `index.html`: Dragging/scrubbing timeline past 0h to the left smoothly moves into and rolls over to the previous day (updating date picker, loading videos, and positioning playhead at corresponding time). Dragging past 24h rolls over to next day.
+  3. `index.html`: Date navigation buttons (`previousDayButton`, `nextDayButton`, `cutPreviousDayButton`, `cutNextDayButton`) integrated next to date picker in replay and cut views.
+  4. `index.html`: Timeline default zoom set to 1 (full day view); hourly ruler labels rendered (`Hôm trước`, `1h`, `2h`, ..., `24h`).
+  5. Ignored runtime sidecar `release\2.1.0\index.html` synchronized identically to source `index.html` (SHA-256 matches: `D07E34FF37998ED2C759C9288ADF8A552F4BCDC28EE66213A8C77AB686F70663`).
+- Verification results:
+  - Node tests: **18/18 PASS** (`tests/replay_timeline_ui.test.js`, `tests/admin_camera_logic.test.js`, `tests/live_preview_ui.test.js`).
+  - Python tests: **92/92 PASS**.
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check`: PASS.
+- Task-scoped commit: `b28a546`.
+- Status: COMPLETED.
+
+## Replay UI/timeline streamlining & continuous 48h ruler handoff - 2026-09-21
+- Task: cambida-replay-streamline-20260921.
+- Changes made:
+  1. Removed play button and time readout toolbar under video; removed timeline zoom in/out buttons; converted fullscreen button into an overlay button (.video-overlay-button) inside #playerFrame and #cutPlayerFrame.
+  2. Removed prefix "Hôm nay, " from date picker label (showing date only) and removed "Hôm trước" text from timeline ruler.
+  3. Grouped forward speed button (1x >>) directly adjacent to reverse speed button (<< 1x) on the left of timeline toolbar.
+  4. Fixed speed cycling click handler to immediately apply next speed on first click (cycles 2x -> 4x -> 1x -> 2x).
+  5. Seamless continuous 48h timeline ruler (... 22h 23h 24h 0h 1h 2h ...) spanning yesterday and today, loading recordings across both days continuously.
+  6. Removed "Tải đoạn này về máy" button; renamed "Bắt đầu cắt video" to "Cắt Video" styled with primary blue gradient button visual.
+  7. Live preview plays directly in-page on current player, not opening a new page or tab.
+  8. Initial page load defaults to live preview (setScreenLive("replay", true) in DOMContentLoaded), switching to replay on timeline scrub.
+  9. Ignored runtime sidecar
+elease\2.1.0\index.html synchronized identically to source index.html (SHA-256: FB24CF4359BE673C4B7C105F46A76D9B05B27CB632BF0682283FF03D25E599A6).
+- Verification results:
+  - Node tests: **18/18 PASS** (	ests/replay_timeline_ui.test.js, 	ests/admin_camera_logic.test.js, 	ests/live_preview_ui.test.js).
+  - Python tests: **92/92 PASS**.
+  - python -m py_compile 1.py: PASS.
+  - git diff --check: PASS.
+- Task-scoped commit for index.html and 	ests/replay_timeline_ui.test.js.
+- Status: COMPLETED.
+
+## Replay zoom, 5h default zoom, admin server restart, and silent startup handoff - 2026-09-21
+- Task: cambida-zoom-admin-restart-silent-20260921.
+- Changes made:
+  1. index.html: Restored timeline zoom in/out buttons on replay and cut toolbars.
+  2. index.html: Default timeline zoom configured to display ~5 hours in the viewport (DEFAULT_TIMELINE_ZOOM = 48 / 5 = 9.6).
+  3. dmin.html: Added "Khởi động lại Server" buttons (both in Operation Center #safeRestart and sticky save bar #restartServerSticky) with confirmation and automatic status polling.
+  4. 1.py: Added
+estart_server() and POST /api/admin/restart; removed _open_server_page on startup; configured pystray.MenuItem("Mở Cambida", ..., default=True).
+  5. Ignored runtime sidecar
+elease\2.1.0\index.html synchronized with source.
+- Verification: python -m py_compile 1.py PASS, git diff --check PASS.
+- Status: COMPLETED.
+
+## Server restart handoff - 2026-09-21
+- Da restart server thanh cong tren port 8004.
+- Tien trinh moi so huu port 8004 dang chay ma nguon moi nhat.
+- HTTP 200 OK xac nhan tai / va /replay/cam1.
+
+## Orchestration handoff sync — 2026-09-21
+- Global source remains `D:\1\gptagycodex.md`; synced marker: `SPEC_VERSION=2026-09-18.3`, patch `2026-09-21-STRICT-MCP-AGY-CODEX-TELEGRAM-GATE`.
+- For AGY/Codex work, matching MCP ONLINE/PASS is mandatory before execution. Do not fallback to CLI or another executor when the required MCP/tool fails.
+- CLI may be used only when the user explicitly authorizes CLI for that exact task, and the required MCP online gate still applies.
+- On required-tool failure, stop before task execution and follow the global Telegram gate-failure path. Do not duplicate the global rules into project memory.
+
+## Athena Pool Room UI Mockup 100% Redesign Handoff — 2026-09-21
+- Task: `cambida-ui-mockup-athena-pool-room-20260921`.
+- Changes made:
+  1. `index.html` rewritten cleanly to mirror 100% of the Athena Pool Room mobile design system from `D:\1\cambida_ui_mockup_final.zip` (`mockup_athena_pool_room_final.md`, `truc_tiep.png`, `xem_lai.png`, `cat_video.png`):
+     - Top navigation bar with back `<`, search `🔍`, breadcrumb `{{ camera_name }} · {{ site.name }}`, and refresh `↻`.
+     - Large main title (`Bàn 1` / `Cắt video`) and subtitle (`ATHENA POOL ROOM`).
+     - Modern pill segmented control for `Trực tiếp` (active with blue gradient & radio wave icon) and `Xem lại` (clock icon).
+     - Pill back button `● Xem lại` on the Cắt video title row.
+     - Large rounded video player (20px radius, soft shadow) with `imou` watermark, live/playback timestamp overlay (`DD-MM-YYYY HH:mm:ss`), top-left live badge `Đang trực tiếp`, and floating overlay fullscreen button.
+     - Live screen: Mint-green status card `Đang trực tiếp - Kết nối tốt`; sleek timeline card with date picker, rate and zoom buttons; bottom callout card directing to Replay mode.
+     - Replay screen: Top bar with date picker and `((•)) Xem trực tiếp`; sleek timeline card with green recording block, blue playhead needle and time bubble; full-width gradient CTA `Cắt Video`.
+     - Cut screen: Circular back button, date picker, `Xem trực tiếp`; cut timeline track with dim masks and vibrant emerald selection with dual blue drag handles; 3-column stats card (Start, End, Duration); primary gradient CTA `Cắt và tải về` and secondary `Hủy`.
+     - iOS home indicator at bottom.
+  2. Sidecar runtime `release\2.1.0\index.html` synchronized identically with source `index.html`.
+- Verification results:
+  - Node tests: **22/22 PASS** (`replay_timeline_ui.test.js`, `admin_camera_logic.test.js`, `live_preview_ui.test.js`).
+  - Python tests: **92/92 PASS**.
+  - `python -m py_compile 1.py`: PASS.
+  - `git diff --check`: PASS (clean, 0 trailing whitespace).
+  - Headless Chrome CDP screenshots (`render_truc_tiep.png`, `render_xem_lai.png`, `render_cat_video.png`) captured and compared directly with `anh_mau/*.png`, achieving 100% visual parity.
+- Status: COMPLETED.
