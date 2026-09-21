@@ -374,3 +374,96 @@ test('live stream shows loading indicator while connecting and hides it on load'
   assert.equal(stream.hidden, true);
   assert.equal(stream.onload, null);
 });
+
+test('seeking into gap automatically snaps to the nearest recorded segment', () => {
+  const { context, elements } = loadReplayScript();
+  vm.runInContext(`visibleVideos = [
+    { name: 'cam1', started_at: '2026-09-20T10:00:00', end_at: '2026-09-20T10:10:00' },
+    { name: 'cam2', started_at: '2026-09-20T10:30:00', end_at: '2026-09-20T10:40:00' }
+  ]; currentVideo = null;`, context);
+
+  // 10:12:00 is 2 mins after cam1 end, 18 mins before cam2 start -> snaps to cam1 end
+  const p1 = context.getTimelineProgressForDate(new Date('2026-09-20T10:12:00'));
+  context.seekTimelineProgress('replay', p1, true, true);
+  const player = elements.get('videoPlayer');
+  assert.equal(player.paused, false);
+  assert.match(player.src, /at=2026-09-20T10%3A09%3A59/);
+  assert.equal(vm.runInContext('currentVideo.name', context), 'cam1');
+
+  // 10:28:00 is 18 mins after cam1 end, 2 mins before cam2 start -> snaps to cam2 start
+  const p2 = context.getTimelineProgressForDate(new Date('2026-09-20T10:28:00'));
+  context.seekTimelineProgress('replay', p2, true, true);
+  assert.match(player.src, /at=2026-09-20T10%3A30%3A00/);
+  assert.equal(vm.runInContext('currentVideo.name', context), 'cam2');
+
+  // 08:00:00 is before all videos -> snaps to first video start (cam1 at 10:00:00)
+  const p3 = context.getTimelineProgressForDate(new Date('2026-09-20T08:00:00'));
+  context.seekTimelineProgress('replay', p3, true, true);
+  assert.match(player.src, /at=2026-09-20T10%3A00%3A00/);
+  assert.equal(vm.runInContext('currentVideo.name', context), 'cam1');
+
+  // 12:00:00 is after all videos -> snaps to last video end (cam2 at 10:39:59)
+  const p4 = context.getTimelineProgressForDate(new Date('2026-09-20T12:00:00'));
+  context.seekTimelineProgress('replay', p4, true, true);
+  assert.match(player.src, /at=2026-09-20T10%3A39%3A59/);
+  assert.equal(vm.runInContext('currentVideo.name', context), 'cam2');
+});
+
+test('cut mode defaults to 30-minute range and updates labels and visual masks', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.ok(html.includes('id="cutMaskLeft"'));
+  assert.ok(html.includes('id="cutMaskRight"'));
+  assert.ok(html.includes('.cut-mask'));
+
+  const { context, elements } = loadReplayScript();
+  const startTarget = new Date('2026-09-20T10:15:00');
+  context.configureClipRange(startTarget);
+
+  const startMs = vm.runInContext('clipStartAt.getTime()', context);
+  const endMs = vm.runInContext('clipEndAt.getTime()', context);
+  assert.equal((endMs - startMs) / 1000, 30 * 60);
+  assert.equal(elements.get('clipStartLabel').textContent, '10:15:00');
+  assert.equal(elements.get('clipEndLabel').textContent, '10:45:00');
+  assert.equal(elements.get('clipDurationLabel').textContent, '00:30:00');
+
+  // Mask styles updated
+  assert.ok(elements.get('cutMaskLeft').style.width.endsWith('%'));
+  assert.ok(elements.get('cutMaskRight').style.width.endsWith('%'));
+});
+
+test('in cut mode, timeline cannot be dragged or sought outside the clip range bounds', () => {
+  const { context, elements } = loadReplayScript();
+  vm.runInContext(`visibleVideos = [
+    { name: 'cam1', started_at: '2026-09-20T00:00:00', end_at: '2026-09-20T23:59:59' }
+  ]; currentVideo = visibleVideos[0];
+  clipStartAt = new Date('2026-09-20T10:00:00');
+  clipEndAt = new Date('2026-09-20T10:30:00');
+  updateClipVisual();`, context);
+
+  const minProg = vm.runInContext('getTimelineProgressForDate(clipStartAt)', context);
+  const maxProg = vm.runInContext('getTimelineProgressForDate(clipEndAt)', context);
+
+  // Seeking before clipStartAt clamps to clipStartAt
+  const beforeProg = context.getTimelineProgressForDate(new Date('2026-09-20T08:00:00'));
+  context.seekTimelineProgress('cut', beforeProg, false, true);
+  assert.equal(context.timelineStates.cut.progress, minProg);
+
+  // Seeking after clipEndAt clamps to clipEndAt
+  const afterProg = context.getTimelineProgressForDate(new Date('2026-09-20T12:00:00'));
+  context.seekTimelineProgress('cut', afterProg, false, true);
+  assert.equal(context.timelineStates.cut.progress, maxProg);
+
+  // Wire cut timeline hit and test keyboard clamp
+  context.wireTimeline('cutTimelineHit', true);
+  const cutHit = context.document.getElementById('cutTimelineHit');
+
+  // Pressing ArrowLeft while at minProg cannot move below minProg
+  context.timelineStates.cut.progress = minProg;
+  cutHit.dispatch('keydown', { key: 'ArrowLeft', shiftKey: false, preventDefault() {} });
+  assert.equal(context.timelineStates.cut.progress, minProg);
+
+  // Pressing ArrowRight while at maxProg cannot move above maxProg
+  context.timelineStates.cut.progress = maxProg;
+  cutHit.dispatch('keydown', { key: 'ArrowRight', shiftKey: false, preventDefault() {} });
+  assert.equal(context.timelineStates.cut.progress, maxProg);
+});
