@@ -79,6 +79,7 @@ function loadReplayScript(cameraMode = 'nvr') {
   const document = {
     getElementById: element,
     createElement: () => makeElement(),
+    querySelector: () => null,
     querySelectorAll: () => [],
     addEventListener() {},
   };
@@ -154,8 +155,8 @@ test('playback rate controls sit together on the left and zoom buttons are resto
   assert.equal((html.match(/data-timeline-context="replay" data-direction="forward"/g) || []).length, 1);
   assert.equal((html.match(/data-timeline-context="cut" data-direction="reverse"/g) || []).length, 1);
   assert.equal((html.match(/data-timeline-context="cut" data-direction="forward"/g) || []).length, 1);
-  assert.match(html, /data-direction="reverse" data-rate="1"[^>]*>[\s\S]*?<span class="rate-label">1x<\/span>/);
-  assert.match(html, /data-direction="forward" data-rate="1"[^>]*>[\s\S]*?<span class="rate-label">1x<\/span>/);
+  assert.match(html, /data-direction="reverse" data-rate="1"[^>]*>[\s\S]*?<span class="rate-label">1X<\/span>/);
+  assert.match(html, /data-direction="forward" data-rate="1"[^>]*>[\s\S]*?<span class="rate-label">1X<\/span>/);
   assert.deepEqual([2, 4, 1], [context.getNextPlaybackRate(1), context.getNextPlaybackRate(2), context.getNextPlaybackRate(4)]);
   assert.ok(html.includes('id="timelineZoomOut"'));
   assert.ok(html.includes('id="cutTimelineZoomOut"'));
@@ -300,7 +301,7 @@ test('timeline ruler renders continuous 48-hour seamless markers with midnight t
   context.updateRuler('ruler');
   const children = elements.get('ruler').children;
   assert.equal(children.length, 49);
-  assert.equal(children[0].textContent, '0h');
+  assert.equal(children[0].textContent, 'Hôm trước');
   assert.equal(children[23].textContent, '23h');
   assert.equal(children[24].textContent, '24h0h');
   assert.equal(children[25].textContent, '1h');

@@ -307,7 +307,7 @@ class NvrPerCameraTests(unittest.TestCase):
         self.assertNotIn("thumbnail", body.lower())
         self.assertIn('class="timeline-marker"', body)
         self.assertIn("left:50%", body)
-        self.assertIn("background:var(--green)", body)
+        self.assertIn("background:var(--blue)", body)
         self.assertIn("function seekTimelineProgress", body)
         self.assertIn("pendingProgress", body)
         self.assertIn("clipStartAt", body)

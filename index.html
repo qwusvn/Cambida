@@ -303,20 +303,22 @@
       width: 34px;
       height: 34px;
       border-radius: 10px;
-      background: rgba(15, 23, 42, 0.55);
-      backdrop-filter: blur(6px);
+      background: rgba(15, 23, 42, 0.3);
+      backdrop-filter: blur(4px);
       color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       display: grid;
       place-items: center;
       padding: 0;
       cursor: pointer;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-      transition: background 0.15s ease, border-color 0.15s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      opacity: 0.7;
+      transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
     }
     .video-overlay-button:hover, .video-overlay-button:focus-visible {
       border-color: rgba(255, 255, 255, 0.5);
-      background: rgba(15, 23, 42, 0.8);
+      background: rgba(15, 23, 42, 0.6);
+      opacity: 1;
       outline: none;
     }
 
@@ -485,10 +487,18 @@
       transition: all 0.15s ease;
     }
     .rate-button svg { width: 14px; height: 14px; flex-shrink: 0; }
-    .rate-button:hover, .rate-button.is-active {
+    .rate-button:hover {
       border-color: #93c5fd;
       background: #eff6ff;
       color: var(--blue);
+      outline: none;
+    }
+    .rate-button.is-active {
+      border-color: var(--blue);
+      background: #eff6ff;
+      color: var(--blue);
+      font-weight: 800;
+      box-shadow: 0 0 0 1.5px var(--blue), 0 2px 8px rgba(29, 114, 242, 0.25);
       outline: none;
     }
     .timeline-zoom {
@@ -616,6 +626,12 @@
     }
     .ruler-midnight-prev { color: #64748b; }
     .ruler-midnight-next { color: var(--blue); font-weight: 750; }
+    .ruler-major.ruler-prev-day {
+      color: var(--blue);
+      font-weight: 750;
+      cursor: pointer;
+      pointer-events: auto;
+    }
 
     .filmstrip {
       position: absolute;
@@ -634,8 +650,8 @@
       height: 24px;
       min-width: 1px;
       border-radius: 4px;
-      background:var(--green);
-      box-shadow: inset 0 0 0 1px rgba(8, 133, 68, 0.08);
+      background:var(--blue);
+      box-shadow: inset 0 0 0 1px rgba(29, 114, 242, 0.15);
     }
     .cut-mask {
       position: absolute;
@@ -655,9 +671,9 @@
       height: 24px;
       left: 33%;
       width: 36%;
-      background: #10b981;
-      border-top: 2px solid #059669;
-      border-bottom: 2px solid #059669;
+      background: linear-gradient(90deg, #1d72f2 0%, #3b82f6 40%, #8b5cf6 100%);
+      border-top: 2px solid #1d72f2;
+      border-bottom: 2px solid #8b5cf6;
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
       pointer-events: none;
     }
@@ -897,16 +913,6 @@
     .done-panel h2 { font-size: 19px; margin: 0 0 6px; font-weight: 800; }
     .done-panel p { font-size: 13px; color: var(--text-muted); margin: 0 0 18px; }
 
-    /* Home Indicator */
-    .home-indicator {
-      width: 134px;
-      height: 5px;
-      border-radius: 10px;
-      background: #0f172a;
-      margin: 20px auto 4px;
-      opacity: 0.85;
-    }
-
     /* Dynamic Visibility Rules */
     .screen.is-live [data-cut-only],
     .screen.is-live .warning,
@@ -971,8 +977,8 @@
       <!-- Row 2: Tua (rate) on left, Zoom on right -->
       <div class="timeline-sub-row" role="toolbar" aria-label="Điều khiển tua và thu phóng timeline">
         <div class="timeline-rate-group">
-          <button class="rate-button" type="button" data-timeline-context="replay" data-direction="reverse" data-rate="1" title="Phát lùi 1 lần" aria-label="Phát lùi 1 lần"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 6-6 6 6 6M20 6l-6 6 6 6"/></svg><span class="rate-label">1x</span></button>
-          <button class="rate-button" type="button" data-timeline-context="replay" data-direction="forward" data-rate="1" title="Phát tiến 1 lần" aria-label="Phát tiến 1 lần"><span class="rate-label">1x</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 6 6-6 6M11 6l6 6-6 6"/></svg></button>
+          <button class="rate-button" type="button" data-timeline-context="replay" data-direction="reverse" data-rate="1" title="Phát lùi 1 lần" aria-label="Phát lùi 1 lần"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 6-6 6 6 6M20 6l-6 6 6 6"/></svg><span class="rate-label">1X</span></button>
+          <button class="rate-button is-active" type="button" data-timeline-context="replay" data-direction="forward" data-rate="1" title="Phát tiến 1 lần" aria-label="Phát tiến 1 lần"><span class="rate-label">1X</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 6 6-6 6M11 6l6 6-6 6"/></svg></button>
         </div>
         <div class="timeline-zoom" role="group" aria-label="Thu phóng timeline">
           <button id="timelineZoomOut" class="zoom-button" type="button" title="Thu nhỏ timeline" aria-label="Thu nhỏ timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
@@ -1040,8 +1046,8 @@
     <div class="timeline-card" id="cutTimelineCard">
       <div class="timeline-toolbar" role="toolbar" aria-label="Điều khiển timeline cắt video">
         <div class="timeline-rate-group">
-          <button class="rate-button" type="button" data-timeline-context="cut" data-direction="reverse" data-rate="1" title="Phát lùi 1 lần" aria-label="Phát lùi 1 lần"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 6-6 6 6 6M20 6l-6 6 6 6"/></svg><span class="rate-label">1x</span></button>
-          <button class="rate-button" type="button" data-timeline-context="cut" data-direction="forward" data-rate="1" title="Phát tiến 1 lần" aria-label="Phát tiến 1 lần"><span class="rate-label">1x</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 6 6-6 6M11 6l6 6-6 6"/></svg></button>
+          <button class="rate-button" type="button" data-timeline-context="cut" data-direction="reverse" data-rate="1" title="Phát lùi 1 lần" aria-label="Phát lùi 1 lần"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 6-6 6 6 6M20 6l-6 6 6 6"/></svg><span class="rate-label">1X</span></button>
+          <button class="rate-button is-active" type="button" data-timeline-context="cut" data-direction="forward" data-rate="1" title="Phát tiến 1 lần" aria-label="Phát tiến 1 lần"><span class="rate-label">1X</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 6 6 6-6 6M11 6l6 6-6 6"/></svg></button>
         </div>
         <div class="timeline-zoom" role="group" aria-label="Thu phóng timeline cắt video">
           <button id="cutTimelineZoomOut" class="zoom-button" type="button" title="Thu nhỏ timeline" aria-label="Thu nhỏ timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
@@ -1103,9 +1109,6 @@
       <div class="actions"><a id="mergedDownloadBtn" class="action primary cut-primary" href="#" aria-disabled="true">Tải về máy</a><button id="doneBackButton" class="action cancel" type="button">Quay về xem lại</button></div>
     </div>
   </section>
-
-  <!-- iOS Home Indicator -->
-  <div class="home-indicator" aria-hidden="true"></div>
 </main>
 
 <script>
@@ -1191,7 +1194,46 @@
     return bestMatch;
   }
   function renderTimelineCoverage(targetId){const target=$(targetId);if(!target)return;target.textContent="";const day=getTimelineDayBounds(),span=day.end-day.start,ranges=visibleVideos.map(v=>{const r=getVideoRange(v);if(!r)return null;const start=new Date(Math.max(day.start.getTime(),r.start.getTime())),end=new Date(Math.min(day.end.getTime(),r.end.getTime()));return end>start?{start,end,labels:[`${fmtTime(start)} - ${fmtTime(end)}`]}:null;}).filter(Boolean).sort((a,b)=>a.start-b.start),merged=[];ranges.forEach(range=>{const previous=merged[merged.length-1];if(previous&&range.start.getTime()-previous.end.getTime()<=COVERAGE_JITTER_MS){previous.end=new Date(Math.max(previous.end.getTime(),range.end.getTime()));previous.labels.push(range.labels[0]);}else merged.push(range);});merged.forEach(range=>{const cell=document.createElement("div");cell.className="filmstrip-cell";cell.style.left=`${(range.start-day.start)/span*100}%`;cell.style.width=`${(range.end-range.start)/span*100}%`;cell.title=range.labels.join(" · ");target.appendChild(cell);});}
-  function updateRuler(targetId){const el=$(targetId);if(!el)return;el.textContent="";for(let hour=0;hour<=48;hour+=1){const s=document.createElement("span");s.className="ruler-major";s.style.left=`${(hour/48)*100}%`;if(hour===24){s.classList.add("ruler-midnight");const prevSpan=document.createElement("span");prevSpan.className="ruler-midnight-prev";prevSpan.textContent="24h";const nextSpan=document.createElement("span");nextSpan.className="ruler-midnight-next";nextSpan.textContent="0h";s.appendChild(prevSpan);s.appendChild(nextSpan);}else if(hour<24){s.textContent=`${hour}h`;}else if(hour===48){s.textContent="24h";}else{s.textContent=`${hour-24}h`;}el.appendChild(s);}}
+  function formatBubbleTime(date){
+    if(!date||Number.isNaN(date.getTime()))return "--:--:--";
+    const bounds=getTimelineDayBounds(),todayStart=new Date(bounds.start.getTime()+86400000);
+    const timeStr=fmtTime(date);
+    return date<todayStart?`${timeStr} (Hôm trước)`:timeStr;
+  }
+  function updateRuler(targetId){
+    const el=$(targetId);
+    if(!el)return;
+    el.textContent="";
+    for(let hour=0;hour<=48;hour+=1){
+      const s=document.createElement("span");
+      s.className="ruler-major";
+      s.style.left=`${(hour/48)*100}%`;
+      if(hour===0){
+        s.textContent="Hôm trước";
+        s.classList.add("ruler-prev-day");
+        s.title="Xem ngày hôm trước";
+        s.setAttribute("aria-label","Xem ngày hôm trước");
+        s.addEventListener("click",()=>changeTimelineDay(-1));
+      }else if(hour===24){
+        s.classList.add("ruler-midnight");
+        const prevSpan=document.createElement("span");
+        prevSpan.className="ruler-midnight-prev";
+        prevSpan.textContent="24h";
+        const nextSpan=document.createElement("span");
+        nextSpan.className="ruler-midnight-next";
+        nextSpan.textContent="0h";
+        s.appendChild(prevSpan);
+        s.appendChild(nextSpan);
+      }else if(hour<24){
+        s.textContent=`${hour}h`;
+      }else if(hour===48){
+        s.textContent="24h";
+      }else{
+        s.textContent=`${hour-24}h`;
+      }
+      el.appendChild(s);
+    }
+  }
 
   function clamp(value,min,max){return Math.min(max,Math.max(min,value));}
   function getTimelineContext(player){return player?.id==="cutPlayer"?"cut":"replay";}
@@ -1213,15 +1255,15 @@
   function getPlayerProgress(player){const duration=getMediaDuration(player);return duration?clamp((Number(player?.currentTime)||0)/duration,0,1):0;}
   function getTimelineProgressForPlayer(player){const base=getPlayerBaseDate(player);if(!base)return timelineStates[getTimelineContext(player)]?.progress??0;return getTimelineProgressForDate(new Date(base.getTime()+(Number(player?.currentTime)||0)*1000));}
   function getTimelineProgressAt(context,clientX){const state=timelineStates[context],viewport=$(state.viewportId);if(!viewport)return 0;const rect=viewport.getBoundingClientRect(),width=Math.max(1,rect.width),trackWidth=width*state.zoom;return clamp((clientX-rect.left-state.offset)/trackWidth,0,1);}
-  function renderTimeline(context,progress=null){const state=timelineStates[context],track=$(state.trackId),viewport=$(state.viewportId),hit=$(state.hitId);if(!state||!track||!viewport)return;const resolved=clamp(progress==null?state.progress:progress,0,1),width=Math.max(0,viewport.getBoundingClientRect().width),trackWidth=width*state.zoom;state.progress=resolved;state.offset=width/2-resolved*trackWidth;track.style.width=`${Math.max(1,state.zoom*100)}%`;track.style.transform=`translate3d(${state.offset}px,0,0)`;const bubble=$(state.bubbleId);if(bubble)bubble.textContent=fmtTime(getTimelineDateAtProgress(resolved));if(hit){hit.setAttribute("aria-valuenow",String(Math.round(resolved*100)));hit.setAttribute("aria-valuetext",fmtTime(getTimelineDateAtProgress(resolved)));}}
+  function renderTimeline(context,progress=null){const state=timelineStates[context],track=$(state.trackId),viewport=$(state.viewportId),hit=$(state.hitId);if(!state||!track||!viewport)return;const resolved=clamp(progress==null?state.progress:progress,0,1),width=Math.max(0,viewport.getBoundingClientRect().width),trackWidth=width*state.zoom;state.progress=resolved;state.offset=width/2-resolved*trackWidth;track.style.width=`${Math.max(1,state.zoom*100)}%`;track.style.transform=`translate3d(${state.offset}px,0,0)`;const bubble=$(state.bubbleId);if(bubble)bubble.textContent=formatBubbleTime(getTimelineDateAtProgress(resolved));if(hit){hit.setAttribute("aria-valuenow",String(Math.round(resolved*100)));hit.setAttribute("aria-valuetext",formatBubbleTime(getTimelineDateAtProgress(resolved)));}}
   function syncTimelineForPlayer(context,player){if(!currentVideo)return;let prog=getTimelineProgressForPlayer(player);if(context==="cut"&&clipStartAt&&clipEndAt)prog=clamp(prog,getTimelineProgressForDate(clipStartAt),getTimelineProgressForDate(clipEndAt));renderTimeline(context,prog);}
   function setAnchor(anchor,url,name){ if(!anchor)return; if(!url){anchor.href="#";anchor.setAttribute("aria-disabled","true");anchor.removeAttribute("download");anchor.tabIndex=-1;return;} anchor.href=url;anchor.setAttribute("download",name||"");anchor.setAttribute("aria-disabled","false");anchor.tabIndex=0; }
   function getPlaybackState(player){let state=playbackStates.get(player);if(!state){state={mode:"normal",rate:1,reverseTimer:null};playbackStates.set(player,state);}return state;}
-  function getPlaybackRateButton(context,direction){return document.querySelector(`.rate-button[data-timeline-context="${context}"][data-direction="${direction}"]`);}
+  function getPlaybackRateButton(context,direction){return typeof document.querySelector==="function"?document.querySelector(`.rate-button[data-timeline-context="${context}"][data-direction="${direction}"]`):null;}
   function getNextPlaybackRate(rate){return rate===1?2:rate===2?4:1;}
-  function updatePlaybackRateButton(button,rate){if(!button)return;const resolved=rate===2||rate===4?rate:1,direction=button.dataset.direction==="reverse"?"reverse":"forward",label=button.querySelector(".rate-label"),verb=direction==="reverse"?"Phát lùi":"Phát tiến";button.dataset.rate=String(resolved);if(label)label.textContent=`${resolved}x`;button.title=`${verb} ${resolved} lần`;button.setAttribute("aria-label",`${verb} ${resolved} lần`);}
+  function updatePlaybackRateButton(button,rate){if(!button)return;const resolved=rate===2||rate===4?rate:1,direction=button.dataset.direction==="reverse"?"reverse":"forward",label=button.querySelector(".rate-label"),verb=direction==="reverse"?"Phát lùi":"Phát tiến";button.dataset.rate=String(resolved);if(label)label.textContent=`${resolved}X`;button.title=`${verb} ${resolved} lần`;button.setAttribute("aria-label",`${verb} ${resolved} lần`);}
   function clearPlaybackButtons(context){document.querySelectorAll(`.rate-button[data-timeline-context="${context}"]`).forEach(button=>button.classList.remove("is-active"));}
-  function stopPlayback(player,context=getTimelineContext(player)){if(!player)return;const state=getPlaybackState(player);if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;}state.mode="normal";state.rate=1;player.playbackRate=1;clearPlaybackButtons(context);}
+  function stopPlayback(player,context=getTimelineContext(player)){if(!player)return;const state=getPlaybackState(player);if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;}state.mode="normal";state.rate=1;player.playbackRate=1;clearPlaybackButtons(context);const fwd=getPlaybackRateButton(context,"forward");if(fwd){updatePlaybackRateButton(fwd,1);fwd.classList.add("is-active");}}
   function syncPlayerUi(player,context,time){
     const duration=getMediaDuration(player);let current=clamp(Number(player.currentTime)||0,0,duration);
     if(context==="cut"&&clipEndAt){const base=getPlayerBaseDate(player);if(base){const endSec=(clipEndAt.getTime()-base.getTime())/1000;if(current>=endSec){player.pause();current=endSec;player.currentTime=endSec;}}}
@@ -1231,8 +1273,8 @@
     if(tsEl&&base){tsEl.textContent=fmtFullDateTime(new Date(base.getTime()+current*1000));}
     syncTimelineForPlayer(context,player);
   }
-  function startReversePlayback(context,rate,button=getPlaybackRateButton(context,"reverse")){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;const state=getPlaybackState(player);if(state.reverseTimer)clearInterval(state.reverseTimer);player.pause();player.playbackRate=1;state.mode="reverse";state.rate=rate;clearPlaybackButtons(context);if(rate>1)button?.classList.add("is-active");state.reverseTimer=setInterval(()=>{const next=clamp((Number(player.currentTime)||0)-0.06*rate,0,getMediaDuration(player));player.currentTime=next;syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));if(next<=0)stopPlayback(player,context);},60);}
-  function setPlaybackRate(context,direction,button=null){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;button=button||getPlaybackRateButton(context,direction);const state=getPlaybackState(player),rate=(state.mode===direction)?getNextPlaybackRate(state.rate):2;updatePlaybackRateButton(button,rate);if(direction==="reverse"){startReversePlayback(context,rate,button);return;}if(state.reverseTimer)clearInterval(state.reverseTimer);state.reverseTimer=null;state.mode="forward";state.rate=rate;player.playbackRate=rate;clearPlaybackButtons(context);if(rate>1)button?.classList.add("is-active");player.play().catch(()=>{});}
+  function startReversePlayback(context,rate,button=getPlaybackRateButton(context,"reverse")){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;const state=getPlaybackState(player);if(state.reverseTimer)clearInterval(state.reverseTimer);player.pause();player.playbackRate=1;state.mode="reverse";state.rate=rate;clearPlaybackButtons(context);button?.classList.add("is-active");state.reverseTimer=setInterval(()=>{const next=clamp((Number(player.currentTime)||0)-0.06*rate,0,getMediaDuration(player));player.currentTime=next;syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));if(next<=0)stopPlayback(player,context);},60);}
+  function setPlaybackRate(context,direction,button=null){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;button=button||getPlaybackRateButton(context,direction);const state=getPlaybackState(player),rate=(state.mode===direction)?getNextPlaybackRate(state.rate):2;updatePlaybackRateButton(button,rate);if(direction==="reverse"){startReversePlayback(context,rate,button);return;}if(state.reverseTimer)clearInterval(state.reverseTimer);state.reverseTimer=null;state.mode="forward";state.rate=rate;player.playbackRate=rate;clearPlaybackButtons(context);button?.classList.add("is-active");player.play().catch(()=>{});}
   function wirePlaybackControls(context){document.querySelectorAll(`.rate-button[data-timeline-context="${context}"]`).forEach(button=>button.addEventListener("click",()=>setPlaybackRate(context,button.dataset.direction,button)));}
   function applyVideoTransform(frame,player,state){const maxX=Math.max(0,frame.clientWidth*(state.scale-1)/2),maxY=Math.max(0,frame.clientHeight*(state.scale-1)/2);state.x=clamp(state.x,-maxX,maxX);state.y=clamp(state.y,-maxY,maxY);player.style.transform=`translate3d(${state.x}px,${state.y}px,0) scale(${state.scale})`;}
   function resetVideoTransform(frame){const state=gestureStates.get(frame);if(!state)return;state.scale=1;state.x=0;state.y=0;const player=frame.querySelector("video");if(player)applyVideoTransform(frame,player,state);}
@@ -1410,7 +1452,7 @@
         renderTimeline(context,next);
         const bubble=$(timelineStates[context].bubbleId);
         if(bubble){
-          bubble.textContent=fmtTime(getTimelineDateAtProgress(next));
+          bubble.textContent=formatBubbleTime(getTimelineDateAtProgress(timelineDrag.pendingProgress??next));
         }
       }else if(cut)updateCutFromPointer(context,ev.clientX);
     });
