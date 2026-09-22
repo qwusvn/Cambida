@@ -26,6 +26,10 @@ import threading
 import time
 import uuid
 import webbrowser
+try:
+    import winreg
+except ImportError:
+    winreg = None
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -82,12 +86,8 @@ FFMPEG_PATH = (
     else os.path.join(BUNDLE_DIR, "ffmpeg.exe")
 )
 INSTANCE_MUTEX_NAME = "Local\\CambiDa_CCTV_Recorder_SingleInstance"
-# Lưu trên ổ D: nếu có, hoặc thư mục Temp của máy để bản mở sau biết PID
-INSTANCE_STATE_FILE = (
-    r"D:\\cctv_recorder_instance.json"
-    if os.path.exists(r"D:\\")
-    else os.path.join(tempfile.gettempdir(), "cctv_recorder_instance.json")
-)
+# Lưu trên thư mục Temp chuẩn của hệ điều hành để bản mở sau biết PID độc lập mọi ổ đĩa
+INSTANCE_STATE_FILE = os.path.join(tempfile.gettempdir(), "cctv_recorder_instance.json")
 INSTANCE_MUTEX_HANDLE = None
 
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
@@ -4971,6 +4971,8 @@ def merge_video():
         )
 
 def set_autostart(enable=True):
+    if not winreg:
+        return
     try:
         key = winreg.OpenKey(
             winreg.HKEY_CURRENT_USER,
@@ -4979,17 +4981,18 @@ def set_autostart(enable=True):
             winreg.KEY_SET_VALUE,
         )
         if enable:
+            target_exe = sys.executable if getattr(sys, "frozen", False) else os.path.abspath(sys.argv[0])
             winreg.SetValueEx(
                 key,
                 "CCTV_System",
                 0,
                 winreg.REG_SZ,
-                os.path.abspath(sys.argv[0]),
+                f'"{target_exe}"',
             )
         else:
             try:
                 winreg.DeleteValue(key, "CCTV_System")
-            except:
+            except Exception:
                 pass
         winreg.CloseKey(key)
     except Exception as e:

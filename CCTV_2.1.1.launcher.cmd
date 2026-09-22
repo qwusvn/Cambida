@@ -1,17 +1,20 @@
 @echo off
 setlocal
 set "ROOT=%~dp0"
-set "EXE=%ROOT%release\2.1.1\CCTV_2.1.1.exe"
+set "EXE=%ROOT%CCTV_2.1.1.exe"
+if not exist "%EXE%" set "EXE=%ROOT%release\2.1.1\CCTV_2.1.1.exe"
 set "URL=http://127.0.0.1:8004/"
 
 if not exist "%EXE%" (
-  echo Khong tim thay %EXE%
+  echo Khong tim thay CCTV_2.1.1.exe
   pause
   exit /b 1
 )
 
+for %%F in ("%EXE%") do set "EXE_DIR=%%~dpF"
+
 call :port_ready
-if errorlevel 1 start "Cambida CCTV" "%EXE%"
+if errorlevel 1 start "Cambida CCTV" /D "%EXE_DIR%" "%EXE%"
 
 for /l %%N in (1,1,30) do (
   call :port_ready
