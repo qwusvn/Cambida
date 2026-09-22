@@ -838,12 +838,47 @@
       letter-spacing: -0.1px;
     }
     .primary.cut-primary {
+      position: relative;
+      overflow: hidden;
       border: 0;
       color: #ffffff;
       background: linear-gradient(90deg, #1d72f2 0%, #3b82f6 30%, #8b5cf6 70%, #a855f7 100%);
       box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
     }
     .primary.cut-primary:hover { filter: brightness(1.05); }
+    .merge-button-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 0%;
+      background: linear-gradient(90deg, #1d72f2 0%, #3b82f6 35%, #8b5cf6 70%, #a855f7 100%);
+      transition: width 0.25s ease;
+      opacity: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+    .action.cut-primary.is-processing {
+      background: #1e293b;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
+    }
+    .action.cut-primary.is-processing:disabled {
+      opacity: 1;
+      cursor: wait;
+    }
+    .action.cut-primary.is-processing .merge-button-fill {
+      opacity: 1;
+    }
+    .action-content {
+      position: relative;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      pointer-events: none;
+    }
     .action.cancel {
       border: 0;
       color: #475569;
@@ -895,31 +930,7 @@
       font-weight: 600;
     }
     .progress-box {
-      margin: 0 0 12px;
-      padding: 12px 14px;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: #f8fafc;
-    }
-    .merge-track {
-      height: 8px;
-      border-radius: 10px;
-      background: #e2e8f0;
-      overflow: hidden;
-    }
-    .merge-fill {
-      height: 100%;
-      width: 0;
-      background: linear-gradient(90deg, var(--blue), var(--purple));
-      border-radius: inherit;
-      transition: width 0.2s ease;
-    }
-    .merge-label {
-      margin: 6px 0 0;
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 11px;
-      font-weight: 600;
+      display: none !important;
     }
 
     /* Done Panel */
@@ -1142,8 +1153,11 @@
 
     <div class="actions cut-actions" data-cut-only>
       <button id="mergeButton" class="action primary cut-primary" type="button">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="m20 4-8.5 8.5M20 20l-5-5M11.5 12.5 8.5 15.5"/></svg>
-        <span>Cắt và tải về</span>
+        <div id="mergeButtonFill" class="merge-button-fill"></div>
+        <div class="action-content">
+          <svg id="mergeButtonIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="m20 4-8.5 8.5M20 20l-5-5M11.5 12.5 8.5 15.5"/></svg>
+          <span id="mergeButtonText">Cắt và tải về</span>
+        </div>
       </button>
       <button id="cancelCutButton" class="action cancel" type="button">Hủy</button>
     </div>
@@ -1172,7 +1186,7 @@
   let allVideos = [], visibleVideos = [], currentVideo = null, currentVideoIndex = -1;
   let clipStartAt = null, clipEndAt = null, mergeEventSource = null, timelineDrag = null;
   let fetchSerial = 0, activeScreen = "replay", replayTitle = "";
-  var DEFAULT_TIMELINE_ZOOM = 48 / 5; // ~9.6, displaying ~5 hours visible in the viewport
+  var DEFAULT_TIMELINE_ZOOM = 48 / 2; // 24 = 48h / 2h, displaying 2 hours visible in the viewport
   var timelineStates = {
     replay: {trackId:"timelineTrack", viewportId:"timelineViewport", hitId:"timelineHit", markerId:"timelineMarker", bubbleId:"timeBubble", zoomInId:"timelineZoomIn", zoomOutId:"timelineZoomOut", zoom:DEFAULT_TIMELINE_ZOOM, offset:0, progress:.75},
     cut: {trackId:"cutTimelineTrack", viewportId:"cutTimelineViewport", hitId:"cutTimelineHit", markerId:"cutTimelineMarker", bubbleId:"cutTimeBubble", zoomInId:"cutTimelineZoomIn", zoomOutId:"cutTimelineZoomOut", zoom:DEFAULT_TIMELINE_ZOOM, offset:0, progress:.75}
@@ -1244,20 +1258,19 @@
   function renderTimelineCoverage(targetId){const target=$(targetId);if(!target)return;target.textContent="";const day=getTimelineDayBounds(),span=day.end-day.start,ranges=visibleVideos.map(v=>{const r=getVideoRange(v);if(!r)return null;const start=new Date(Math.max(day.start.getTime(),r.start.getTime())),end=new Date(Math.min(day.end.getTime(),r.end.getTime()));return end>start?{start,end,labels:[`${fmtTime(start)} - ${fmtTime(end)}`]}:null;}).filter(Boolean).sort((a,b)=>a.start-b.start),merged=[];ranges.forEach(range=>{const previous=merged[merged.length-1];if(previous&&range.start.getTime()-previous.end.getTime()<=COVERAGE_JITTER_MS){previous.end=new Date(Math.max(previous.end.getTime(),range.end.getTime()));previous.labels.push(range.labels[0]);}else merged.push(range);});merged.forEach(range=>{const cell=document.createElement("div");cell.className="filmstrip-cell";cell.style.left=`${(range.start-day.start)/span*100}%`;cell.style.width=`${(range.end-range.start)/span*100}%`;cell.title=range.labels.join(" · ");target.appendChild(cell);});}
   function formatBubbleTime(date){
     if(!date||Number.isNaN(date.getTime()))return "--:--:--";
-    const bounds=getTimelineDayBounds(),todayStart=new Date(bounds.start.getTime()+86400000);
-    const timeStr=fmtTime(date);
-    return date<todayStart?`${timeStr} (Hôm trước)`:timeStr;
+    return fmtTime(date);
   }
   function updateRuler(targetId){
     const el=$(targetId);
     if(!el)return;
     el.textContent="";
+    const fmtRulerHour=h=>`${pad(h)}:00`;
     for(let hour=0;hour<=48;hour+=1){
       const s=document.createElement("span");
       s.className="ruler-major";
       s.style.left=`${(hour/48)*100}%`;
       if(hour===0){
-        s.textContent="Hôm trước";
+        s.textContent="00:00";
         s.classList.add("ruler-prev-day");
         s.title="Xem ngày hôm trước";
         s.setAttribute("aria-label","Xem ngày hôm trước");
@@ -1266,18 +1279,18 @@
         s.classList.add("ruler-midnight");
         const prevSpan=document.createElement("span");
         prevSpan.className="ruler-midnight-prev";
-        prevSpan.textContent="24h";
+        prevSpan.textContent="24:00";
         const nextSpan=document.createElement("span");
         nextSpan.className="ruler-midnight-next";
-        nextSpan.textContent="0h";
+        nextSpan.textContent="00:00";
         s.appendChild(prevSpan);
         s.appendChild(nextSpan);
       }else if(hour<24){
-        s.textContent=`${hour}h`;
+        s.textContent=fmtRulerHour(hour);
       }else if(hour===48){
-        s.textContent="24h";
+        s.textContent="24:00";
       }else{
-        s.textContent=`${hour-24}h`;
+        s.textContent=fmtRulerHour(hour-24);
       }
       el.appendChild(s);
     }
@@ -1597,9 +1610,7 @@
   }
   function formatClipTime(date){
     if(!date||Number.isNaN(date.getTime()))return "--:--:--";
-    const bounds=getTimelineDayBounds(),todayStart=new Date(bounds.start.getTime()+86400000);
-    const timeStr=fmtTime(date);
-    return date<todayStart?`${timeStr} (Hôm trước)`:timeStr;
+    return fmtTime(date);
   }
   function updateClipVisual(){
     if(!clipStartAt||!clipEndAt)return;
@@ -1710,7 +1721,16 @@
     window.scrollTo({top:0,behavior:"smooth"});
   }
 
+  function resetMergeButton(){
+    const btn=$("mergeButton"),fill=$("mergeButtonFill"),text=$("mergeButtonText");
+    if(btn){btn.disabled=false;btn.classList.remove("is-processing");}
+    if(fill)fill.style.width="0%";
+    if(text)text.textContent="Cắt và tải về";
+    const oldProg=$("mergeProgress");if(oldProg)oldProg.hidden=true;
+  }
+
   function showCut(){
+    resetMergeButton();
     if(!currentVideo){
       if(visibleVideos && visibleVideos.length){
         currentVideo=visibleVideos[0];
@@ -1761,7 +1781,15 @@
     return{start,end,duration:(end-start)/1000};
   }
 
-  function setMergeProgress(p,label){const v=Math.max(0,Math.min(100,Number(p)||0));$("mergeProgressFill").style.width=`${v}%`;$("mergeProgressLabel").textContent=label||`${v}%`;}
+  function setMergeProgress(p,label){
+    const v=Math.max(0,Math.min(100,Number(p)||0));
+    const btn=$("mergeButton"),fill=$("mergeButtonFill"),text=$("mergeButtonText");
+    if(btn)btn.classList.add("is-processing");
+    if(fill)fill.style.width=`${v}%`;
+    if(text)text.textContent=label||`Đang xử lý... ${v}%`;
+    const oldFill=$("mergeProgressFill");if(oldFill)oldFill.style.width=`${v}%`;
+    const oldLbl=$("mergeProgressLabel");if(oldLbl)oldLbl.textContent=label||`${v}%`;
+  }
 
   function mergeVideo(){
     if(!currentVideo)return;
@@ -1769,21 +1797,37 @@
     if(!bounds)return;
     if(bounds.duration>MAX_MERGE_SECONDS){$("cutError").textContent=`Đoạn cắt không được dài hơn ${MAX_MERGE_MINUTES} phút.`;$("cutError").hidden=false;return;}
     if(mergeEventSource)mergeEventSource.close();
-    $("cutError").hidden=true;$("mergeProgress").hidden=false;$("mergeButton").disabled=true;
+    $("cutError").hidden=true;
+    if($("mergeProgress"))$("mergeProgress").hidden=false;
+    $("mergeButton").disabled=true;
     setMergeProgress(3,"Đang chuẩn bị video...");
     const url=`/merge?cam_id=${encodeURIComponent(CAMERA_ID)}&start=${encodeURIComponent(formatLocalSecond(bounds.start))}&end=${encodeURIComponent(formatLocalSecond(bounds.end))}`;
     mergeEventSource=new EventSource(url);
     mergeEventSource.onmessage=(event)=>{
       const data=String(event.data||"");
       if(data.startsWith("notice:")){setMergeProgress(8,data.slice(7));return}
-      if(data.startsWith("error:")){mergeEventSource.close();mergeEventSource=null;$("cutError").textContent=data.slice(6)||"Không thể cắt video.";$("cutError").hidden=false;$("mergeProgress").hidden=true;$("mergeButton").disabled=false;return}
-      if(data.startsWith("done:")){const file=data.slice(5).trim();mergeEventSource.close();mergeEventSource=null;setAnchor($("mergedDownloadBtn"),`/download/${encodeURIComponent(file)}`,file);$("mergeProgress").hidden=true;$("mergeButton").disabled=false;showDone();return}
+      if(data.startsWith("error:")){
+        mergeEventSource.close();mergeEventSource=null;
+        $("cutError").textContent=data.slice(6)||"Không thể cắt video.";
+        $("cutError").hidden=false;
+        resetMergeButton();
+        return;
+      }
+      if(data.startsWith("done:")){
+        const file=data.slice(5).trim();
+        mergeEventSource.close();mergeEventSource=null;
+        setAnchor($("mergedDownloadBtn"),`/download/${encodeURIComponent(file)}`,file);
+        resetMergeButton();
+        showDone();
+        return;
+      }
       const p=parseInt(data,10);if(Number.isFinite(p))setMergeProgress(p,`Đang xử lý... ${p}%`);
     };
     mergeEventSource.onerror=()=>{
       mergeEventSource?.close();mergeEventSource=null;
       $("cutError").textContent="Mất kết nối khi cắt video. Hãy kiểm tra lại kết quả hoặc thử lại.";
-      $("cutError").hidden=false;$("mergeProgress").hidden=true;$("mergeButton").disabled=false;
+      $("cutError").hidden=false;
+      resetMergeButton();
     };
   }
 

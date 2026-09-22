@@ -159,7 +159,7 @@ test('preset playback rate buttons (0.5X, 1X, 2X, 4X) sit with section headers a
   assert.ok(html.includes('Thu phóng'));
   assert.ok(html.includes('id="timelineZoomOut"'));
   assert.ok(html.includes('id="cutTimelineZoomOut"'));
-  assert.ok(Math.abs(context.DEFAULT_TIMELINE_ZOOM - 9.6) < 0.1);
+  assert.ok(Math.abs(context.DEFAULT_TIMELINE_ZOOM - 24) < 0.1);
 });
 
 test('live mode keeps timeline visible and jumps it to the current day/time', () => {
@@ -303,12 +303,12 @@ test('timeline ruler renders continuous 48-hour seamless markers with midnight t
   context.updateRuler('ruler');
   const children = elements.get('ruler').children;
   assert.equal(children.length, 49);
-  assert.equal(children[0].textContent, 'Hôm trước');
-  assert.equal(children[23].textContent, '23h');
-  assert.equal(children[24].textContent, '24h0h');
-  assert.equal(children[25].textContent, '1h');
-  assert.equal(children[26].textContent, '2h');
-  assert.equal(children[48].textContent, '24h');
+  assert.equal(children[0].textContent, '00:00');
+  assert.equal(children[23].textContent, '23:00');
+  assert.equal(children[24].textContent, '24:0000:00');
+  assert.equal(children[25].textContent, '01:00');
+  assert.equal(children[26].textContent, '02:00');
+  assert.equal(children[48].textContent, '24:00');
 });
 
 test('previous-day navigation keeps replay and cut on date-correct absolute times', () => {
@@ -471,7 +471,7 @@ test('in cut mode, timeline cannot be dragged or sought outside the clip range b
   assert.equal(context.timelineStates.cut.progress, maxProg);
 });
 
-test('cut mode shows (Hôm trước) when clip range starts or ends on previous day', () => {
+test('cut mode formats clip times cleanly as HH:mm:ss without (Hôm trước) indicator', () => {
   const { context, elements } = loadReplayScript();
   elements.get('filterDate').value = '2026-09-20';
   vm.runInContext(`
@@ -479,7 +479,7 @@ test('cut mode shows (Hôm trước) when clip range starts or ends on previous 
     clipEndAt = new Date('2026-09-20T00:00:00');
     updateClipVisual();
   `, context);
-  assert.equal(elements.get('clipStartLabel').textContent, '23:30:00 (Hôm trước)');
+  assert.equal(elements.get('clipStartLabel').textContent, '23:30:00');
   assert.equal(elements.get('clipEndLabel').textContent, '00:00:00');
 });
 
@@ -502,4 +502,28 @@ test('showCut triggers requestAnimationFrame rendering for cutFilmstrip and cutR
   assert.ok(typeof rafCallback === 'function');
   rafCallback();
   assert.ok(elements.get('cutRuler').children.length > 0);
+});
+
+test('merge button embeds cutting progress bar and resets cleanly', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.ok(html.includes('id="mergeButtonFill"'));
+  assert.ok(html.includes('id="mergeButtonText"'));
+  assert.ok(html.includes('.merge-button-fill'));
+  assert.ok(html.includes('.action.cut-primary.is-processing'));
+
+  const { context, elements } = loadReplayScript();
+  const btn = makeElement('mergeButton'); elements.set('mergeButton', btn);
+  const fill = makeElement('mergeButtonFill'); elements.set('mergeButtonFill', fill);
+  const text = makeElement('mergeButtonText'); elements.set('mergeButtonText', text);
+
+  context.setMergeProgress(45, 'Đang xử lý... 45%');
+  assert.equal(btn.classList.contains('is-processing'), true);
+  assert.equal(fill.style.width, '45%');
+  assert.equal(text.textContent, 'Đang xử lý... 45%');
+
+  context.resetMergeButton();
+  assert.equal(btn.disabled, false);
+  assert.equal(btn.classList.contains('is-processing'), false);
+  assert.equal(fill.style.width, '0%');
+  assert.equal(text.textContent, 'Cắt và tải về');
 });
