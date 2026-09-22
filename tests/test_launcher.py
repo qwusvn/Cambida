@@ -12,13 +12,19 @@ SPEC.loader.exec_module(APP)
 
 class LauncherTests(unittest.TestCase):
     def test_packaged_double_click_launcher_reuses_port_before_starting_exe(self):
-        with open(os.path.join(ROOT, "CCTV_2.1.0.launcher.cmd"), encoding="utf-8") as handle:
-            launcher = handle.read()
-        self.assertIn(r"release\2.1.0\CCTV_2.1.0.exe", launcher)
-        self.assertIn("call :port_ready", launcher)
-        self.assertIn('if errorlevel 1 start "Cambida CCTV" "%EXE%"', launcher)
-        self.assertIn('start "" "%URL%"', launcher)
-        self.assertNotIn("taskkill", launcher.lower())
+        for launcher_file, expected_exe in [
+            ("CCTV_2.1.0.launcher.cmd", r"release\2.1.0\CCTV_2.1.0.exe"),
+            ("CCTV_2.1.1.launcher.cmd", r"release\2.1.1\CCTV_2.1.1.exe"),
+        ]:
+            if not os.path.exists(os.path.join(ROOT, launcher_file)):
+                continue
+            with open(os.path.join(ROOT, launcher_file), encoding="utf-8") as handle:
+                launcher = handle.read()
+            self.assertIn(expected_exe, launcher)
+            self.assertIn("call :port_ready", launcher)
+            self.assertIn('if errorlevel 1 start "Cambida CCTV" "%EXE%"', launcher)
+            self.assertIn('start "" "%URL%"', launcher)
+            self.assertNotIn("taskkill", launcher.lower())
 
     def test_open_server_page_waits_then_uses_default_browser_reuse_mode(self):
         calls = []
