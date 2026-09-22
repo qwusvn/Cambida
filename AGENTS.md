@@ -22,3 +22,10 @@ Tài liệu này thay thế toàn bộ phiên bản AGENTS.md cũ; nếu có xun
 - Không stage hoặc commit thay đổi ngoài phạm vi; không reset/kill tiến trình của task khác.
 - Build/lint/unit test không được gọi là kiểm thử đầu cuối trên thiết bị thật.
 - Protocol Drive queue/manifest/sync barrier/ACK cũ đã RETIRED; không tái kích hoạt.
+
+## 2026-09-22 — Cập nhật điều phối
+- Nguồn hiệu lực cho phiên ChatGPT: `D:\1\gptagycodex.md` phiên bản `2026-09-22.1`; `D:\1\Cambida\gptagycodex.md` chỉ là bản sao tham khảo do người dùng yêu cầu.
+- SOL và YATO là một chủ thể; YATO là giao diện công cụ. AGY/Codex chỉ là tác nhân được giao việc khi cần. Phiên AGY/Codex độc lập không thuộc quy tắc điều phối ChatGPT.
+- MCP và CLI đều có thể được SOL chọn trong phạm vi đã được xác nhận; không còn bắt buộc MCP của AGY/Codex phải trực tuyến nếu không sử dụng chúng. Lựa chọn tuyến Remote Desktop Commander cụ thể của người dùng được áp dụng cho tác vụ hiện tại.
+- Chỉ chạy kiểm thử, regression, build để kiểm thử hoặc thử trên thiết bị khi người dùng yêu cầu rõ ràng và xác nhận. Việc đọc, kiểm tra nội dung tệp và đối chiếu Git không phải kiểm thử.
+- Các phát biểu cũ tại tệp này về `SKIP GPT`, mặc định COLLABORATIVE, bắt buộc AGY/Codex MCP, cấm chọn CLI, và bắt buộc kiểm thử để hoàn tất không còn hiệu lực. Thực hiện theo FAST BOOT phiên bản hiện hành khi có xung đột.

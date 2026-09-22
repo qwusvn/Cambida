@@ -1,60 +1,28 @@
 # PROJECT — Cambida
 
-Workspace duy nhất: `D:\1\cambida`
+Workspace duy nhất: `D:\1\Cambida`.
 
 ## Mục tiêu
+Phát triển và duy trì Cambida/CCTV hiện có, bảo toàn hành vi đã chốt; ưu tiên tính ổn định và vận hành thực tế.
 
-Phát triển và duy trì Cambida/CCTV hiện có, bảo toàn hành vi đã chốt, ưu tiên ổn định, vận hành thực tế và kiểm chứng đúng loại.
+## Thứ tự ưu tiên và nguồn sự thật
+- Yêu cầu mới nhất của người dùng > quy tắc riêng dự án > Source/Git > `.project` > CodeGraph > quy tắc điều phối toàn cục > bộ nhớ hội thoại.
+- Source/Git là nguồn sự thật kỹ thuật; `.project` là bộ nhớ vận hành; CodeGraph cung cấp ngữ cảnh, không tự ghi đè sự thật kỹ thuật.
+- Nguồn quy tắc điều phối hiện hành cho ChatGPT: `D:\1\gptagycodex.md`, `SPEC_VERSION=2026-09-22.1` tại thời điểm đồng bộ. Bản sao `D:\1\Cambida\gptagycodex.md` chỉ là tài liệu tham khảo do người dùng yêu cầu, không thay thế bản toàn cục.
+- Quy tắc này chỉ áp dụng khi người dùng làm việc qua ChatGPT. Các phiên AGY/Codex độc lập thực hiện theo chỉ thị trực tiếp của người dùng trong ứng dụng tương ứng.
 
-## Thứ tự ưu tiên
-
-1. Yêu cầu mới nhất của người dùng.
-2. Chỉ thị riêng của project.
-3. Source + Git thực tế.
-4. `.project`.
-5. CodeGraph index.
-6. Quy chuẩn điều phối chung.
-7. Thông tin cũ trong hội thoại/memory.
-
-## Quy tắc cố định
-
-- Source + Git trong `D:\1\cambida` là source of truth.
-- `.project` là bộ nhớ vận hành chính.
-- CodeGraph chỉ là code intelligence; nếu có `.codegraph` thì ưu tiên dùng trước task coding/phân tích lớn, không tự `codegraph init`.
-- ChatGPT là orchestrator/architect/reviewer và quyết định cuối.
-- Công việc Codex phải đi qua Codex MCP trực tiếp sau khi liveness gate PASS; CLI chỉ được dùng khi người dùng cho phép rõ ràng cho chính task đó và không miễn MCP gate.
-- Công việc AGY phải đi qua AGY MCP trực tiếp sau khi liveness gate PASS; CLI chỉ được dùng khi người dùng cho phép rõ ràng cho chính task đó và không miễn MCP gate.
-- Yato/process manager chỉ giữ vai trò local system/process và giám sát CLI khi CLI đã được người dùng cho phép rõ ràng cho task cụ thể; không dùng để lách MCP gate.
-- Remote chỉ dùng khi cần GUI/visual; không thay thế executor/MCP đã chọn nếu chưa có chỉ thị của người dùng.
-- Direct AGY/Codex MCP là route thực thi mặc định và bắt buộc cho task tương ứng; không tự fallback sang CLI hay executor khác khi MCP lỗi.
-- Mỗi task AGY/Codex giữ `task_id` và `process_id` khi transport cung cấp; theo dõi đúng session/status/log tới kết quả terminal thực sự.
-- Không để nhiều executor cùng sửa một vùng source khi chưa có kế hoạch integration.
-- Mỗi task chỉ được `COMPLETED` sau khi đã tạo Git commit riêng cho thay đổi thuộc scope task; không commit lẫn thay đổi ngoài scope.
-- Không coi việc im lặng quá 10 phút là `TIMEOUT` và không tự kill/cancel executor vì im lặng. Với task AGY/Codex kéo dài, checkpoint tiến độ ở phút 15, 30, 45... trên chính session đang chạy; chỉ kết luận `TIMEOUT` khi đã kiểm tra status/log và có bằng chứng task thực sự mất khả năng tiếp tục theo orchestration hiện hành.
-- Build/lint/unit test không được gọi là E2E/device test.
-- Protocol Drive queue/manifest/sync barrier/ACK cũ đã RETIRED.
+## Ràng buộc riêng Cambida
+- Chỉ làm việc trong dự án hiện tại; không sửa cấu hình camera, media, dữ liệu runtime, source, release hoặc server đang chạy ngoài phạm vi được duyệt.
+- Bảo toàn task đang chạy, trạng thái Git hiện hành, tài liệu/mã nguồn dirty từ trước và tài nguyên chia sẻ.
+- Chỉ stage hoặc commit tệp và phần thay đổi thuộc task; không đưa các thay đổi cũ khác vào commit.
+- Chỉ đóng gói PyInstaller hoặc phát hành khi người dùng yêu cầu rõ ràng. Không tự chạy test, regression, build dùng để kiểm thử hoặc thử thiết bị/emulator khi chưa có yêu cầu và xác nhận kiểm thử.
+- Build/lint/unit test không được gọi là kiểm thử đầu cuối trên thiết bị thật.
+- Không tự khôi phục protocol Drive queue/manifest/sync barrier/ACK đã ngừng sử dụng.
 
 ## Bộ nhớ dự án
+Khi đã được phép kiểm tra task: đọc `PROJECT.md` → `DECISIONS.md` → `STATE.md` → `TASKS.md` → `HANDOFF.md` trong phạm vi liên quan, rồi đối chiếu source/Git và các task còn hoạt động.
 
-Đọc theo thứ tự: `PROJECT → DECISIONS → STATE → TASKS → HANDOFF`.
-
-## 2026-09-19 — Quy tắc điều phối thay thế
-
-- Nguồn quy tắc toàn cục duy nhất: `D:\1\gptagycodex.md`; AGENTS.md chỉ chứa hướng dẫn dự án và dẫn chiếu, không sao chép toàn bộ global spec.
-- Mọi parent task mới đọc FAST BOOT trước; trước xác nhận chỉ diễn giải và phân công dự kiến, không kiểm tra target/task tool. Dấu phẩy đầu/cuối lệnh kích hoạt COMMA BYPASS.
-- Sau xác nhận kiểm tra sống công cụ bắt buộc; lỗi thì dừng, không tự fallback. Sau đó mới đọc `.project` và Source/Git, tiếp tục task đang chạy nếu có.
-- AGY/Codex dùng MCP tương ứng làm route bắt buộc; CLI chỉ khi được người dùng cho phép rõ ràng cho task cụ thể sau khi MCP gate đã PASS. Checkpoint 15 phút, Telegram gộp theo parent; một final event khi terminal.
-- Mọi quy tắc cũ trong tài liệu dự án trái FAST BOOT mới bị thay thế, trừ ràng buộc riêng Cambida không xung đột.
-
-## Quy ước đóng gói hiện hành
-
-- Release production giữ dòng **2.1.0** tới khi có bằng chứng NetSDK live end-to-end gồm credential hợp lệ, snapshot/live frame và MP4/ffprobe; không bump 3.x chỉ từ unit test.
-- PyInstaller dùng `CCTV_2.1.0.spec` dạng onedir; UI HTML và `ffmpeg.exe` phát hành cạnh EXE, vendor NetSDK bundle trong `_internal/vendor/dahua_netsdk/`.
-- Khi rebuild phải giữ nguyên `config.json`, thư mục media và dữ liệu runtime hiện có; chỉ thay executable/runtime files cần thiết.
-
-## 2026-09-21 — Đồng bộ strict MCP gate
-- Global orchestration source: `D:\1\gptagycodex.md`, `SPEC_VERSION=2026-09-18.3`, patch `2026-09-21-STRICT-MCP-AGY-CODEX-TELEGRAM-GATE`.
-- AGY work bắt buộc AGY MCP ONLINE; Codex work bắt buộc Codex MCP ONLINE. Không tự retry bằng transport khác, không tự fallback CLI, không tự đổi executor.
-- CLI chỉ hợp lệ khi người dùng cho phép rõ ràng cho đúng task và vẫn phải PASS MCP online gate trước khi chạy.
-- Nếu MCP/tool bắt buộc lỗi hoặc offline: dừng trước thực thi và phát cảnh báo Telegram theo global spec; nếu Telegram lỗi phải báo rõ chưa gửi được.
-- Đây chỉ là dấu mốc đồng bộ local; chi tiết quy tắc không sao chép vào dự án và luôn đọc FAST BOOT từ global file cho parent task mới.
+## Ràng buộc phát hành sản phẩm
+- Trạng thái phát hành hiện hành phải đối chiếu source/Git và `.project/STATE.md`; không xem mốc 2.1.0 trong các ghi chú cũ là trạng thái production mới nhất.
+- Không nâng lên dòng 3.x chỉ dựa vào unit test khi còn thiếu bằng chứng truyền media NetSDK thực tế, gồm phiên xác thực hợp lệ, khung hình/snapshot và tệp MP4 có thể xác minh.
+- Khi có yêu cầu đóng gói, giữ PyInstaller onedir, HTML/FFmpeg sidecar và các thư viện NetSDK đúng theo spec của phiên bản được duyệt; bảo toàn `config.json`, media và dữ liệu runtime.
