@@ -1057,6 +1057,17 @@ def _get_embedded_replay_template():
             lambda match: match.group(1) + "T\u1ea3i v\u1ec1 m\u00e1y" + match.group(2),
             raw, count=1,
         )
+        # iPhone keeps the former "Open video" action: open inline MP4 in the native viewer,
+        # with its Share control. Desktop keeps the original download-to-file behavior.
+        download_binding = 'setAnchor($("mergedDownloadBtn"), lastMergedDownloadUrl, file);'
+        if raw.count(download_binding) != 1:
+            raise RuntimeError("Embedded replay download action markup changed")
+        raw = raw.replace(
+            download_binding,
+            'setAnchor($("mergedDownloadBtn"), isIOS ? lastMergedInlineUrl : lastMergedDownloadUrl, file);'
+            ' if(isIOS) $("mergedDownloadBtn")?.removeAttribute("download");',
+            1,
+        )
         _EMBEDDED_REPLAY_TEMPLATE_CACHE = raw
     return _EMBEDDED_REPLAY_TEMPLATE_CACHE
 
