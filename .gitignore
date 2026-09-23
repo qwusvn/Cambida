@@ -11,6 +11,10 @@ nvr_cache/*.part
 test_data/
 backup/
 release/
+build/
+dist/
+staging/
+.pytest_cache/
 
 # CodeGraph generated index/cache
 .codegraph/

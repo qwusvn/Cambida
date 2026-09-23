@@ -1,13 +1,18 @@
-# -*- mode: python ; coding: utf-8 -*-
+import os
 from PyInstaller.utils.hooks import collect_all
 
-# Các file giao diện và ffmpeg.exe được phát hành cạnh EXE để dễ thay thế.
-# Chỉ giữ config mặc định bên trong _internal làm bản seed nếu config.json cạnh EXE bị thiếu.
+ROOT = os.path.abspath(SPECPATH)
+
+# Release seed only: never embed the operational config.json.
+# The app copies this safe template to BASE_DIR/config.json only when that file is absent.
 datas = [
-    (r'D:\1\cambida\config.json', '.'),
+    (os.path.join(ROOT, 'config.release.json'), '.'),
+    (os.path.join(ROOT, 'RELEASE_VERSION.txt'), '.'),
 ]
 
-binaries = []
+binaries = [
+    (os.path.join(ROOT, 'vendor', 'dahua_netsdk', '*.dll'), 'vendor/dahua_netsdk'),
+]
 hiddenimports = []
 
 tmp_ret = collect_all('qrcode')
@@ -16,8 +21,8 @@ binaries += tmp_ret[1]
 hiddenimports += tmp_ret[2]
 
 a = Analysis(
-    [r'D:\1\cambida\1.py'],
-    pathex=[r'D:\1\cambida'],
+    [os.path.join(ROOT, '1.py')],
+    pathex=[ROOT],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
@@ -36,7 +41,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='CCTV_2.0.0',
+    name='CCTV_2.1.2',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -47,7 +52,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version=r'D:\1\cambida\version_info_2_0_0.txt',
+    version=os.path.join(ROOT, 'version_info_2_1_2.txt'),
 )
 
 coll = COLLECT(
@@ -57,5 +62,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='CCTV_2.0.0',
+    name='CCTV_2.1.2',
 )
