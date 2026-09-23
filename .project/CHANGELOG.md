@@ -186,3 +186,15 @@
 - Added Base85+zlib embedded replay template to `1.py` with SHA-256 integrity validation.
 - Changed `/replay/cam<int:cam_id>` to render the embedded replay template before falling back to external `index.html`.
 - This makes the iPhone save-video replay update deployable by replacing `1.py` alone.
+
+## 2026-09-24 — iPhone finished-video download UI
+- `e0da8f5`: `1.py` bỏ nút mở video trên trang thành công; nút tải về máy đổi nhãn thành `Tải về máy` và dùng visual gradient xanh–tím.
+- Bảo toàn liên kết tải MP4, trình phát và hướng dẫn; không chạy kiểm thử, build hoặc triển khai.
+
+## 2026-09-24 - iPhone save action
+- Restored former inline MP4/native sharing route for the gradient primary download button on iPhone; kept download behavior elsewhere. Commit 07a82ad; server restarted on port 8004.
+
+## 2026-09-24 — Khôi phục 1.py về commit 41bcbd2
+- Khôi phục mã nguồn `1.py` nguyên trạng tại commit `41bcbd2` (`feat(replay): embed iPhone save UI in 1.py`).
+- Loại bỏ toàn bộ các điều chỉnh sau `41bcbd2` trong `1.py` (bao gồm `e0da8f5`, `07a82ad`, `c06158c`).
+- Kiểm thử / build / device test: NOT RUN (không được yêu cầu).

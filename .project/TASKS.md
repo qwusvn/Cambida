@@ -364,3 +364,26 @@ elease\2.1.0\index.html byte-identically with source index.html.
 - [x] Keep external `index.html` as failure fallback only.
 - Tests/build/device test: NOT RUN — not requested.
 - Status: COMPLETED for source scope.
+
+## [x] cambida-ios-done-download-ui-20260924 — Đơn giản hóa nút tải video
+- [x] Chỉ cập nhật `1.py`: bỏ nút `Mở video → Chia sẻ → Lưu video` trên màn hình hoàn thành.
+- [x] Đổi nút tải MP4 thành `Tải về máy`, dùng kiểu gradient xanh–tím của nút vừa bỏ; giữ nguyên trình phát, hướng dẫn và logic tải file.
+- [x] Đối chiếu diff, commit riêng `e0da8f5` (chỉ `1.py`).
+- Tests/build/deploy/device: NOT RUN — không được yêu cầu. Status: COMPLETED (source only).
+
+## [x] 2026-09-24 - iPhone download CTA opens native MP4 viewer
+- [x] Preserve gradient CTA; restore prior iOS inline video/share viewer URL without download attribute, keep non-iOS download. Commit 07a82ad.
+- [x] Restart server on port 8004 (PID 24712). iPhone end-to-end test NOT RUN (not requested).
+
+## [x] Cambida HTML no-cache after updates — 2026-09-24
+- [x] Add no-store HTML headers and no-cache UI version endpoint in `1.py`.
+- [x] Detect resumed stale pages and refresh when safe (no active video/cut/done); preserve video endpoints.
+- [x] Commit only `1.py`: `c06158c`; restart source service and confirm listener PID 30856 on port 8004.
+- [ ] Await user's iPhone confirmation after manually reopening old tab once; previous video/share complaint not yet verified as resolved.
+- Tests/build/device trials: NOT RUN (not requested).
+
+## [x] cambida-restore-1py-41bcbd2-20260924 — Khôi phục 1.py về commit 41bcbd2
+- [x] Khôi phục `1.py` nguyên trạng tại commit `41bcbd2` (embed iPhone save UI).
+- [x] Đã đối chiếu diff, `1.py` khớp 100% với commit `41bcbd2`.
+- [x] Cập nhật bộ nhớ vận hành `.project/`.
+- Tests/build/deploy/device: NOT RUN — không được yêu cầu. Status: COMPLETED.

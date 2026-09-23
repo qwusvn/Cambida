@@ -486,3 +486,27 @@ elease\2.1.0\index.html synchronized with source.
 - The embedded template is integrity-checked before first render and cached in memory after decoding.
 - Replacing only `1.py` is sufficient for this replay UI/save-flow update; other sidecar HTML files are still used for their own routes.
 - No packaging/build/runtime/device test was performed in this task.
+
+## 2026-09-24 handoff — finished-video download button
+- Task `cambida-ios-done-download-ui-20260924`, commit `e0da8f5` trên `main`.
+- Chỉ `1.py` được commit: giao diện replay nhúng giữ nguyên dữ liệu và SHA-256 gốc, sau khi giải nén thì bỏ liên kết `openVideoBtn`, chuyển nút `mergedDownloadBtn` sang `action primary cut-primary` và đổi nhãn thành `Tải về máy`.
+- Javascript liên quan nút cũ có kiểm tra phần tử trước khi thao tác; tải file vẫn trỏ tới `/download/<filename>`. `index.html` bên ngoài không được sửa theo phạm vi được duyệt, nên fallback dùng file này sẽ hiển thị giao diện cũ.
+- Không thay config, phát hành, tiến trình; không kiểm thử hoặc triển khai do người dùng không yêu cầu.
+
+## 2026-09-24 - iPhone primary download CTA correction
+- Commit 07a82ad changes only 1.py embedded replay render transformation: iOS #mergedDownloadBtn uses lastMergedInlineUrl (prior openVideoBtn route) with download attribute removed; desktop/Android use existing attachment URL and download attribute.
+- Live source server restarted; current listener port 8004 PID 24712. Native iPhone viewer/share appearance remains for user verification; no device tests requested.
+
+## 2026-09-24 - Prevent stale HTML after code updates
+- Commit `c06158c` changes only `1.py`: HTML responses and `/api/ui-version` receive `Cache-Control: no-store, no-cache, must-revalidate, max-age=0`, `Pragma: no-cache`, `Expires: 0`; media endpoints keep their prior cache/streaming behavior.
+- Served HTML embeds a lightweight version checker on pageshow (bfcache), tab focus and return from background. It reloads only when server version differs and page is not playing video or displaying Cut/Done.
+- A process-start version token changes when the server restarts; this does not retroactively update HTML already open before the change. Existing iPhone tab may need one manual close/reopen or reload.
+- Source server PID 30856 owns port 8004 after start; prior noted PID 24712 was already absent when checked. No other process was stopped; no config/media/release edits.
+- User reports previous iPhone button fix still appears unchanged. This cache change may explain stale UI but does not establish that native share behavior is fixed; request user confirmation after fresh page load.
+- Tests/device trials NOT RUN (not requested).
+
+## 2026-09-24 handoff — Khôi phục 1.py về commit 41bcbd2
+- Task `cambida-restore-1py-41bcbd2-20260924`: đã khôi phục `1.py` về commit `41bcbd2` (`feat(replay): embed iPhone save UI in 1.py`).
+- `1.py` hiện tại khớp 100% với phiên bản nhúng giao diện replay ban đầu tại `41bcbd2` (bỏ các thay đổi nút đơn, inline viewer route và cache-control mới hơn).
+- Tiến trình server chưa tự động khởi động lại; nếu cần áp dụng phiên bản vừa khôi phục vào server đang chạy cần khởi động lại `1.py` theo yêu cầu.
+- Tests/device trials: NOT RUN (không được yêu cầu).

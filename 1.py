@@ -1040,34 +1040,6 @@ def _get_embedded_replay_template():
         digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
         if digest != _EMBEDDED_REPLAY_TEMPLATE_SHA256:
             raise RuntimeError("Embedded replay template integrity check failed")
-        # Present a single download action on the finished-video screen.
-        if raw.count('id="openVideoBtn"') != 1 or raw.count('id="mergedDownloadBtn" class="action secondary"') != 1:
-            raise RuntimeError("Embedded replay download UI markup changed")
-        raw = re.sub(
-            r'(?m)^[ \t]*<!--[^\r\n]*-->\r?\n[ \t]*<a id="openVideoBtn"[\s\S]*?</a>\r?\n',
-            "", raw, count=1,
-        )
-        raw = raw.replace(
-            'id="mergedDownloadBtn" class="action secondary"',
-            'id="mergedDownloadBtn" class="action primary cut-primary"',
-            1,
-        )
-        raw = re.sub(
-            r'(<a id="mergedDownloadBtn"[\s\S]*?<span>)[^<]*(</span>)',
-            lambda match: match.group(1) + "T\u1ea3i v\u1ec1 m\u00e1y" + match.group(2),
-            raw, count=1,
-        )
-        # iPhone keeps the former "Open video" action: open inline MP4 in the native viewer,
-        # with its Share control. Desktop keeps the original download-to-file behavior.
-        download_binding = 'setAnchor($("mergedDownloadBtn"), lastMergedDownloadUrl, file);'
-        if raw.count(download_binding) != 1:
-            raise RuntimeError("Embedded replay download action markup changed")
-        raw = raw.replace(
-            download_binding,
-            'setAnchor($("mergedDownloadBtn"), isIOS ? lastMergedInlineUrl : lastMergedDownloadUrl, file);'
-            ' if(isIOS) $("mergedDownloadBtn")?.removeAttribute("download");',
-            1,
-        )
         _EMBEDDED_REPLAY_TEMPLATE_CACHE = raw
     return _EMBEDDED_REPLAY_TEMPLATE_CACHE
 
@@ -4097,73 +4069,6 @@ def _log_download_after(response):
             log_download(filename)
     except:
         pass
-    return response
-
-
-# A new token is generated on each server start, so existing open tabs can detect deployment.
-_UI_BUILD_VERSION = secrets.token_hex(12)
-_UI_REFRESH_SCRIPT = r"""<script>
-(function () {
-  const currentVersion = __UI_VERSION__;
-  let checking = false;
-  function isBusy() {
-    if (document.hidden) return true;
-    for (const id of ["cutScreen", "doneScreen"]) {
-      const screen = document.getElementById(id);
-      if (screen && !screen.hidden) return true;
-    }
-    for (const video of document.querySelectorAll("video")) {
-      if (!video.paused && !video.ended) return true;
-    }
-    return false;
-  }
-  async function checkVersion() {
-    if (checking || isBusy()) return;
-    checking = true;
-    try {
-      const response = await fetch("/api/ui-version?ts=" + Date.now(), {
-        cache: "no-store", credentials: "same-origin"
-      });
-      if (!response.ok) return;
-      const current = await response.json();
-      if (current.version && current.version !== currentVersion && !isBusy()) {
-        window.location.reload();
-      }
-    } catch (_) {
-      // Leave an interrupted viewing session untouched if the server is offline.
-    } finally {
-      checking = false;
-    }
-  }
-  window.addEventListener("pageshow", function (event) {
-    if (event.persisted) checkVersion();
-  });
-  document.addEventListener("visibilitychange", function () {
-    if (!document.hidden) checkVersion();
-  });
-  window.addEventListener("focus", checkVersion);
-})();
-</script>""".replace("__UI_VERSION__", json.dumps(_UI_BUILD_VERSION))
-
-
-@app.route("/api/ui-version")
-def api_ui_version():
-    return jsonify(version=_UI_BUILD_VERSION)
-
-
-@app.after_request
-def _prevent_stale_ui_cache(response):
-    if request.path == "/api/ui-version" or response.mimetype == "text/html":
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-    if (request.method == "GET" and response.status_code == 200
-            and response.mimetype == "text/html" and not response.is_streamed
-            and not response.direct_passthrough):
-        html = response.get_data(as_text=True)
-        closing = html.lower().rfind("</body>")
-        if closing >= 0:
-            response.set_data(html[:closing] + _UI_REFRESH_SCRIPT + html[closing:])
     return response
 
 

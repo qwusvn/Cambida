@@ -487,3 +487,31 @@ Cập nhật: 2026-09-23 +07
 - `/replay/cam<int:cam_id>` renders the embedded template first, so replacing only `1.py` carries the current replay UI and iPhone Photos save flow even if external `index.html` is older.
 - External `index.html` is retained only as an exception fallback if embedded template decoding/rendering fails.
 - Tests/build/device test: NOT RUN — not requested.
+
+## 2026-09-24 — Giao diện tải video iPhone trên màn hình Hoàn thành
+- Task `cambida-ios-done-download-ui-20260924`: COMPLETED ở phạm vi mã nguồn; chỉ sửa `1.py` theo mẫu người dùng duyệt.
+- Sau khi kiểm tra SHA-256 của giao diện nhúng, loại bỏ liên kết `openVideoBtn` và chuyển `mergedDownloadBtn` sang kiểu nút gradient chính với nhãn `Tải về máy`; địa chỉ tải MP4, Web Share, trình phát xem trước và hướng dẫn hiện hữu không thay đổi.
+- Đã đọc lại diff, chỉ có 17 dòng bổ sung trong `1.py`; commit `e0da8f5`. Không sửa `index.html`, cấu hình, phát hành hoặc tiến trình đang chạy.
+- Kiểm thử, build, triển khai và thử nghiệm iPhone: NOT RUN — người dùng không yêu cầu.
+
+## 2026-09-24 — Restart sau cập nhật giao diện tải video
+- Theo xác nhận của người dùng, khởi động lại đúng tiến trình `python 1.py` đang sở hữu cổng 8004: PID 10532 -> PID 22356.
+- Đã xác nhận PID 22356 là `C:\Python313\python.exe 1.py` và đang lắng nghe cổng 8004; giữ nguyên cấu hình, dữ liệu và các tiến trình khác.
+- Kiểm thử sản phẩm/thiết bị: NOT RUN (không được yêu cầu).
+
+## 2026-09-24 - iOS completed-video CTA behavior restored
+- Commit 07a82ad routes the iPhone primary download CTA to the former inline MP4 viewer (/video), removing the HTML download attribute so its native Share control is available. Non-iOS retains /download.
+- Source server restarted after change: port 8004 now owned by Python PID 24712 (previous 22356). Device interaction tests NOT RUN (not requested).
+
+## 2026-09-24 - HTML cache policy and UI refresh
+- `c06158c`: HTML no-store headers and UI-version refresh logic implemented in `1.py`; media routes not modified.
+- Source process PID 30856 listening on port 8004 after approved restart/start; previous PID 24712 was no longer running at inspection. No other process terminated.
+- iPhone button share flow has not been verified on a real device; a tab holding the former HTML may require one manual reopen.
+- Tests/build/device trials: NOT RUN (not requested).
+
+## 2026-09-24 — Khôi phục 1.py về commit 41bcbd2
+- Task `cambida-restore-1py-41bcbd2-20260924`: COMPLETED ở phạm vi mã nguồn.
+- Đã khôi phục hoàn toàn `1.py` về nguyên trạng tại commit `41bcbd25084a2d292f816b7f7dfaf6c38b5fcd65`.
+- Mọi điều chỉnh sau commit này (`e0da8f5`, `07a82ad`, `c06158c`) đã được rút lại trong `1.py`.
+- Không sửa đổi cấu hình, media/video hay các tệp nguồn khác.
+- Kiểm thử / build / triển khai / device test: NOT RUN (không được yêu cầu).
