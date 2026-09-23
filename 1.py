@@ -4100,6 +4100,73 @@ def _log_download_after(response):
     return response
 
 
+# A new token is generated on each server start, so existing open tabs can detect deployment.
+_UI_BUILD_VERSION = secrets.token_hex(12)
+_UI_REFRESH_SCRIPT = r"""<script>
+(function () {
+  const currentVersion = __UI_VERSION__;
+  let checking = false;
+  function isBusy() {
+    if (document.hidden) return true;
+    for (const id of ["cutScreen", "doneScreen"]) {
+      const screen = document.getElementById(id);
+      if (screen && !screen.hidden) return true;
+    }
+    for (const video of document.querySelectorAll("video")) {
+      if (!video.paused && !video.ended) return true;
+    }
+    return false;
+  }
+  async function checkVersion() {
+    if (checking || isBusy()) return;
+    checking = true;
+    try {
+      const response = await fetch("/api/ui-version?ts=" + Date.now(), {
+        cache: "no-store", credentials: "same-origin"
+      });
+      if (!response.ok) return;
+      const current = await response.json();
+      if (current.version && current.version !== currentVersion && !isBusy()) {
+        window.location.reload();
+      }
+    } catch (_) {
+      // Leave an interrupted viewing session untouched if the server is offline.
+    } finally {
+      checking = false;
+    }
+  }
+  window.addEventListener("pageshow", function (event) {
+    if (event.persisted) checkVersion();
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) checkVersion();
+  });
+  window.addEventListener("focus", checkVersion);
+})();
+</script>""".replace("__UI_VERSION__", json.dumps(_UI_BUILD_VERSION))
+
+
+@app.route("/api/ui-version")
+def api_ui_version():
+    return jsonify(version=_UI_BUILD_VERSION)
+
+
+@app.after_request
+def _prevent_stale_ui_cache(response):
+    if request.path == "/api/ui-version" or response.mimetype == "text/html":
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    if (request.method == "GET" and response.status_code == 200
+            and response.mimetype == "text/html" and not response.is_streamed
+            and not response.direct_passthrough):
+        html = response.get_data(as_text=True)
+        closing = html.lower().rfind("</body>")
+        if closing >= 0:
+            response.set_data(html[:closing] + _UI_REFRESH_SCRIPT + html[closing:])
+    return response
+
+
 def get_rtsp_url(cam_id, stream=None, context=None):
     if 1 <= cam_id <= len(CAMERA_LIST):
         cam = CAMERA_LIST[cam_id - 1]
