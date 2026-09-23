@@ -1040,6 +1040,23 @@ def _get_embedded_replay_template():
         digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
         if digest != _EMBEDDED_REPLAY_TEMPLATE_SHA256:
             raise RuntimeError("Embedded replay template integrity check failed")
+        # Present a single download action on the finished-video screen.
+        if raw.count('id="openVideoBtn"') != 1 or raw.count('id="mergedDownloadBtn" class="action secondary"') != 1:
+            raise RuntimeError("Embedded replay download UI markup changed")
+        raw = re.sub(
+            r'(?m)^[ \t]*<!--[^\r\n]*-->\r?\n[ \t]*<a id="openVideoBtn"[\s\S]*?</a>\r?\n',
+            "", raw, count=1,
+        )
+        raw = raw.replace(
+            'id="mergedDownloadBtn" class="action secondary"',
+            'id="mergedDownloadBtn" class="action primary cut-primary"',
+            1,
+        )
+        raw = re.sub(
+            r'(<a id="mergedDownloadBtn"[\s\S]*?<span>)[^<]*(</span>)',
+            lambda match: match.group(1) + "T\u1ea3i v\u1ec1 m\u00e1y" + match.group(2),
+            raw, count=1,
+        )
         _EMBEDDED_REPLAY_TEMPLATE_CACHE = raw
     return _EMBEDDED_REPLAY_TEMPLATE_CACHE
 
