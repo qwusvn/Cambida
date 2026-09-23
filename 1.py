@@ -3943,118 +3943,111 @@ def list_videos_by_cam(cam_id):
 
     req_source = request.args.get("source", "").strip().lower()
     if has_nvr:
-        # Local là chính; NVR là dự phòng khi được yêu cầu rõ ràng hoặc khi camera không ghi local
         if req_source in {"nvr", "server2"}:
             target_source = "nvr"
+        elif req_source == "local":
+            target_source = "local"
         elif not records_locally:
             target_source = "nvr"
         else:
-            target_source = "local"
+            target_source = "all"
     else:
         target_source = "local"
 
-    if target_source == "nvr":
-        rec = get_camera_recorder_config(cam)
-        vendor = rec.get("vendor", "hikvision")
-        if not rec.get("host") or not rec.get("username"):
-            return jsonify([])
-        date_str = request.args.get("date", "").strip()
-        start_param = request.args.get("start", "").strip()
-        end_param = request.args.get("end", "").strip()
-        try:
-            if start_param and end_param:
-                window_start = datetime.fromisoformat(start_param)
-                window_end = datetime.fromisoformat(end_param)
-            elif date_str:
-                d = datetime.strptime(date_str, "%Y-%m-%d")
-                window_start = d.replace(hour=0, minute=0, second=0)
-                window_end = d.replace(hour=23, minute=59, second=59)
-            else:
-                now = datetime.now()
-                window_start = now - timedelta(hours=24)
-                window_end = now + timedelta(minutes=5)
-        except Exception:
-            now = datetime.now()
-            window_start = now - timedelta(hours=24)
-            window_end = now + timedelta(minutes=5)
-
-        try:
-            searcher = _search_dahua_camera if vendor == "dahua" else _search_hikvision_camera
-            segments = searcher(cam_id, window_start, window_end, rec)
-            videos = []
-            for seg in segments:
-                videos.append({
-                    "name": seg["filename"],
-                    "url": seg["play_url"],
-                    "download_url": seg["download_url"],
-                    "format": "range",
-                    "started_at": seg["started_at"],
-                    "end_at": seg["end_at"],
-                    "duration_sec": seg["duration_sec"],
-                    "source": "nvr",
-                })
-            videos.sort(key=lambda x: x["started_at"], reverse=True)
-            return jsonify(videos)
-        except Exception as exc:
-            logger.warning("[Replay:NVR] Lỗi tìm kiếm video NVR camera %s: %s", cam_id, exc)
-            return jsonify([])
-
-    prefix = f"cam{cam_id}_"
-    local_window_start = None
-    local_window_end = None
     date_str = request.args.get("date", "").strip()
     start_param = request.args.get("start", "").strip()
     end_param = request.args.get("end", "").strip()
+
+    window_start = None
+    window_end = None
     try:
         if start_param and end_param:
-            local_window_start = datetime.fromisoformat(start_param)
-            local_window_end = datetime.fromisoformat(end_param)
+            window_start = datetime.fromisoformat(start_param)
+            window_end = datetime.fromisoformat(end_param)
         elif date_str:
-            selected_day = datetime.strptime(date_str, "%Y-%m-%d")
-            local_window_start = selected_day.replace(hour=0, minute=0, second=0, microsecond=0)
-            local_window_end = local_window_start + timedelta(days=1)
-    except ValueError:
-        local_window_start = None
-        local_window_end = None
+            d = datetime.strptime(date_str, "%Y-%m-%d")
+            window_start = d.replace(hour=0, minute=0, second=0, microsecond=0)
+            window_end = window_start + timedelta(days=1)
+        else:
+            now = datetime.now()
+            window_start = now - timedelta(hours=24)
+            window_end = now + timedelta(minutes=5)
+    except Exception:
+        now = datetime.now()
+        window_start = now - timedelta(hours=24)
+        window_end = now + timedelta(minutes=5)
 
-    candidates = []
-    if os.path.isdir(VIDEO_DIR):
-        try:
-            for filename in os.listdir(VIDEO_DIR):
-                if not filename.lower().endswith(".mp4") or not filename.startswith(prefix):
-                    continue
-                path = safe_video_path(filename)
-                if not path or not os.path.isfile(path):
-                    continue
-                candidates.append((os.path.getmtime(path), filename))
-        except OSError as exc:
-            logger.warning("[Replay] Không thể đọc video camera %s: %s", cam_id, exc)
+    nvr_videos = []
+    if target_source in {"nvr", "all"} and has_nvr:
+        rec = get_camera_recorder_config(cam)
+        vendor = rec.get("vendor", "hikvision")
+        if rec.get("host") and rec.get("username"):
+            try:
+                searcher = _search_dahua_camera if vendor == "dahua" else _search_hikvision_camera
+                segments = searcher(cam_id, window_start, window_end, rec)
+                for seg in segments:
+                    nvr_videos.append({
+                        "name": seg["filename"],
+                        "url": seg["play_url"],
+                        "download_url": seg["download_url"],
+                        "format": "range",
+                        "started_at": seg["started_at"],
+                        "end_at": seg["end_at"],
+                        "duration_sec": seg["duration_sec"],
+                        "source": "nvr",
+                    })
+            except Exception as exc:
+                logger.warning("[Replay:NVR] Lỗi tìm kiếm video NVR camera %s: %s", cam_id, exc)
 
-    candidates.sort(key=lambda item: item[0], reverse=True)
-    videos = []
-    for _, filename in candidates:
-        item = {
-            "name": filename,
-            "url": f"/video/{quote(filename)}",
-            "download_url": f"/download/{quote(filename)}",
-            "source": "local",
-        }
-        metadata = parse_video_metadata(filename, known_duration=DURATION)
-        if metadata:
-            if (
-                local_window_start is not None
-                and local_window_end is not None
-                and not (
-                    metadata["start"] < local_window_end
-                    and metadata["end"] > local_window_start
-                )
-            ):
-                continue
-            item["format"] = metadata["format"]
-            item["started_at"] = metadata["start"].isoformat(timespec="seconds")
-            item["end_at"] = metadata["end"].isoformat(timespec="seconds")
-            item["duration_sec"] = round(metadata["duration_sec"], 3)
-        videos.append(item)
+    local_videos = []
+    if target_source in {"local", "all"}:
+        prefix = f"cam{cam_id}_"
+        candidates = []
+        if os.path.isdir(VIDEO_DIR):
+            try:
+                for filename in os.listdir(VIDEO_DIR):
+                    if not filename.lower().endswith(".mp4") or not filename.startswith(prefix):
+                        continue
+                    path = safe_video_path(filename)
+                    if not path or not os.path.isfile(path):
+                        continue
+                    candidates.append((os.path.getmtime(path), filename))
+            except OSError as exc:
+                logger.warning("[Replay] Không thể đọc video camera %s: %s", cam_id, exc)
+
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        for _, filename in candidates:
+            item = {
+                "name": filename,
+                "url": f"/video/{quote(filename)}",
+                "download_url": f"/download/{quote(filename)}",
+                "source": "local",
+            }
+            metadata = parse_video_metadata(filename, known_duration=DURATION)
+            if metadata:
+                if (
+                    window_start is not None
+                    and window_end is not None
+                    and not (
+                        metadata["start"] < window_end
+                        and metadata["end"] > window_start
+                    )
+                ):
+                    continue
+                item["format"] = metadata["format"]
+                item["started_at"] = metadata["start"].isoformat(timespec="seconds")
+                item["end_at"] = metadata["end"].isoformat(timespec="seconds")
+                item["duration_sec"] = round(metadata["duration_sec"], 3)
+            local_videos.append(item)
+
+    if target_source == "nvr":
+        videos = nvr_videos
+    elif target_source == "local":
+        videos = local_videos
+    else:
+        videos = local_videos + nvr_videos
+
+    videos.sort(key=lambda x: x.get("started_at") or "", reverse=True)
     return jsonify(videos)
 
 

@@ -10,15 +10,12 @@ Cập nhật: 2026-09-22 +07
 5. Mỗi task hoàn tất phải có commit riêng đúng scope; không gom thay đổi cũ ngoài task.
 
 ## Trạng thái bàn giao
-- Release production: **2.1.1** tại `D:\1\cambida\release\2.1.1\CCTV_2.1.1.exe`, port 8004.
-- Commit timeline-only: `5efc105`.
-- Commit regression fix Cut→Replay: `338a842`.
-- Commit UI refinement: `8bfd68a` — `feat(ui): embed cut progress in button, default 2h zoom, and format ruler HH:00`.
-- Commit portable multi-drive fix: `c1e01a1` — `fix(core): remove hardcoded D: drive paths, import winreg, and ensure portable execution`.
-- Bản phát hành 2.1.1:
-  + Đóng gói PyInstaller onedir `CCTV_2.1.1.exe` (482 KB) kèm 10 DLL NetSDK trong `_internal/vendor/dahua_netsdk`.
-  + Đồng bộ đầy đủ sidecar HTML (`index.html` SHA-256 trùng khớp 100%), `ffmpeg.exe`, và cấu hình `config.json`.
-  + Launcher `CCTV_2.1.1.launcher.cmd` trỏ tới bản phát hành 2.1.1.
+- Release staging: **2.1.3** tại `D:\1\cambida\staging\2.1.3\CCTV_2.1.3.exe` (SHA-256: `1E94738F89898A709002C3C9CDF18817581BA99E592A7ABCA15BB125BAE5AB37`), cổng `8004`.
+- Gói phát hành sạch sẽ (Zero Config Pollution): Hoàn toàn không kèm file `config.json`, không kèm db/logs/cache/media; tệp hạt giống an toàn `_internal\config.release.json` đã xóa sạch camera (`cameras: []`), để trống tên cửa hàng và khẩu hiệu (`site.name: ""`, `site.tagline: ""`).
+- Giao diện Timeline xem lại: Ẩn nút chọn nguồn Local/NVR (`#sourceToggleWrap`) và ẩn cụm nút Hướng phát tua `«` / `»` (`.control-block-direction`). Timeline hiển thị song song cả Local và NVR: Local mang màu xanh chính (`var(--blue)`, z-index 2), NVR mang màu xanh nhạt hơn (`#93c5fd`, z-index 1) để nhận biết. Khi tua/seek timeline, hệ thống luôn ưu tiên Local tuyệt đối (`findVideoAtDate`, `findNearestVideo`), chỉ chuyển sang NVR khi Local không có bản ghi.
+- Backend `/list/cam<id>`: Tự động tổng hợp và gắn nhãn cả bản ghi Local và NVR (`target_source == "all"`), sắp xếp theo thứ tự thời gian mới nhất.
+- Tối ưu iOS Safari (iPhone): Thêm cờ `-movflags +faststart` cho luồng ghi hình camera RTSP trong `1.py` giúp phát lại mượt mà tức thì trên iPhone.
+- Release production cũ: **2.1.1** tại `D:\1\cambida\release\2.1.1\CCTV_2.1.1.exe`.
 - Cải tiến UI player 2026-09-22:
   + Icon xem trực tiếp: Lucide radio broadcast wave chuẩn đối xứng `((•))`.
   + Phân mục điều khiển: Thêm nhãn "Tốc độ phát" (trái) và "Thu phóng" (phải) trên timeline replay và timeline cut.

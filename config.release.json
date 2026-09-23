@@ -24,8 +24,8 @@
   "run_on_startup": "no",
   "server_port": 8004,
   "site": {
-    "name": "HỆ THỐNG CCTV",
-    "tagline": "Xem lại camera",
+    "name": "",
+    "tagline": "",
     "theme": {
       "background": "#2c0b0b",
       "surface": "#660000",

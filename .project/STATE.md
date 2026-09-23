@@ -4,7 +4,9 @@ Cập nhật: 2026-09-23 +07
 
 ## Trạng thái hiện tại
 - Workspace: `D:\1\cambida`, branch `main` (tracking `origin/main` tại `https://github.com/qwusvn/Cambida`).
-- Phiên bản phát triển và đóng gói: **2.1.3** (`RELEASE_VERSION.txt` = `2.1.3`, spec và launcher `CCTV_2.1.3.spec`, `CCTV_2.1.3.launcher.cmd`, `package_2.1.3.ps1`). Gói staging onedir: `D:\1\cambida\staging\2.1.3\CCTV_2.1.3.exe` (SHA-256: `B7378F4DF9452508071D6A5F12230B3626FEB4B042BD84C0AAC5D02786ECC7B4`). Bổ sung cờ `-movflags +faststart` cho luồng ghi hình camera RTSP định kỳ trong `1.py` để tương thích hoàn hảo với trình duyệt iOS Safari trên iPhone.
+- Phiên bản phát triển và đóng gói: **2.1.3** (`RELEASE_VERSION.txt` = `2.1.3`, spec và launcher `CCTV_2.1.3.spec`, `CCTV_2.1.3.launcher.cmd`, `package_2.1.3.ps1`). Gói staging onedir: `D:\1\cambida\staging\2.1.3\CCTV_2.1.3.exe` (SHA-256: `1E94738F89898A709002C3C9CDF18817581BA99E592A7ABCA15BB125BAE5AB37`). Bổ sung cờ `-movflags +faststart` cho luồng ghi hình camera RTSP định kỳ trong `1.py` để tương thích hoàn hảo với trình duyệt iOS Safari trên iPhone.
+- Đóng gói phát hành sạch sẽ (Zero Config Pollution): Gói `staging\2.1.3` hoàn toàn không kèm file `config.json`, không kèm db/logs/cache/media; tệp hạt giống an toàn `_internal\config.release.json` đã xóa sạch camera (`cameras: []`), để trống tên cửa hàng và khẩu hiệu (`site.name: ""`, `site.tagline: ""`).
+- Giao diện Timeline xem lại: Ẩn nút chọn nguồn Local/NVR (`#sourceToggleWrap`) và ẩn cụm nút Hướng phát tua `«` / `»` (`.control-block-direction`). Timeline hiển thị song song cả Local và NVR: Local mang màu xanh chính (`var(--blue)`, z-index 2), NVR mang màu xanh nhạt hơn (`#93c5fd`, z-index 1) để người dùng dễ nhận biết. Khi tua/seek timeline, hệ thống luôn ưu tiên Local tuyệt đối (`findVideoAtDate`, `findNearestVideo`), chỉ chuyển sang NVR khi Local không có bản ghi.
 - Dọn dẹp workspace: Đã loại bỏ toàn bộ tệp rác, binary vô danh, 18 ảnh render UI, tàn dư Drive sync, các thư mục build trung gian (giải phóng >1.3 GB) và 25 file probe/log tạm trong `.project`.
 - Bản quyền xem lại (Hard Drive License Gate): Gắn mã kích hoạt theo số sê-ri phân vùng ổ đĩa (Volume Serial Number, ví dụ `00E1-1D9A`). Nằm đúng ổ đĩa thì dùng bình thường khi có trong tin nhắn ghim Telegram; copy sang ổ khác mã đổi thành mã mới -> lỗi bản quyền. Đã cấu hình tách biệt kênh xác thực bản quyền `LICENSE_TELEGRAM_CHAT_ID = "-1003849724906"` trực tiếp trong `1.py` để quét tin ghim từ nhóm "Key", bảo toàn 100% `telegram_chat_id` (`1547756222`) cho cảnh báo cá nhân. Khi chưa kích hoạt: camera vẫn ghi hình bình thường, trang xem trực tiếp (`/`) và trang admin (`/admin`) vẫn truy cập bình thường; khi kéo timeline hoặc ấn cắt video sẽ hiển thị popup `Mã kích hoạt: 00E1-1D9A` (kèm nút Sao chép). Khi thấy tin ghim Telegram: tự động lưu ngày giờ kích hoạt lần đầu vào SQLite `analytics.db` và gửi thông báo Telegram.
 - Production: **2.1.1**, `D:\1\cambida\release\2.1.1\CCTV_2.1.1.exe`, port `8004`.
@@ -29,7 +31,8 @@ Cập nhật: 2026-09-23 +07
 ## Replay/Timeline hiện tại
 - Mô hình lưu trữ và phát lại: **Local là chính, NVR là dự phòng**.
 - Camera kết nối NVR luôn được kích hoạt ghi hình trực tiếp vào PC (`cctv_videos/`) làm nguồn phát lại chính.
-- Màn hình xem lại (`/replay/camX`) mặc định phát và tải video từ Local; có nút toggle `sourceToggleBtn` để chủ động chuyển đổi giữa **Local (Chính)** và **NVR (Dự phòng)**.
+- Màn hình xem lại (`/replay/camX`) hiển thị đồng thời cả đoạn ghi Local và NVR trên timeline. NVR mang màu nhạt (`#93c5fd`), Local mang màu đậm (`#1d72f2`).
+- Ẩn nút chuyển đổi Local/NVR và ẩn nút điều hướng Hướng phát tua; timeline tự động kết hợp cả hai nguồn và luôn ưu tiên Local khi tua/chọn mốc thời gian.
 - Khi cắt video (`/merge`), hệ thống ưu tiên cắt trực tiếp từ Local; nếu Local bị khuyết file thì tự động fallback tải bù từ NVR dự phòng.
 - Kim/playhead cố định giữa; kéo ruler/timeline chạy bên dưới.
 - Đoạn có bản ghi tô xanh; gap để trống; không thumbnail.

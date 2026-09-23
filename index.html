@@ -750,6 +750,16 @@
       border-radius: 4px;
       background:var(--blue);
       box-shadow: inset 0 0 0 1px rgba(29, 114, 242, 0.15);
+      z-index: 2;
+    }
+    .filmstrip-cell.filmstrip-cell-nvr {
+      background: #93c5fd !important;
+      box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.4);
+      z-index: 1;
+    }
+    .source-toggle-wrap,
+    .control-block-direction {
+      display: none !important;
     }
     .cut-mask {
       position: absolute;
@@ -1114,7 +1124,7 @@
 
       <!-- Row 2: Speed on left, Zoom on right -->
       <div class="timeline-sub-row" role="toolbar" aria-label="Điều khiển tốc độ và thu phóng timeline">
-        <div class="timeline-control-block">
+        <div class="timeline-control-block control-block-direction">
           <div class="control-block-label">Hướng</div>
           <div class="timeline-dir-group" role="group" aria-label="Hướng phát">
             <button class="dir-button" type="button" data-timeline-context="replay" data-direction="reverse" title="Phát lùi" aria-label="Phát lùi"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 17-5-5 5-5M11 17l-5-5 5-5"/></svg></button>
@@ -1198,7 +1208,7 @@
 
     <div class="timeline-card" id="cutTimelineCard">
       <div class="timeline-toolbar" role="toolbar" aria-label="Điều khiển timeline cắt video">
-        <div class="timeline-control-block">
+        <div class="timeline-control-block control-block-direction">
           <div class="control-block-label">Hướng</div>
           <div class="timeline-dir-group" role="group" aria-label="Hướng phát">
             <button class="dir-button" type="button" data-timeline-context="cut" data-direction="reverse" title="Phát lùi" aria-label="Phát lùi"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 17-5-5 5-5M11 17l-5-5 5-5"/></svg></button>
@@ -1318,6 +1328,7 @@
   const LICENSE_ACTIVE = {{ 'true' if license_active else 'false' }};
   const LICENSE_KEY = "{{ license_key }}";
   const CAMERA_MODE = "{{ camera_mode }}";
+  const HAS_NVR = {{ 'true' if has_nvr else 'false' }};
   const CAMERA_ID = "{{ cam_id }}";
   const MAX_MERGE_MINUTES = Number({{ max_merge_minutes|int }});
   const MAX_MERGE_SECONDS = Math.max(60, MAX_MERGE_MINUTES * 60);
@@ -1340,6 +1351,7 @@
   const gestureStates = new WeakMap();
 
   function getSelectedSource(){
+    if(HAS_NVR) return "all";
     const input = document.getElementById("selectedReplaySource");
     if(input && input.value) return input.value;
     return CAMERA_MODE === "nvr" ? "nvr" : "local";
@@ -1412,29 +1424,107 @@
   function getTimelineDayBounds(){const value=$("filterDate")?.value||fmtDateInput(new Date()),currStart=new Date(`${value}T00:00:00`),start=new Date(currStart.getTime()-86400000),end=new Date(currStart.getTime()+86400000);return{start,end,duration:172800};}
   function getTimelineDateAtProgress(progress){const day=getTimelineDayBounds();return new Date(day.start.getTime()+clamp(progress,0,1)*day.duration*1000);}
   function getTimelineProgressForDate(value){const day=getTimelineDayBounds(),date=value instanceof Date?value:parseDate(value);if(!date)return 0;return clamp((date-day.start)/(day.end-day.start),0,1);}
-  function findVideoAtDate(date){let match=null,index=-1;visibleVideos.some((v,i)=>{const r=getVideoRange(v);if(r&&date>=r.start&&date<r.end){match=v;index=i;return true;}return false;});return{video:match,index};}
+  function findVideoAtDate(date){
+    let nvrMatch=null, nvrIndex=-1;
+    for(let i=0;i<visibleVideos.length;i++){
+      const v=visibleVideos[i], r=getVideoRange(v);
+      if(r&&date>=r.start&&date<r.end){
+        if(!isNvrVideo(v)){
+          return {video:v,index:i};
+        }
+        if(!nvrMatch){
+          nvrMatch=v;
+          nvrIndex=i;
+        }
+      }
+    }
+    if(nvrMatch) return {video:nvrMatch,index:nvrIndex};
+    return {video:null,index:-1};
+  }
   function findNearestVideo(date){
     const d=parseDate(date);
     if(!visibleVideos.length||!d)return null;
     const targetMs=d.getTime();
-    let bestMatch=null;
-    let minDistance=Infinity;
+    let bestLocalMatch=null, minLocalDist=Infinity;
+    let bestNvrMatch=null, minNvrDist=Infinity;
     for(let i=0;i<visibleVideos.length;i++){
       const v=visibleVideos[i],r=getVideoRange(v);
       if(!r)continue;
       const startMs=r.start.getTime(),endMs=r.end.getTime();
-      if(targetMs>=startMs&&targetMs<endMs)return {video:v,index:i,targetDate:new Date(targetMs),distance:0};
-      if(targetMs<startMs){
-        const dist=startMs-targetMs;
-        if(dist<minDistance){minDistance=dist;bestMatch={video:v,index:i,targetDate:new Date(startMs),distance:dist};}
+      let dist=0, targetDate=d;
+      if(targetMs>=startMs&&targetMs<endMs){
+        dist=0;
+        targetDate=new Date(targetMs);
+      }else if(targetMs<startMs){
+        dist=startMs-targetMs;
+        targetDate=new Date(startMs);
       }else{
-        const dist=targetMs-endMs;
-        if(dist<minDistance){minDistance=dist;bestMatch={video:v,index:i,targetDate:new Date(Math.max(startMs,endMs-1000)),distance:dist};}
+        dist=targetMs-endMs;
+        targetDate=new Date(Math.max(startMs,endMs-1000));
+      }
+      const matchObj={video:v,index:i,targetDate,distance:dist};
+      if(!isNvrVideo(v)){
+        if(dist<minLocalDist){
+          minLocalDist=dist;
+          bestLocalMatch=matchObj;
+          if(dist===0) break;
+        }
+      }else{
+        if(dist<minNvrDist){
+          minNvrDist=dist;
+          bestNvrMatch=matchObj;
+        }
       }
     }
-    return bestMatch;
+    if(bestLocalMatch && minLocalDist === 0) return bestLocalMatch;
+    if(bestNvrMatch && minNvrDist === 0 && minLocalDist > 0) return bestNvrMatch;
+    if(bestLocalMatch && (!bestNvrMatch || minLocalDist <= minNvrDist)) return bestLocalMatch;
+    return bestNvrMatch || bestLocalMatch;
   }
-  function renderTimelineCoverage(targetId){const target=$(targetId);if(!target)return;target.textContent="";const day=getTimelineDayBounds(),span=day.end-day.start,ranges=visibleVideos.map(v=>{const r=getVideoRange(v);if(!r)return null;const start=new Date(Math.max(day.start.getTime(),r.start.getTime())),end=new Date(Math.min(day.end.getTime(),r.end.getTime()));return end>start?{start,end,labels:[`${fmtTime(start)} - ${fmtTime(end)}`]}:null;}).filter(Boolean).sort((a,b)=>a.start-b.start),merged=[];ranges.forEach(range=>{const previous=merged[merged.length-1];if(previous&&range.start.getTime()-previous.end.getTime()<=COVERAGE_JITTER_MS){previous.end=new Date(Math.max(previous.end.getTime(),range.end.getTime()));previous.labels.push(range.labels[0]);}else merged.push(range);});merged.forEach(range=>{const cell=document.createElement("div");cell.className="filmstrip-cell";cell.style.left=`${(range.start-day.start)/span*100}%`;cell.style.width=`${(range.end-range.start)/span*100}%`;cell.title=range.labels.join(" · ");target.appendChild(cell);});}
+  function renderTimelineCoverage(targetId){
+    const target=$(targetId);
+    if(!target)return;
+    target.textContent="";
+    const day=getTimelineDayBounds(),span=day.end-day.start;
+
+    function buildMergedRanges(videos, isNvr){
+      const ranges=videos.map(v=>{
+        const r=getVideoRange(v);
+        if(!r)return null;
+        const start=new Date(Math.max(day.start.getTime(),r.start.getTime())),
+              end=new Date(Math.min(day.end.getTime(),r.end.getTime()));
+        const prefix = isNvr ? "[NVR] " : "[Local] ";
+        return end>start?{start,end,labels:[`${prefix}${fmtTime(start)} - ${fmtTime(end)}`],isNvr}:null;
+      }).filter(Boolean).sort((a,b)=>a.start-b.start);
+
+      const merged=[];
+      ranges.forEach(range=>{
+        const previous=merged[merged.length-1];
+        if(previous&&range.start.getTime()-previous.end.getTime()<=COVERAGE_JITTER_MS){
+          previous.end=new Date(Math.max(previous.end.getTime(),range.end.getTime()));
+          previous.labels.push(range.labels[0]);
+        }else{
+          merged.push(range);
+        }
+      });
+      return merged;
+    }
+
+    const nvrVideos = visibleVideos.filter(v => isNvrVideo(v));
+    const localVideos = visibleVideos.filter(v => !isNvrVideo(v));
+
+    const nvrMerged = buildMergedRanges(nvrVideos, true);
+    const localMerged = buildMergedRanges(localVideos, false);
+
+    [...nvrMerged, ...localMerged].forEach(range=>{
+      const cell=document.createElement("div");
+      cell.className = range.isNvr ? "filmstrip-cell filmstrip-cell-nvr" : "filmstrip-cell";
+      cell.style.left=`${(range.start-day.start)/span*100}%`;
+      cell.style.width=`${(range.end-range.start)/span*100}%`;
+      cell.title=range.labels.join(" · ");
+      target.appendChild(cell);
+    });
+  }
   function formatBubbleTime(date){
     if(!date||Number.isNaN(date.getTime()))return "--:--:--";
     return fmtTime(date);
