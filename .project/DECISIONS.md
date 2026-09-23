@@ -166,3 +166,7 @@
 - Cambida web UI must not claim it can silently write an MP4 directly into Apple Photos. Web Share can hand a prepared video file to the iOS Share Sheet only in a supported secure context and still requires the user's Save Video action.
 - For the default HTTP LAN/QR deployment, use raw inline MP4 as the fallback path and keep the user in the top-level browsing context so the native iOS media/share UI can be used.
 - If a future requirement mandates one-tap/direct Photo Library writes without Share Sheet selection, implement a native iOS shell/bridge using Apple PhotoKit; do not attempt to emulate it with browser download tricks.
+
+## 2026-09-23 — 1.py owns replay template delivery
+- For one-file source deployment, the replay/cut template is embedded in `1.py` and treated as the primary template for `/replay/cam<int:cam_id>`.
+- External `index.html` remains a fallback for recoverability, not the primary source of replay UI at runtime.

@@ -181,3 +181,8 @@
 - Added cancellation/cleanup of prepared iOS share blobs when leaving the completed-cut screen.
 - Changed iPhone raw-video fallback to same-tab navigation and updated the on-screen instructions for HTTP / QR in-app browsers.
 - No backend, packaging, config, media, release artifact, test, build or deployment changes in this task.
+
+## 2026-09-23 — Embed replay UI into 1.py
+- Added Base85+zlib embedded replay template to `1.py` with SHA-256 integrity validation.
+- Changed `/replay/cam<int:cam_id>` to render the embedded replay template before falling back to external `index.html`.
+- This makes the iPhone save-video replay update deployable by replacing `1.py` alone.

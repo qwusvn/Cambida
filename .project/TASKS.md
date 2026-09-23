@@ -357,3 +357,10 @@ elease\2.1.0\index.html byte-identically with source index.html.
 - [x] For HTTP/in-app browser fallback, open raw MP4 in the same tab and guide the user to iOS Share → Save Video.
 - Tests/build/device test: NOT RUN — not requested.
 - Status: COMPLETED for requested source scope.
+
+## [x] Self-contained replay UI in 1.py — 2026-09-23
+- [x] Embed the current replay template into `1.py` with compression and integrity SHA-256.
+- [x] Route replay rendering through the embedded template so one-file `1.py` replacement includes the iPhone video-save UI/logic.
+- [x] Keep external `index.html` as failure fallback only.
+- Tests/build/device test: NOT RUN — not requested.
+- Status: COMPLETED for source scope.

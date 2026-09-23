@@ -480,3 +480,10 @@ Cập nhật: 2026-09-23 +07
 - Default Cambida LAN URL remains HTTP; Web Share file mode is therefore unavailable in many QR/in-app-browser cases. Fallback now opens the raw `/video/<filename>` in the same top-level tab for the native iOS viewer/share flow.
 - Pure web cannot write directly into Photos without an iOS share/save action; true silent/direct Photo Library writes require a native iOS app/bridge.
 - Build/tests/device test: NOT RUN — not requested.
+
+## 2026-09-23 — Self-contained replay UI in 1.py
+- task_id: `cambida-self-contained-replay-1py-20260923`.
+- `1.py` now embeds the current replay/cut `index.html` (SHA-256 `e67875cea06a20cf553b176561fe9d9dae8e91682242e4ea3b9b7be666223c9d`) as compressed Base85 data.
+- `/replay/cam<int:cam_id>` renders the embedded template first, so replacing only `1.py` carries the current replay UI and iPhone Photos save flow even if external `index.html` is older.
+- External `index.html` is retained only as an exception fallback if embedded template decoding/rendering fails.
+- Tests/build/device test: NOT RUN — not requested.

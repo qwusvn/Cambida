@@ -480,3 +480,9 @@ elease\2.1.0\index.html synchronized with source.
 - Default LAN/QR path is HTTP, so secure-context Web Share may not exist. Fallback uses the raw `/video/<filename>` in the current tab so iOS exposes its native video/share UI instead of sending the MP4 to Files download.
 - Platform boundary: a browser page cannot silently add media to Apple Photos; zero-extra-action saving requires a native iOS PhotoKit bridge/app.
 - Verification performed: source/diff inspection only. Tests/build/device test NOT RUN by user constraint.
+
+## 2026-09-23 handoff — one-file 1.py replay delivery
+- `1.py` is now self-contained for the replay/cut page. It embeds the exact current `index.html`, including prepared-file iOS Web Share and HTTP/QR same-tab MP4 fallback.
+- The embedded template is integrity-checked before first render and cached in memory after decoding.
+- Replacing only `1.py` is sufficient for this replay UI/save-flow update; other sidecar HTML files are still used for their own routes.
+- No packaging/build/runtime/device test was performed in this task.
