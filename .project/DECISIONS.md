@@ -145,3 +145,9 @@
 - Kênh xác thực bản quyền: Dùng bot Hằng (`@hahang_bot`, token `8541075047:AAFPd-0jGbKG55zTWMvN16Xw-XedMPd8e6o`) và nhóm Telegram "Key" (Supergroup ID: `-1003849724906`).
 - Cơ chế quét tin ghim: Hàm `_telegram_pinned_text()` hỗ trợ đọc đồng thời cả tin nhắn ghim (`pinned_message`) lẫn phần mô tả nhóm (`description`). Khi tìm thấy đúng mã ổ cứng (hỗ trợ cả định dạng có dấu gạch `00E1-1D9A` lẫn liền mạch `00E11D9A`), hệ thống lập tức mở khóa tính năng xem lại, tự động ghi nhận thời điểm kích hoạt vào SQLite `analytics.db` bảng `license_meta` và gửi thông báo xác nhận qua Telegram.
 
+## 2026-09-23 — Quyết định phiên bản 2.1.3 & Tối ưu phát lại trên thiết bị di động (Faststart)
+- Bổ sung cờ `-movflags +faststart` vào toàn bộ quy trình ghi hình camera định kỳ (RTSP và NetSDK) trong `1.py`. Bảng chỉ mục `moov atom` luôn được đặt tại đầu file MP4 để thiết bị iOS Safari (iPhone) và trình duyệt di động có thể đọc ngay lập tức mà không cần tải hết đuôi file.
+- Nâng phiên bản chính thức lên **2.1.3**.
+- Đóng gói phát hành PyInstaller onedir sạch sẽ vào `D:\1\cambida\staging\2.1.3` (SHA-256: `B7378F4DF9452508071D6A5F12230B3626FEB4B042BD84C0AAC5D02786ECC7B4`).
+
+

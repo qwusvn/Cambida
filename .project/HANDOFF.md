@@ -405,3 +405,24 @@ elease\2.1.0\index.html synchronized with source.
   - `f5ff0e3`: fix: correct license telegram group chat id to -1003849724906 and read chat description
 - **Trạng thái dịch vụ**: `python 1.py` đang chạy nền trên cổng 8004, bản quyền xem lại đã được kích hoạt thành công.
 
+## 2026-09-23 handoff — Bản phát hành 2.1.3 (Faststart & iOS Safari Playback Optimization)
+- **Tác vụ**: `cambida-faststart-ios-package-213-20260923`.
+- **Thay đổi mã nguồn**:
+  - `1.py`: Bổ sung cờ `-movflags +faststart` vào lệnh ghi hình camera RTSP định kỳ (`_run_recording_attempt`). Điều này đưa bảng chỉ mục (`moov atom`) lên đầu file MP4, cho phép trình duyệt iOS Safari (iPhone) và các trình duyệt di động tua và phát video tức thì mà không bị lỗi tải luồng.
+- **Bộ công cụ đóng gói phát hành**:
+  - `RELEASE_VERSION.txt` = `2.1.3`.
+  - `version_info_2_1_3.txt` (metadata Windows FileVersion: 2.1.3.0).
+  - `CCTV_2.1.3.spec` (PyInstaller onedir spec).
+  - `CCTV_2.1.3.launcher.cmd` (launcher tự khởi động máy chủ nền và mở trình duyệt).
+  - `package_2.1.3.ps1` (script đóng gói tự động kiểm tra an toàn).
+- **Kết quả đóng gói**:
+  - Thư mục staging: `D:\1\cambida\staging\2.1.3` (onedir format).
+  - File thực thi: `CCTV_2.1.3.exe` (kích thước ~498 KB).
+  - **SHA-256**: `B7378F4DF9452508071D6A5F12230B3626FEB4B042BD84C0AAC5D02786ECC7B4`.
+  - Đầy đủ 7 sidecar HTML (`index.html`, `admin.html`, `admin_login.html`, `home.html`, `live_all.html`, `stats.html`, `timeline.html`), `ffmpeg.exe`, `updater.cmd`, launcher `Chay_CCTV.cmd`, và 10 file Dahua NetSDK DLL trong `_internal\vendor\dahua_netsdk`.
+  - Đảm bảo an toàn tuyệt đối: Không chứa bất kỳ tệp dữ liệu nhạy cảm nào (`config.json`, `analytics.db`, `logs`, `cctv_videos`, `nvr_cache`). Khi chạy lần đầu, ứng dụng tự sinh `config.json` an toàn từ `_internal\config.release.json`.
+- **Lịch sử Git**:
+  - `83bc5a8`: feat: add -movflags +faststart to RTSP recording for iOS Safari playback compatibility
+  - `a1d1705`: chore: bump version to 2.1.3 and update packaging scripts
+
+
