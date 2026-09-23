@@ -204,3 +204,8 @@
 - Giúp trình duyệt WKWebView/Zalo trên iPhone thực hiện điều hướng tệp đính kèm và mở màn hình Quick Look MP4 (cho phép bấm Chia sẻ -> Lưu video vào Thư viện Ảnh).
 - Thêm `Cache-Control: no-store` cho trang Replay để tránh cache HTML cũ.
 - Kiểm thử thiết bị: NOT RUN (chờ người dùng xác nhận trên máy thật).
+
+## 2026-09-24 — Chuyển hướng quét QR nội bộ sang HTTPS
+- Bổ sung logic redirect 302 trong `replay_cam` của `1.py`: Khi khách truy cập qua IP nội bộ (mã QR cũ tại bàn), máy chủ tự động chuyển hướng sang `public_base_url` (HTTPS).
+- Cấu hình `public_base_url` trong `config.json`.
+- Cho phép giữ nguyên 100% mã QR đã in trên các bàn bida; khách quét QR cũ tự động được chuyển sang HTTPS để mở khóa tính năng lưu 1 chạm vào Ảnh trên iPhone.

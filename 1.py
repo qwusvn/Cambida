@@ -39,7 +39,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from io import BytesIO
 from logging.handlers import RotatingFileHandler
-from urllib.parse import quote, unquote
+from urllib.parse import quote, unquote, urlparse
 from xml.etree import ElementTree as ET
 
 import cv2
@@ -4180,6 +4180,13 @@ def index():
 def replay_cam(cam_id):
     if not 1 <= cam_id <= len(CAMERA_LIST):
         return "Camera không tồn tại", 404
+    public_base = (CONFIG.get("public_base_url") or "").strip().rstrip("/")
+    if public_base:
+        pub_host = urlparse(public_base).netloc.lower()
+        if request.host.lower() != pub_host:
+            query = request.query_string.decode("utf-8", "ignore")
+            target = f"{public_base}/replay/cam{cam_id}" + (f"?{query}" if query else "")
+            return redirect(target, code=302)
     cam = CAMERA_LIST[cam_id - 1]
     has_nvr = camera_has_nvr(cam)
     mode = _timeline_playback_mode(cam_id)

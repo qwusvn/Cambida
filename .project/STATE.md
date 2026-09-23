@@ -522,3 +522,13 @@ Cập nhật: 2026-09-23 +07
 - Giao diện 2 nút nguyên bản của `41bcbd2` được giữ nguyên vẹn.
 - Tiến trình server cổng 8004 đã được khởi động lại để phục vụ thử nghiệm.
 - Kiểm thử thiết bị: NOT RUN (không được yêu cầu).
+
+## 2026-09-24 — Cloudflare Quick Tunnel HTTPS
+- Kích hoạt đường hầm HTTPS thử nghiệm qua cloudflared trỏ vào cổng 8004.
+- URL: https://machines-comprehensive-particles-karma.trycloudflare.com/replay/cam1
+- Phục vụ thử nghiệm Web Share API trên Safari.
+
+## 2026-09-24 — Tự động chuyển hướng QR nội bộ sang HTTPS
+- Task `cambida-qr-redirect-https-20260924`: COMPLETED.
+- Khách quét mã QR cũ `http://192.168.xx.xx:8004/replay/camX` trên bàn sẽ được tự động chuyển hướng sang `public_base_url` (HTTPS).
+- Giữ nguyên toàn bộ mã QR cũ trên các bàn bida, không cần in lại.

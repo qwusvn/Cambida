@@ -516,3 +516,7 @@ elease\2.1.0\index.html synchronized with source.
 - Bằng cách gỡ bỏ thuộc tính HTML `download` trên iOS nhưng vẫn dùng `/download/<filename>`, trình duyệt Zalo/WKWebView sẽ điều hướng và mở trình xem tệp Quick Look MP4.
 - Tại màn hình Quick Look này, người dùng bấm Chia sẻ (hoặc "Thêm...") -> chọn "Lưu video" để lưu vào Thư viện Ảnh (Photos).
 - Máy chủ đang chạy cổng 8004 sau khi restart.
+
+## 2026-09-24 handoff — QR nội bộ tự chuyển hướng sang HTTPS
+- Khách dùng mã QR cũ dán trên bàn vẫn hoạt động: máy chủ nhận request từ mạng nội bộ và trả về 302 redirect sang HTTPS.
+- Khi đổi tên miền cố định trong tương lai, chỉ cần cập nhật trường `public_base_url` trong `config.json`.

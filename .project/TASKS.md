@@ -395,3 +395,9 @@ elease\2.1.0\index.html byte-identically with source index.html.
 - [x] Bổ sung Cache-Control no-store cho HTML phản hồi trang Replay.
 - [x] Khởi động lại tiến trình server cổng 8004.
 - Tests/device trials: NOT RUN (chờ người dùng kiểm tra trên iPhone). Status: COMPLETED.
+
+## [x] cambida-qr-redirect-https-20260924 — Tự động chuyển hướng QR nội bộ sang HTTPS
+- [x] Thêm chuyển hướng 302 trong `1.py` cho `replay_cam`.
+- [x] Cấu hình `public_base_url` trong `config.json`.
+- [x] Kiểm tra thực tế: request tới `http://127.0.0.1:8004/replay/cam1` trả về 302 sang HTTPS thành công.
+- [x] Máy chủ khởi động lại với PID 26364.
