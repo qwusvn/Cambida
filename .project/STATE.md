@@ -1,10 +1,11 @@
 # STATE — Cambida
 
-Cập nhật: 2026-09-22 +07
+Cập nhật: 2026-09-23 +07
 
 ## Trạng thái hiện tại
 - Workspace: `D:\1\cambida`, branch `main` (tracking `origin/main` tại `https://github.com/qwusvn/Cambida`).
-- Remote HEAD: `7437fad` — `chore: merge GitHub initial commit into main`.
+- Phiên bản phát triển hiện tại: **2.1.2** (`RELEASE_VERSION.txt` = `2.1.2`, spec và launcher đã tinh gọn thành `CCTV_2.1.2.spec`, `CCTV_2.1.2.launcher.cmd`, `package_2.1.2.ps1`).
+- Dọn dẹp workspace: Đã loại bỏ toàn bộ tệp rác, binary vô danh, 18 ảnh render UI, tàn dư Drive sync, các thư mục build trung gian (giải phóng >1.3 GB) và 25 file probe/log tạm trong `.project`.
 - Production: **2.1.1**, `D:\1\cambida\release\2.1.1\CCTV_2.1.1.exe`, port `8004`.
 - Commit timeline chính: `5efc105` — `feat: switch NVR replay to timeline-only UI`.
 - Commit sửa regression quay lại từ Cut: `338a842` — `fix: restore timeline after returning from cut`.

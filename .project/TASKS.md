@@ -21,6 +21,7 @@
 - [x] 2026-09-22 — Tích hợp GitHub Auto-Updater (qwusvn/Cambida) + Báo Telegram: tự động kiểm tra GitHub Releases mỗi 60 phút hoặc qua lệnh Telegram /update, tải ngầm file zip, bàn giao cho updater.cmd thay thế file bảo toàn 100% config/db/videos, khởi động lại và gửi thông báo thành công qua Telegram.
 - [x] 2026-09-22 — Bộ kiểm thử tự động 99/99 unittest PASS (bao gồm test_auto_update.py mới, test_nvr_per_camera.py cập nhật).
 - [x] 2026-09-23 — Đưa toàn bộ mã nguồn lên GitHub: liên kết origin https://github.com/qwusvn/Cambida.git, commit và hợp nhất lịch sử sạch sẽ, bảo vệ an toàn các file cấu hình và dữ liệu nhạy cảm, push thành công lên origin/main (HEAD: 7437fad).
+- [x] 2026-09-23 — Dọn dẹp toàn diện thư mục dự án và bộ nhớ vận hành .project: xóa các file rác vô danh (Q, fail.txt, step208.py), xóa 18 ảnh render UI và script test screenshot tạm thời, xóa tàn dư Drive sync cũ, xóa các thư mục rỗng và các thư mục build trung gian (build, dist, staging giải phóng >1.3GB); dọn sạch 25 file probe/log tạm trong .project; loại bỏ các spec/launcher/version cũ (1.3.42 -> 2.1.1) và lưu hành duy nhất bộ đóng gói 2.1.2 mới nhất (commit f34c280).
 
 ## DOING
 - Không có task thuộc batch hiện tại.
