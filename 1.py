@@ -2290,6 +2290,7 @@ def get_resource_path(relative_path):
 LICENSE_LOCK = threading.RLock()
 LICENSE_ENFORCEMENT_ENABLED = False
 LICENSE_CHECK_INTERVAL_SEC = 60
+LICENSE_TELEGRAM_TOKEN = "8541075047:AAFPd-0jGbKG55zTWMvN16Xw-XedMPd8e6o"
 LICENSE_TELEGRAM_CHAT_ID = "-1003819724906"
 LICENSE_STATE = {
     "active": False,
@@ -2404,26 +2405,48 @@ def get_license_activated_at(license_key):
 
 
 def _telegram_pinned_text():
-    token = str(CONFIG.get("telegram_token") or "").strip()
-    chat_id = str(
-        CONFIG.get("license_telegram_chat_id")
-        or LICENSE_TELEGRAM_CHAT_ID
-        or CONFIG.get("telegram_chat_id")
+    token = str(
+        LICENSE_TELEGRAM_TOKEN
+        or CONFIG.get("license_telegram_token")
+        or CONFIG.get("telegram_token")
         or ""
     ).strip()
-    if not token or not chat_id:
-        raise RuntimeError("Thiếu telegram_token hoặc telegram_chat_id trong cấu hình.")
-    response = requests.get(
-        f"https://api.telegram.org/bot{token}/getChat",
-        params={"chat_id": chat_id},
-        timeout=8,
-    )
-    response.raise_for_status()
-    payload = response.json()
-    if not payload.get("ok"):
-        raise RuntimeError(str(payload.get("description") or "Telegram getChat thất bại."))
-    pinned = payload.get("result", {}).get("pinned_message") or {}
-    return str(pinned.get("text") or pinned.get("caption") or "")
+    chat_candidates = [
+        str(CONFIG.get("license_telegram_chat_id") or "").strip(),
+        str(LICENSE_TELEGRAM_CHAT_ID or "").strip(),
+        str(CONFIG.get("telegram_chat_id") or "").strip(),
+    ]
+    unique_chat_ids = []
+    for cid in chat_candidates:
+        if cid and cid not in unique_chat_ids:
+            unique_chat_ids.append(cid)
+    if not token:
+        raise RuntimeError("Thiếu telegram_token trong mã nguồn hoặc cấu hình.")
+    if not unique_chat_ids:
+        raise RuntimeError("Thiếu telegram_chat_id trong mã nguồn hoặc cấu hình.")
+
+    last_error = None
+    for chat_id in unique_chat_ids:
+        try:
+            response = requests.get(
+                f"https://api.telegram.org/bot{token}/getChat",
+                params={"chat_id": chat_id},
+                timeout=8,
+            )
+            if response.status_code == 200:
+                payload = response.json()
+                if payload.get("ok"):
+                    pinned = payload.get("result", {}).get("pinned_message") or {}
+                    text = str(pinned.get("text") or pinned.get("caption") or "")
+                    if text:
+                        return text
+        except Exception as exc:
+            last_error = exc
+            continue
+
+    if last_error:
+        logger.warning("[License] Lỗi khi quét các kênh Telegram: %s", last_error)
+    return ""
 
 
 def _pinned_message_has_key(pinned_text, license_key):
@@ -2548,8 +2571,8 @@ def telegram_command_help():
     )
 
 
-def send_telegram_alert(message, target_chat_id=None):
-    token = CONFIG.get("telegram_token")
+def send_telegram_alert(message, target_chat_id=None, token_override=None):
+    token = token_override or LICENSE_TELEGRAM_TOKEN or CONFIG.get("telegram_token")
     chat_id = target_chat_id or CONFIG.get("telegram_chat_id")
     if not token or not chat_id:
         return
@@ -3253,7 +3276,8 @@ def start_github_update_worker():
 
 
 def monitor_telegram_commands():
-    token = CONFIG.get("telegram_token")
+    global LICENSE_TELEGRAM_CHAT_ID
+    token = str(LICENSE_TELEGRAM_TOKEN or CONFIG.get("telegram_token") or "").strip()
     admin_id = str(CONFIG.get("telegram_chat_id") or "").strip()
     license_chat_id = str(
         CONFIG.get("license_telegram_chat_id") or LICENSE_TELEGRAM_CHAT_ID or ""
@@ -3273,12 +3297,21 @@ def monitor_telegram_commands():
             if "result" in resp:
                 for update in resp["result"]:
                     offset = update["update_id"]
-                    message = update.get("message", {})
-                    raw_text = str(message.get("text", "")).strip()
+                    message = update.get("message", {}) or update.get("channel_post", {})
+                    raw_text = str(message.get("text", "") or message.get("caption", "")).strip()
                     text = raw_text.lower()
-                    chat_id = str(message.get("chat", {}).get("id"))
+                    chat_obj = message.get("chat", {})
+                    chat_id = str(chat_obj.get("id", ""))
+                    chat_title = str(chat_obj.get("title", ""))
                     msg_date = message.get("date", 0)
-                    if chat_id not in allowed_chat_ids or msg_date < BOT_START_TIME:
+                    if msg_date < BOT_START_TIME:
+                        continue
+                    activate_match = re.fullmatch(r'/activate(?:@\w+)?(?:\s+["“]?([^"”\s]+)["”]?)?', raw_text, re.IGNORECASE)
+                    if "key" in chat_title.lower() or activate_match or re.fullmatch(r"/license(?:@\w+)?", text):
+                        allowed_chat_ids.add(chat_id)
+                        LICENSE_TELEGRAM_CHAT_ID = chat_id
+
+                    if chat_id not in allowed_chat_ids:
                         continue
                     if re.fullmatch(r"/list(?:@\w+)?", text):
                         send_telegram_alert(telegram_command_help(), target_chat_id=chat_id)
