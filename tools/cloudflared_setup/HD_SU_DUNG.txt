@@ -1,0 +1,39 @@
+===================================================================
+  HƯỚNG DẪN CÀI ĐẶT CLOUDFLARED TUNNEL TỰ ĐỘNG CHO MÁY KHÁCH
+===================================================================
+
+Bộ công cụ này dùng để cài đặt Cloudflare HTTPS Tunnel cho phần mềm Cambida CCTV,
+giúp iPhone (iOS) khi quét mã QR có thể mở trực tiếp bảng "Lưu và chia sẻ"
+để lưu video 1 chạm vào Thư viện Ảnh (Photos) mà không cần mở port modem.
+
+HƯỚNG DẪN DÀNH CHO KỸ THUẬT VIÊN / MÁY MỚI:
+------------------------------------------
+1. Sao chép toàn bộ thư mục 'cloudflared_setup' vào thư mục cài đặt Cambida của máy khách.
+   (Nằm chung cấp với file config.json hoặc trong thư mục tools của dự án).
+
+2. Nhấp đúp chuột vào file:
+   [ install_tunnel.bat ]
+
+3. Script sẽ tự động:
+   - Nhận diện cổng máy chủ web từ file config.json (mặc định 8004).
+   - Khởi động Cloudflare Tunnel và lấy URL HTTPS bảo mật (dạng https://xxxx.trycloudflare.com).
+   - Tự động ghi URL này vào "public_base_url" trong file config.json.
+   - Hỏi: "Bạn có muốn cài đặt để Cloudflared tự chạy ngầm mỗi khi khởi động máy không? (Y/N)"
+     -> Nhập Y và bấm Enter nếu muốn máy tự bật tunnel mỗi khi khởi động Windows.
+
+CÁCH THỨC HOẠT ĐỘNG:
+--------------------
+- Khách dùng iPhone: Quét mã QR nội bộ (http://192.168.xx.xx:xxxx/replay/camX) sẽ được
+  hệ thống tự động chuyển hướng sang HTTPS để mở tính năng Lưu vào Ảnh.
+- Khách dùng Android hoặc Máy tính (PC): Hệ thống giữ nguyên chạy tại IP nội bộ
+  để tải video trực tiếp qua Wi-Fi với tốc độ cao nhất của mạng LAN.
+
+CÁC TỆP TIN TRONG GÓI:
+-----------------------
+- install_tunnel.bat    : Bấm chạy cài đặt và cấu hình tự động.
+- setup_tunnel.ps1      : Mã xử lý cấu hình, lấy URL và ghi vào config.json.
+- run_tunnel_silent.vbs : Khởi chạy Cloudflared ngầm không hiện cửa sổ cmd.
+- start_tunnel.ps1      : Mã khởi chạy ngầm cho tính năng tự bật cùng Windows.
+- stop_tunnel.bat       : Bấm để tắt toàn bộ tiến trình Cloudflared nếu cần dừng.
+- cloudflared.exe       : File thực thi chính của Cloudflare.
+===================================================================

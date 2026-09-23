@@ -1440,26 +1440,20 @@
 
       <!-- Actions -->
       <div class="actions">
-        <!-- Nút mở video xem/lưu trực tiếp (iPhone & Mobile) -->
-        <a id="openVideoBtn" class="action primary cut-primary" href="#" target="_blank" rel="noopener">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          <span id="openVideoText">Mở video để Lưu vào Ảnh (iPhone)</span>
-        </a>
-
         <!-- Nút Web Share API (khi có HTTPS / hỗ trợ) -->
         <button id="iosSaveShareBtn" class="action primary cut-primary" type="button" style="display:none">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-          <span id="iosSaveShareText">Lưu video vào Ảnh</span>
+          <span id="iosSaveShareText">Lưu và chia sẻ</span>
         </button>
 
-        <!-- Nút tải file về máy (cho Máy tính hoặc lưu vào ứng dụng Tệp) -->
+        <!-- Nút tải file về máy (cho Máy tính hoặc Android) -->
         <a id="mergedDownloadBtn" class="action secondary" href="#" aria-disabled="true">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span>Tải về máy (Lưu vào Tệp)</span>
+          <span>Tải về máy</span>
         </a>
 
         <!-- Nút quay về -->
-        <button id="doneBackButton" class="action cancel" type="button">Quay về xem lại</button>
+        <button id="doneBackButton" class="action cancel" type="button">Quay lại</button>
       </div>
 
       <!-- Hộp hướng dẫn dành cho iPhone -->
@@ -1471,11 +1465,7 @@
         <div class="ios-guide-steps">
           <div class="ios-guide-step">
             <span class="guide-badge">Ưu tiên</span>
-            <span>Nếu nút <strong>"Lưu video vào Ảnh"</strong> xuất hiện, chờ nút chuẩn bị xong rồi bấm &rarr; Chọn <strong>"Lưu video"</strong> trong bảng Chia sẻ của iOS.</span>
-          </div>
-          <div class="ios-guide-step">
-            <span class="guide-badge">HTTP / trình duyệt QR</span>
-            <span>Nếu iOS không cho chia sẻ file trực tiếp, bấm <strong>"Mở video → Chia sẻ → Lưu video"</strong> &rarr; dùng nút <strong>Chia sẻ</strong> (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>) của iPhone &rarr; <strong>"Lưu video"</strong>.</span>
+            <span>Bấm nút <strong>"Lưu và chia sẻ"</strong> &rarr; Chọn <strong>"Lưu video"</strong> trong bảng Chia sẻ của iOS để lưu vào Thư viện Ảnh.</span>
           </div>
         </div>
       </div>
@@ -1557,7 +1547,7 @@
     iosShareFile = null;
     const btn = $("iosSaveShareBtn"), txt = $("iosSaveShareText");
     if(btn){btn.disabled = false;btn.style.display = "none";}
-    if(txt)txt.textContent = "Lưu video vào Ảnh";
+    if(txt)txt.textContent = "Lưu và chia sẻ";
   }
 
   async function prepareIOSShareFile(){
@@ -1579,7 +1569,7 @@
       iosShareFile = file;
       iosShareController = null;
       if(btn)btn.disabled = false;
-      if(txt)txt.textContent = "Lưu video vào Ảnh";
+      if(txt)txt.textContent = "Lưu và chia sẻ";
       return true;
     }catch(err){
       if(err && err.name === "AbortError") return false;
@@ -2504,24 +2494,20 @@
         }
 
         const isIOS = isIOSDevice();
-        const openBtn = $("openVideoBtn");
-        if(openBtn){
-          openBtn.href = lastMergedInlineUrl;
-          openBtn.setAttribute("aria-disabled", "false");
-          if(isIOS) openBtn.removeAttribute("target");
-          else openBtn.setAttribute("target", "_blank");
+        const dlBtn = $("mergedDownloadBtn");
+        if(dlBtn){
+          if(isIOS){
+            dlBtn.style.display = "none";
+          } else {
+            dlBtn.style.display = "";
+            setAnchor(dlBtn, lastMergedDownloadUrl, file);
+          }
         }
-
-        setAnchor($("mergedDownloadBtn"), lastMergedDownloadUrl, file);
         resetMergeButton();
 
         const guideBox = $("iosSaveGuide");
         if(guideBox){
           guideBox.style.display = isIOS ? "block" : "none";
-        }
-        const openTxt = $("openVideoText");
-        if(openTxt){
-          openTxt.textContent = isIOS ? "Mở video → Chia sẻ → Lưu video" : "Mở xem video toàn màn hình";
         }
 
         showDone();
@@ -2570,21 +2556,23 @@
         if(btn) btn.disabled = true;
         const shareResult = navigator.share({files:[iosShareFile]});
         if(btn) btn.disabled = false;
-        if(txt) txt.textContent = "Lưu video vào Ảnh";
+        if(txt) txt.textContent = "Lưu và chia sẻ";
         if(shareResult && typeof shareResult.catch === "function"){
           shareResult.catch(err => {
             if(err && err.name === "AbortError") return;
             console.warn("Không mở được iOS Share Sheet:", err);
             if(txt){
-              txt.textContent = "Không mở được — dùng Mở video";
-              setTimeout(()=>{ if(txt) txt.textContent = "Lưu video vào Ảnh"; }, 2200);
+              txt.textContent = "Không mở được Chia sẻ";
+              setTimeout(()=>{ if(txt) txt.textContent = "Lưu và chia sẻ"; }, 2200);
             }
           });
         }
       } catch (err) {
         console.warn("Lưu video qua iOS Share thất bại:", err);
         if(btn) btn.disabled = false;
-        if(txt) txt.textContent = "Không mở được — dùng Mở video";
+        if(txt) txt.textContent = "Không mở được Chia sẻ";
+        setTimeout(()=>{ if(txt) txt.textContent = "Lưu và chia sẻ"; }, 2200);
+      }
       }
     });
 
