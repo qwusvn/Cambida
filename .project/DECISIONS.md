@@ -136,3 +136,12 @@
 - On first run, 1.py reads the safe seed only when external config.json is absent, generates a random admin_session_secret, and creates config.json with exclusive create mode so an existing/racing config is never overwritten.
 - Existing external config.json remains the source of truth for deployed credentials/camera settings.
 - Release packaging remains PyInstaller onedir and uses paths relative to SPECPATH/project instead of developer-machine absolute paths.
+
+## 2026-09-23 — Quyết định kiến trúc Bản quyền xem lại theo mã ổ cứng & Kênh Telegram riêng
+- Bản quyền chỉ áp dụng cho xem lại/cắt video (Replay/Cut); ghi hình camera, xem trực tiếp (`/`) và trang admin (`/admin`) hoạt động bình thường 100%.
+- Mã máy (Machine Key) lấy từ Volume Serial Number của phân vùng ổ đĩa chứa Cambida (ví dụ `00E1-1D9A` qua Windows Win32 `GetVolumeInformationW`). Sao chép sang ổ đĩa khác sẽ đổi mã và kích hoạt popup yêu cầu bản quyền.
+- Theo yêu cầu chỉ đạo trực tiếp của người dùng: cấu hình bot bản quyền và kênh duyệt key được đưa thẳng vào mã nguồn `1.py`, tuyệt đối không sửa đổi hay can thiệp vào `config.json`.
+- Bảo toàn 100% `telegram_chat_id` (`1547756222`) và `telegram_token` trong `config.json` cho các cảnh báo, báo cáo hàng ngày và thông báo cá nhân của người dùng.
+- Kênh xác thực bản quyền: Dùng bot Hằng (`@hahang_bot`, token `8541075047:AAFPd-0jGbKG55zTWMvN16Xw-XedMPd8e6o`) và nhóm Telegram "Key" (Supergroup ID: `-1003849724906`).
+- Cơ chế quét tin ghim: Hàm `_telegram_pinned_text()` hỗ trợ đọc đồng thời cả tin nhắn ghim (`pinned_message`) lẫn phần mô tả nhóm (`description`). Khi tìm thấy đúng mã ổ cứng (hỗ trợ cả định dạng có dấu gạch `00E1-1D9A` lẫn liền mạch `00E11D9A`), hệ thống lập tức mở khóa tính năng xem lại, tự động ghi nhận thời điểm kích hoạt vào SQLite `analytics.db` bảng `license_meta` và gửi thông báo xác nhận qua Telegram.
+

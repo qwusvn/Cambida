@@ -385,3 +385,23 @@ elease\2.1.0\index.html synchronized with source.
 - First package command completed PyInstaller/COLLECT but its post-check failed because PowerShell treated $name and $Name as the same variable; package_2.1.2.ps1 was corrected to use $forbiddenName. The already-created staging package was then manually output-validated; EXE was not launched.
 - YATO executor wrapper for AGY was incompatible with current AGY CLI (--workspace); after failed tasks were confirmed inactive, the same approved AGY executor was recovered through YATO shell transport without duplicate writers.
 - Tests: NOT RUN - not requested. No production deployment performed.
+
+## 2026-09-23 handoff — Bản quyền ổ cứng & Kích hoạt qua Telegram hoàn tất
+- **Mã máy**: Volume Serial Number `00E1-1D9A` đọc từ Win32 `GetVolumeInformationW`.
+- **Cấu hình độc lập (Zero-config-pollution)**:
+  - Giữ nguyên 100% `config.json` với `telegram_chat_id: 1547756222` cho các thông báo/báo cáo cá nhân của người dùng.
+  - Cấu hình xác thực bản quyền được đưa thẳng vào mã nguồn `1.py`:
+    + `LICENSE_TELEGRAM_TOKEN = "8541075047:AAFPd-0jGbKG55zTWMvN16Xw-XedMPd8e6o"` (Bot Hằng `@hahang_bot`).
+    + `LICENSE_TELEGRAM_CHAT_ID = "-1003849724906"` (Supergroup Telegram "Key").
+- **Cơ chế xác thực & Khắc phục**:
+  - `_telegram_pinned_text()` đọc kết hợp cả tin nhắn ghim (`pinned_message`) và mô tả nhóm (`description`).
+  - Hỗ trợ bot listener nhận diện tin nhắn `/activate`, `/license` từ nhóm Key.
+  - Khắc phục đặc tính Telegram Bot API: Tin nhắn ghim cũ sửa đổi trước khi bot vào nhóm đã được ghim lại, giúp `getChat` trả về đầy đủ chuỗi key `B90137, 92EFFC, FA352F, CAC0EB6438AE79A0, E0B1DC, 00E1-1D9A`.
+  - Hệ thống tự động chuyển trạng thái `active=True`, ghi nhận thời gian kích hoạt vào bảng `license_meta` trong SQLite `analytics.db`, đồng thời mở khóa tính năng xem lại & cắt video trên web UI `http://127.0.0.1:8004/replay/cam1`.
+- **Lịch sử Git**:
+  - `a7bea93`: feat: implement hard drive volume serial license gate with telegram pin verification
+  - `7338112`: feat: decouple license telegram chat from general notifications to use dedicated key group
+  - `a4e0bd7`: feat: embed hahang_bot token directly into source and support multi-channel license pin discovery
+  - `f5ff0e3`: fix: correct license telegram group chat id to -1003849724906 and read chat description
+- **Trạng thái dịch vụ**: `python 1.py` đang chạy nền trên cổng 8004, bản quyền xem lại đã được kích hoạt thành công.
+
