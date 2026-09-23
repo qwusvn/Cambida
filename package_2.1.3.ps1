@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Version = "2.1.2"
+$Version = "2.1.3"
 $Name = "CCTV_$Version"
 $Spec = Join-Path $Root "$Name.spec"
 $StageParent = Join-Path $Root "staging"
@@ -64,7 +64,7 @@ try {
     $head = (git rev-parse HEAD).Trim()
     $branch = (git branch --show-current).Trim()
     $status = (git status --short) -join [Environment]::NewLine
-    $hashFiles = @("1.py","index.html","admin.html","CCTV_2.1.2.spec","config.release.json","RELEASE_VERSION.txt","updater.cmd")
+    $hashFiles = @("1.py","index.html","admin.html","CCTV_2.1.3.spec","config.release.json","RELEASE_VERSION.txt","updater.cmd")
     $hashLines = foreach ($file in $hashFiles) {
         $h = (Get-FileHash -LiteralPath (Join-Path $Root $file) -Algorithm SHA256).Hash
         "$file SHA256=$h"

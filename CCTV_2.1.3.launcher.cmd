@@ -1,12 +1,12 @@
 @echo off
 setlocal
 set "ROOT=%~dp0"
-set "EXE=%ROOT%CCTV_2.1.2.exe"
-if not exist "%EXE%" set "EXE=%ROOT%release\2.1.2\CCTV_2.1.2.exe"
+set "EXE=%ROOT%CCTV_2.1.3.exe"
+if not exist "%EXE%" set "EXE=%ROOT%release\2.1.3\CCTV_2.1.3.exe"
 set "URL=http://127.0.0.1:8004/"
 
 if not exist "%EXE%" (
-  echo Khong tim thay CCTV_2.1.2.exe
+  echo Khong tim thay CCTV_2.1.3.exe
   pause
   exit /b 1
 )

@@ -41,7 +41,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='CCTV_2.1.2',
+    name='CCTV_2.1.3',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -52,7 +52,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version=os.path.join(ROOT, 'version_info_2_1_2.txt'),
+    version=os.path.join(ROOT, 'version_info_2_1_3.txt'),
 )
 
 coll = COLLECT(
@@ -62,5 +62,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='CCTV_2.1.2',
+    name='CCTV_2.1.3',
 )
