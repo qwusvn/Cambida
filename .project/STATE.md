@@ -3,7 +3,8 @@
 Cập nhật: 2026-09-22 +07
 
 ## Trạng thái hiện tại
-- Workspace: `D:\1\cambida`, branch `main`.
+- Workspace: `D:\1\cambida`, branch `main` (tracking `origin/main` tại `https://github.com/qwusvn/Cambida`).
+- Remote HEAD: `7437fad` — `chore: merge GitHub initial commit into main`.
 - Production: **2.1.1**, `D:\1\cambida\release\2.1.1\CCTV_2.1.1.exe`, port `8004`.
 - Commit timeline chính: `5efc105` — `feat: switch NVR replay to timeline-only UI`.
 - Commit sửa regression quay lại từ Cut: `338a842` — `fix: restore timeline after returning from cut`.

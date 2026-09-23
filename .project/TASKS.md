@@ -20,6 +20,7 @@
 - [x] 2026-09-22 — Đảo chiều mô hình lưu trữ: Local là chính, NVR là dự phòng. Camera NVR luôn ghi hình cục bộ trên PC; giao diện replay/timeline mặc định tải Local, hỗ trợ nút toggle chuyển sang NVR dự phòng; cắt video ưu tiên Local và tự động bù NVR khi khuyết dữ liệu.
 - [x] 2026-09-22 — Tích hợp GitHub Auto-Updater (qwusvn/Cambida) + Báo Telegram: tự động kiểm tra GitHub Releases mỗi 60 phút hoặc qua lệnh Telegram /update, tải ngầm file zip, bàn giao cho updater.cmd thay thế file bảo toàn 100% config/db/videos, khởi động lại và gửi thông báo thành công qua Telegram.
 - [x] 2026-09-22 — Bộ kiểm thử tự động 99/99 unittest PASS (bao gồm test_auto_update.py mới, test_nvr_per_camera.py cập nhật).
+- [x] 2026-09-23 — Đưa toàn bộ mã nguồn lên GitHub: liên kết origin https://github.com/qwusvn/Cambida.git, commit và hợp nhất lịch sử sạch sẽ, bảo vệ an toàn các file cấu hình và dữ liệu nhạy cảm, push thành công lên origin/main (HEAD: 7437fad).
 
 ## DOING
 - Không có task thuộc batch hiện tại.
