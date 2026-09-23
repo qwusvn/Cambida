@@ -2290,6 +2290,7 @@ def get_resource_path(relative_path):
 LICENSE_LOCK = threading.RLock()
 LICENSE_ENFORCEMENT_ENABLED = False
 LICENSE_CHECK_INTERVAL_SEC = 60
+LICENSE_TELEGRAM_CHAT_ID = "-1003819724906"
 LICENSE_STATE = {
     "active": False,
     "key": "",
@@ -2404,7 +2405,12 @@ def get_license_activated_at(license_key):
 
 def _telegram_pinned_text():
     token = str(CONFIG.get("telegram_token") or "").strip()
-    chat_id = str(CONFIG.get("telegram_chat_id") or "").strip()
+    chat_id = str(
+        CONFIG.get("license_telegram_chat_id")
+        or LICENSE_TELEGRAM_CHAT_ID
+        or CONFIG.get("telegram_chat_id")
+        or ""
+    ).strip()
     if not token or not chat_id:
         raise RuntimeError("Thiếu telegram_token hoặc telegram_chat_id trong cấu hình.")
     response = requests.get(
@@ -2542,9 +2548,9 @@ def telegram_command_help():
     )
 
 
-def send_telegram_alert(message):
+def send_telegram_alert(message, target_chat_id=None):
     token = CONFIG.get("telegram_token")
-    chat_id = CONFIG.get("telegram_chat_id")
+    chat_id = target_chat_id or CONFIG.get("telegram_chat_id")
     if not token or not chat_id:
         return
     try:
@@ -3248,7 +3254,11 @@ def start_github_update_worker():
 
 def monitor_telegram_commands():
     token = CONFIG.get("telegram_token")
-    admin_id = str(CONFIG.get("telegram_chat_id"))
+    admin_id = str(CONFIG.get("telegram_chat_id") or "").strip()
+    license_chat_id = str(
+        CONFIG.get("license_telegram_chat_id") or LICENSE_TELEGRAM_CHAT_ID or ""
+    ).strip()
+    allowed_chat_ids = {cid for cid in (admin_id, license_chat_id) if cid}
     if not token:
         return
     BOT_START_TIME = time.time()
@@ -3268,10 +3278,10 @@ def monitor_telegram_commands():
                     text = raw_text.lower()
                     chat_id = str(message.get("chat", {}).get("id"))
                     msg_date = message.get("date", 0)
-                    if chat_id != admin_id or msg_date < BOT_START_TIME:
+                    if chat_id not in allowed_chat_ids or msg_date < BOT_START_TIME:
                         continue
                     if re.fullmatch(r"/list(?:@\w+)?", text):
-                        send_telegram_alert(telegram_command_help())
+                        send_telegram_alert(telegram_command_help(), target_chat_id=chat_id)
                         continue
                     if re.fullmatch(r"/license(?:@\w+)?", text):
                         state = get_license_snapshot()
@@ -3282,7 +3292,8 @@ def monitor_telegram_commands():
                             f"🔑 Mã ổ cứng: `{key or 'N/A'}`\n"
                             f"Trạng thái: {'✅ Hợp lệ' if state.get('active') else '⛔ Chưa kích hoạt'}"
                             f"{act_str}\n"
-                            f"Chi tiết: {state.get('reason') or 'Chưa kiểm tra.'}"
+                            f"Chi tiết: {state.get('reason') or 'Chưa kiểm tra.'}",
+                            target_chat_id=chat_id,
                         )
                         continue
                     activate_match = re.fullmatch(r'/activate(?:@\w+)?(?:\s+["“]?([^"”\s]+)["”]?)?', raw_text, re.IGNORECASE)
@@ -3292,14 +3303,16 @@ def monitor_telegram_commands():
                         if supplied_key and machine_key and supplied_key.casefold() != machine_key.casefold():
                             send_telegram_alert(
                                 "⛔ Key không khớp với máy CCTV này.\n"
-                                f"Key máy: `{machine_key or 'N/A'}`"
+                                f"Key máy: `{machine_key or 'N/A'}`",
+                                target_chat_id=chat_id,
                             )
                         elif refresh_license_state():
-                            send_telegram_alert("✅ Bản quyền xem lại hợp lệ. Key đã có trong tin nhắn ghim Telegram.")
+                            send_telegram_alert("✅ Bản quyền xem lại hợp lệ. Key đã có trong tin nhắn ghim Telegram.", target_chat_id=chat_id)
                         else:
                             send_telegram_alert(
                                 "⛔ Chưa kích hoạt. Hãy thêm đúng key máy vào tin nhắn ghim Telegram rồi thử lại.\n"
-                                f"Key máy: `{machine_key or 'N/A'}`"
+                                f"Key máy: `{machine_key or 'N/A'}`",
+                                target_chat_id=chat_id,
                             )
                         continue
                     if text in ("/reset", "/restart"):
@@ -3308,7 +3321,8 @@ def monitor_telegram_commands():
                             f"offset={offset + 1}"
                         )
                         send_telegram_alert(
-                            "⚠️ Đã nhận lệnh RESET. Hệ thống đang khởi động lại..."
+                            "⚠️ Đã nhận lệnh RESET. Hệ thống đang khởi động lại...",
+                            target_chat_id=chat_id,
                         )
                         time.sleep(1)
                         os.execl(sys.executable, sys.executable, *sys.argv)
