@@ -161,3 +161,8 @@
 
 
 
+
+## 2026-09-23 — iPhone Photo Library boundary
+- Cambida web UI must not claim it can silently write an MP4 directly into Apple Photos. Web Share can hand a prepared video file to the iOS Share Sheet only in a supported secure context and still requires the user's Save Video action.
+- For the default HTTP LAN/QR deployment, use raw inline MP4 as the fallback path and keep the user in the top-level browsing context so the native iOS media/share UI can be used.
+- If a future requirement mandates one-tap/direct Photo Library writes without Share Sheet selection, implement a native iOS shell/bridge using Apple PhotoKit; do not attempt to emulate it with browser download tricks.

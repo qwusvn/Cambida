@@ -347,3 +347,13 @@ elease\2.1.0\index.html byte-identically with source index.html.
 - [x] Add reproducible PyInstaller onedir packaging inputs for 2.1.2 and stage complete package.
 - [x] Verify staging contents/hashes and absence of operational config/database/log/media/cache.
 - Tests: NOT RUN - not requested.
+
+## [x] iPhone Photos save flow hardening — 2026-09-23
+- task_id: `cambida-ios-photos-save-fix-20260923`.
+- [x] Inspect current 2.1.4 done-screen/iOS save implementation and default HTTP server path.
+- [x] Remove async fetch from the user-tap Share path; pre-prepare the MP4 `File` after merge completion.
+- [x] Call `navigator.share()` synchronously from the iPhone tap and avoid waiting on the historically unreliable share Promise.
+- [x] Abort/release prepared blobs when leaving Done/Cut/Replay to avoid stale large-file memory retention.
+- [x] For HTTP/in-app browser fallback, open raw MP4 in the same tab and guide the user to iOS Share → Save Video.
+- Tests/build/device test: NOT RUN — not requested.
+- Status: COMPLETED for requested source scope.

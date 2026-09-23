@@ -472,3 +472,11 @@ Cập nhật: 2026-09-23 +07
 - Staged EXE SHA256: FD25641C82CE94AE30317C56A9315B87B664891379EF9516A8672BFC0AA19F83.
 - Production 2.1.1 and operational config files were not modified or deployed.
 - Tests: NOT RUN - not requested.
+
+## 2026-09-23 — iPhone Photos save flow hardening
+- task_id: `cambida-ios-photos-save-fix-20260923`; source scope implemented in `index.html`.
+- Root cause confirmed: previous click handler fetched the whole MP4 before calling `navigator.share()`, so iOS/WebKit could expire transient user activation before Share Sheet opened.
+- New flow preloads the shareable `File` after merge completion, enables the iOS share button only when ready, and calls `navigator.share({files:[...]})` immediately inside the user's tap.
+- Default Cambida LAN URL remains HTTP; Web Share file mode is therefore unavailable in many QR/in-app-browser cases. Fallback now opens the raw `/video/<filename>` in the same top-level tab for the native iOS viewer/share flow.
+- Pure web cannot write directly into Photos without an iOS share/save action; true silent/direct Photo Library writes require a native iOS app/bridge.
+- Build/tests/device test: NOT RUN — not requested.

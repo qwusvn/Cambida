@@ -472,3 +472,11 @@ elease\2.1.0\index.html synchronized with source.
 
 
 
+
+## 2026-09-23 handoff — iPhone Photos save flow
+- Task: `cambida-ios-photos-save-fix-20260923`.
+- Changed only the replay/cut completion UI path in `index.html`; backend MP4 endpoint already serves `video/mp4` with conditional range support and merge outputs already use `+faststart`.
+- Secure iOS path: prepare the video `File` before the user's tap, then invoke Web Share immediately on tap to preserve WebKit transient activation.
+- Default LAN/QR path is HTTP, so secure-context Web Share may not exist. Fallback uses the raw `/video/<filename>` in the current tab so iOS exposes its native video/share UI instead of sending the MP4 to Files download.
+- Platform boundary: a browser page cannot silently add media to Apple Photos; zero-extra-action saving requires a native iOS PhotoKit bridge/app.
+- Verification performed: source/diff inspection only. Tests/build/device test NOT RUN by user constraint.

@@ -1449,7 +1449,7 @@
         <!-- Nút Web Share API (khi có HTTPS / hỗ trợ) -->
         <button id="iosSaveShareBtn" class="action primary cut-primary" type="button" style="display:none">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-          <span id="iosSaveShareText">Lưu qua bảng Chia sẻ</span>
+          <span id="iosSaveShareText">Lưu video vào Ảnh</span>
         </button>
 
         <!-- Nút tải file về máy (cho Máy tính hoặc lưu vào ứng dụng Tệp) -->
@@ -1470,12 +1470,12 @@
         </div>
         <div class="ios-guide-steps">
           <div class="ios-guide-step">
-            <span class="guide-badge">Cách 1 (Nhanh nhất)</span>
-            <span><strong>Nhấn và giữ</strong> vào video ở trên &rarr; Chọn <strong>"Lưu video"</strong> (Save Video) để chuyển thẳng vào Cuộn camera.</span>
+            <span class="guide-badge">Ưu tiên</span>
+            <span>Nếu nút <strong>"Lưu video vào Ảnh"</strong> xuất hiện, chờ nút chuẩn bị xong rồi bấm &rarr; Chọn <strong>"Lưu video"</strong> trong bảng Chia sẻ của iOS.</span>
           </div>
           <div class="ios-guide-step">
-            <span class="guide-badge">Cách 2</span>
-            <span>Bấm <strong>"Mở video để Lưu vào Ảnh"</strong> &rarr; Bấm nút <strong>Chia sẻ</strong> (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>) trên thanh công cụ Safari &rarr; Chọn <strong>"Lưu video"</strong>.</span>
+            <span class="guide-badge">HTTP / trình duyệt QR</span>
+            <span>Nếu iOS không cho chia sẻ file trực tiếp, bấm <strong>"Mở video → Chia sẻ → Lưu video"</strong> &rarr; dùng nút <strong>Chia sẻ</strong> (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>) của iPhone &rarr; <strong>"Lưu video"</strong>.</span>
           </div>
         </div>
       </div>
@@ -1530,12 +1530,67 @@
   const pad = (n) => String(n).padStart(2, "0");
   let allVideos = [], visibleVideos = [], currentVideo = null, currentVideoIndex = -1;
   let clipStartAt = null, clipEndAt = null, mergeEventSource = null, timelineDrag = null;
-  let lastMergedFilename = "", lastMergedDownloadUrl = "";
+  let lastMergedFilename = "", lastMergedDownloadUrl = "", lastMergedInlineUrl = "";
+  let iosShareFile = null, iosSharePrepareToken = 0, iosShareController = null;
   let fetchSerial = 0, activeScreen = "replay", replayTitle = "";
 
   function isIOSDevice(){
     if (typeof navigator === "undefined") return false;
     return /iPad|iPhone|iPod/.test(navigator.userAgent || "") || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1);
+  }
+
+  function canUseIOSFileShare(){
+    return isIOSDevice()
+      && typeof navigator !== "undefined"
+      && typeof navigator.share === "function"
+      && typeof navigator.canShare === "function"
+      && typeof File === "function"
+      && window.isSecureContext !== false;
+  }
+
+  function resetIOSSharePreparation(){
+    iosSharePrepareToken += 1;
+    if(iosShareController){
+      try{iosShareController.abort();}catch(e){}
+      iosShareController = null;
+    }
+    iosShareFile = null;
+    const btn = $("iosSaveShareBtn"), txt = $("iosSaveShareText");
+    if(btn){btn.disabled = false;btn.style.display = "none";}
+    if(txt)txt.textContent = "Lưu video vào Ảnh";
+  }
+
+  async function prepareIOSShareFile(){
+    if(!canUseIOSFileShare() || !lastMergedInlineUrl || !lastMergedFilename) return false;
+    resetIOSSharePreparation();
+    const token = ++iosSharePrepareToken;
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    iosShareController = controller;
+    const btn = $("iosSaveShareBtn"), txt = $("iosSaveShareText");
+    if(btn){btn.style.display = "inline-flex";btn.disabled = true;}
+    if(txt)txt.textContent = "Đang chuẩn bị video...";
+    try{
+      const resp = await fetch(lastMergedInlineUrl, controller ? {signal:controller.signal} : undefined);
+      if(!resp.ok) throw new Error("Không tải được video để chia sẻ.");
+      const blob = await resp.blob();
+      if(token !== iosSharePrepareToken) return false;
+      const file = new File([blob], lastMergedFilename, {type:blob.type || "video/mp4", lastModified:Date.now()});
+      if(!navigator.canShare({files:[file]})) throw new Error("Trình duyệt không hỗ trợ chia sẻ file video.");
+      iosShareFile = file;
+      iosShareController = null;
+      if(btn)btn.disabled = false;
+      if(txt)txt.textContent = "Lưu video vào Ảnh";
+      return true;
+    }catch(err){
+      if(err && err.name === "AbortError") return false;
+      console.warn("Không thể chuẩn bị video cho iOS Share:", err);
+      if(token === iosSharePrepareToken){
+        iosShareFile = null;
+        iosShareController = null;
+        if(btn)btn.style.display = "none";
+      }
+      return false;
+    }
   }
   var DEFAULT_TIMELINE_ZOOM = 48 / 2; // 24 = 48h / 2h, displaying 2 hours visible in the viewport
   var timelineStates = {
@@ -2299,6 +2354,7 @@
   }
 
   function showReplay(){
+    resetIOSSharePreparation();
     setScreenLive("cut",false);
     setScreenLive("replay",false);
     $("replayScreen").hidden=false;
@@ -2332,6 +2388,7 @@
   }
 
   function showCut(){
+    resetIOSSharePreparation();
     if(!LICENSE_ACTIVE){
       showLicenseModal();
       return;
@@ -2435,41 +2492,42 @@
       if(data.startsWith("done:")){
         const file=data.slice(5).trim();
         mergeEventSource.close();mergeEventSource=null;
+        resetIOSSharePreparation();
         lastMergedFilename = file;
         lastMergedDownloadUrl = `/download/${encodeURIComponent(file)}`;
-        const inlineVideoUrl = `/video/${encodeURIComponent(file)}`;
+        lastMergedInlineUrl = `/video/${encodeURIComponent(file)}`;
 
         const doneVideo = $("doneVideoPreview");
         if(doneVideo){
-          doneVideo.src = inlineVideoUrl;
+          doneVideo.src = lastMergedInlineUrl;
           doneVideo.load();
         }
 
+        const isIOS = isIOSDevice();
         const openBtn = $("openVideoBtn");
         if(openBtn){
-          openBtn.href = inlineVideoUrl;
+          openBtn.href = lastMergedInlineUrl;
           openBtn.setAttribute("aria-disabled", "false");
+          if(isIOS) openBtn.removeAttribute("target");
+          else openBtn.setAttribute("target", "_blank");
         }
 
         setAnchor($("mergedDownloadBtn"), lastMergedDownloadUrl, file);
         resetMergeButton();
 
-        const isIOS = isIOSDevice();
         const guideBox = $("iosSaveGuide");
         if(guideBox){
           guideBox.style.display = isIOS ? "block" : "none";
         }
         const openTxt = $("openVideoText");
         if(openTxt){
-          openTxt.textContent = isIOS ? "Mở video để Lưu vào Ảnh (iPhone)" : "Mở xem video toàn màn hình";
-        }
-
-        if(isIOS && typeof navigator !== "undefined" && navigator.share){
-          const iosBtn = $("iosSaveShareBtn");
-          if(iosBtn) iosBtn.style.display = "inline-flex";
+          openTxt.textContent = isIOS ? "Mở video → Chia sẻ → Lưu video" : "Mở xem video toàn màn hình";
         }
 
         showDone();
+        if(isIOS && canUseIOSFileShare()){
+          prepareIOSShareFile();
+        }
         return;
       }
       const p=parseInt(data,10);if(Number.isFinite(p))setMergeProgress(p,`Đang xử lý... ${p}%`);
@@ -2500,34 +2558,33 @@
     $("closeLicenseModalBtn")?.addEventListener("click",hideLicenseModal);
     $("licenseModalBackdrop")?.addEventListener("click",hideLicenseModal);
 
-    // iOS Save to Photos (Share API)
-    $("iosSaveShareBtn")?.addEventListener("click", async () => {
-      if(!lastMergedDownloadUrl) return;
+    // iOS Save to Photos (Share API): file is prepared before the tap so Safari keeps user activation.
+    $("iosSaveShareBtn")?.addEventListener("click", () => {
+      if(!iosShareFile || !canUseIOSFileShare()) return;
       const btn = $("iosSaveShareBtn"), txt = $("iosSaveShareText");
-      const origText = txt ? txt.textContent : "Lưu vào Thư viện Ảnh (iPhone)";
       try {
-        if(txt) txt.textContent = "Đang tải video...";
-        btn.disabled = true;
-        const resp = await fetch(lastMergedDownloadUrl);
-        if(!resp.ok) throw new Error("Không tải được video.");
-        const blob = await resp.blob();
-        const file = new File([blob], lastMergedFilename || "cambida_video.mp4", { type: "video/mp4" });
-        if(typeof navigator !== "undefined" && navigator.canShare && navigator.canShare({ files: [file] })){
-          await navigator.share({
-            files: [file],
-            title: lastMergedFilename || "Video Cambida"
+        if(navigator.userActivation && !navigator.userActivation.isActive){
+          throw new Error("Safari không còn user activation cho thao tác chia sẻ.");
+        }
+        if(txt) txt.textContent = "Đang mở bảng Chia sẻ...";
+        if(btn) btn.disabled = true;
+        const shareResult = navigator.share({files:[iosShareFile]});
+        if(btn) btn.disabled = false;
+        if(txt) txt.textContent = "Lưu video vào Ảnh";
+        if(shareResult && typeof shareResult.catch === "function"){
+          shareResult.catch(err => {
+            if(err && err.name === "AbortError") return;
+            console.warn("Không mở được iOS Share Sheet:", err);
+            if(txt){
+              txt.textContent = "Không mở được — dùng Mở video";
+              setTimeout(()=>{ if(txt) txt.textContent = "Lưu video vào Ảnh"; }, 2200);
+            }
           });
-        } else {
-          location.href = lastMergedDownloadUrl;
         }
       } catch (err) {
-        if(err && err.name !== "AbortError"){
-          console.warn("Lưu video thất bại:", err);
-          location.href = lastMergedDownloadUrl;
-        }
-      } finally {
-        if(txt) txt.textContent = origText;
-        btn.disabled = false;
+        console.warn("Lưu video qua iOS Share thất bại:", err);
+        if(btn) btn.disabled = false;
+        if(txt) txt.textContent = "Không mở được — dùng Mở video";
       }
     });
 

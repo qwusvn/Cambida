@@ -175,3 +175,9 @@
 - Corrected launcher source assertions to require port reuse and /D "%EXE_DIR%".
 - Created and statically verified staging onedir package at D:\1\Cambida\staging\2.1.2.
 - Tests: NOT RUN - not requested.
+
+## 2026-09-23 — iPhone Photos save reliability
+- Reworked iOS file sharing so the MP4 is fetched/prepared before the save tap; the tap now calls `navigator.share({files})` immediately instead of waiting for a large async fetch and losing WebKit user activation.
+- Added cancellation/cleanup of prepared iOS share blobs when leaving the completed-cut screen.
+- Changed iPhone raw-video fallback to same-tab navigation and updated the on-screen instructions for HTTP / QR in-app browsers.
+- No backend, packaging, config, media, release artifact, test, build or deployment changes in this task.
