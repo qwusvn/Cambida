@@ -144,7 +144,7 @@
       normalized.pass = legacyPass;
       normalized.nvr_channel = Number(legacyNvrChannel || index + 1);
       normalized.stream = String(normalized.stream || 'main').toLowerCase() === 'sub' ? 'sub' : 'main';
-      normalized.backup_local = Boolean(normalized.backup_local);
+      normalized.backup_local = normalized.backup_local !== undefined ? Boolean(normalized.backup_local) : true;
       normalized.timezone_offset_minutes = Number(normalized.timezone_offset_minutes ?? 420);
       normalized.connect_timeout_sec = Number(normalized.connect_timeout_sec || 5);
       normalized.read_timeout_sec = Number(normalized.read_timeout_sec || 30);
@@ -205,8 +205,8 @@
         <div class="col-12 mt-2">
           <div class="form-check form-switch">
             <input class="form-check-input cam-backup-local" type="checkbox" id="backupLocal_${index}" data-index="${index}" ${cam.backup_local ? 'checked' : ''}>
-            <label class="form-check-label fw-semibold" for="backupLocal_${index}">Ghi dự phòng vào máy tính</label>
-            <div class="form-text">${cam.backup_local ? 'BẬT: Luồng RTSP từ đầu ghi được ghi song song vào máy tính (Server 2 dự phòng). Khi xem lại có thể chọn Server 1 (NVR) hoặc Server 2 (Local).' : 'TẮT: Chỉ phát lại từ đầu ghi NVR (Server 1). Không chạy worker ghi hình cục bộ trên máy tính, tiết kiệm tài nguyên.'}</div>
+            <label class="form-check-label fw-semibold" for="backupLocal_${index}">Ghi hình trên máy tính (Nguồn chính Local)</label>
+            <div class="form-text">${cam.backup_local ? 'BẬT: Máy tính ghi hình trực tiếp làm nguồn phát lại chính (Server 1: Local). Đầu ghi NVR lưu trữ song song làm dự phòng (Server 2: NVR).' : 'TẮT: Chỉ phát lại từ đầu ghi NVR (Server 2). Không chạy worker ghi hình cục bộ trên máy tính.'}</div>
           </div>
         </div>`;
 
@@ -217,7 +217,7 @@
           : '';
 
       const testBtnText = isNvr ? 'Kiểm tra NVR' : 'Kiểm tra Local';
-      const badgeText = isNvr ? 'NVR' : 'Local';
+      const badgeText = isNvr ? 'Local + NVR' : 'Local';
 
       return `<div class="col-12"><section class="camera-card">
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -226,7 +226,7 @@
         </div>
         <div class="row g-2">
           <div class="col-md-4"><label class="form-label small">Tên / bàn</label><input class="form-control cam-name" data-index="${index}" value="${esc(cam.name || `Bàn ${index + 1}`)}"></div>
-          <div class="col-md-4"><label class="form-label small">Nguồn kênh</label><select class="form-select cam-playback-source" data-index="${index}"><option value="local" ${playback==='local'?'selected':''}>Local</option><option value="nvr" ${playback==='nvr'?'selected':''}>NVR</option></select></div>
+          <div class="col-md-4"><label class="form-label small">Nguồn kênh</label><select class="form-select cam-playback-source" data-index="${index}"><option value="local" ${playback==='local'?'selected':''}>Local (Camera độc lập)</option><option value="nvr" ${playback==='nvr'?'selected':''}>Local + NVR dự phòng</option></select></div>
           <div class="col-md-4"><label class="form-label small">Luồng xem trực tiếp</label><select class="form-select cam-view-stream" data-index="${index}"><option value="auto" ${(cam.view_stream||'auto')==='auto'?'selected':''}>Tự động (Auto)</option><option value="main" ${(cam.view_stream||'')==='main'?'selected':''}>Luồng chính (Main)</option><option value="sub" ${(cam.view_stream||'')==='sub'?'selected':''}>Luồng phụ (Sub)</option></select></div>
           ${isNvr ? nvrFields : localFields}
         </div>

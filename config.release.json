@@ -1,0 +1,40 @@
+{
+  "admin_auth": {
+    "username": "admin",
+    "password": ""
+  },
+  "camera_recovery_cooldown_sec": 120,
+  "camera_stall_sec": 600,
+  "cameras": [],
+  "db_path": "analytics.db",
+  "disk_limit_gb": 400,
+  "github_update": {
+    "repo": "qwusvn/Cambida",
+    "token": ""
+  },
+  "log_dir": "logs",
+  "max_concurrent_jobs": 2,
+  "max_merge_minutes": 60,
+  "minimum_free_disk_gb": 2,
+  "minimum_recording_ratio": 0.8,
+  "public_base_url": "",
+  "record_duration_sec": 300,
+  "record_timeout_sec": 330,
+  "run_in_tray": "no",
+  "run_on_startup": "no",
+  "server_port": 8004,
+  "site": {
+    "name": "HỆ THỐNG CCTV",
+    "tagline": "Xem lại camera",
+    "theme": {
+      "background": "#2c0b0b",
+      "surface": "#660000",
+      "primary": "#c1121f",
+      "accent": "#ffa500"
+    }
+  },
+  "tables": [],
+  "telegram_chat_id": "",
+  "telegram_token": "",
+  "video_dir": "cctv_videos"
+}

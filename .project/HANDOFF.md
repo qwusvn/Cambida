@@ -10,16 +10,24 @@ Cập nhật: 2026-09-22 +07
 5. Mỗi task hoàn tất phải có commit riêng đúng scope; không gom thay đổi cũ ngoài task.
 
 ## Trạng thái bàn giao
-- Release production: **2.1.0** tại `D:\1\cambida\release\2.1.0\CCTV_2.1.0.exe`, port 8004.
+- Release production: **2.1.1** tại `D:\1\cambida\release\2.1.1\CCTV_2.1.1.exe`, port 8004.
 - Commit timeline-only: `5efc105`.
 - Commit regression fix Cut→Replay: `338a842`.
-- Commit UI refinement: `c56c756`.
+- Commit UI refinement: `8bfd68a` — `feat(ui): embed cut progress in button, default 2h zoom, and format ruler HH:00`.
+- Commit portable multi-drive fix: `c1e01a1` — `fix(core): remove hardcoded D: drive paths, import winreg, and ensure portable execution`.
+- Bản phát hành 2.1.1:
+  + Đóng gói PyInstaller onedir `CCTV_2.1.1.exe` (482 KB) kèm 10 DLL NetSDK trong `_internal/vendor/dahua_netsdk`.
+  + Đồng bộ đầy đủ sidecar HTML (`index.html` SHA-256 trùng khớp 100%), `ffmpeg.exe`, và cấu hình `config.json`.
+  + Launcher `CCTV_2.1.1.launcher.cmd` trỏ tới bản phát hành 2.1.1.
 - Cải tiến UI player 2026-09-22:
   + Icon xem trực tiếp: Lucide radio broadcast wave chuẩn đối xứng `((•))`.
   + Phân mục điều khiển: Thêm nhãn "Tốc độ phát" (trái) và "Thu phóng" (phải) trên timeline replay và timeline cut.
   + Tốc độ phát đặt sẵn: Cụm 4 nút 0.5X / 1X / 2X / 4X dạng segmented, nút active có gạch chân xanh làm điểm nhấn.
-  + Cắt video: Đảm bảo ruler và coverage render mượt mà trong requestAnimationFrame; nhãn mốc thời gian hiển thị `(Hôm trước)` khi điểm cắt rơi vào ngày trước.
-- Tests: py_compile PASS, 22/22 Node.js unit tests PASS, 92/92 Python unittests PASS.
+  + Bỏ nhãn "Hôm trước"/"Hôm nay": Giờ 0 trên thước hiển thị `00:00`, nhãn mốc thời gian hiển thị `HH:mm:ss` thuần.
+  + Mặc định thu phóng timeline là 2 tiếng (`DEFAULT_TIMELINE_ZOOM = 24`).
+  + Thanh tiến trình cắt video: Tích hợp trực tiếp dải fill gradient vào nút "Cắt và tải về", hiển thị trạng thái và % trực tiếp trên nút, reset sạch sẽ khi xong/lỗi/hủy.
+  + Thước đo giờ: Hiển thị định dạng `HH:00` (`22:00`, `23:00`, `00:00`, `24:00`).
+- Tests: py_compile PASS, 23/23 Node.js replay timeline tests PASS, 3/3 remaining Node tests PASS, 92/92 Python unittests PASS, smoke test EXE cổng 8004 PASS.
 
 ## Config — không được tự ý thay
 - Workspace config SHA-256: `ee7b820bea42c423acb05f15cd548c33706a6e0c981409ad320fec1085d0c8c3`.
@@ -357,3 +365,23 @@ elease\2.1.0\index.html synchronized with source.
   - `python -m py_compile 1.py`: PASS.
   - `git diff --check index.html tests/`: PASS.
 - Status: COMPLETED.
+
+## 2026-09-22 — Bàn giao đồng bộ hướng dẫn
+- Task `cambida-guidance-sync-20260922`: bản sao `D:\1\Cambida\gptagycodex.md` được đồng bộ từ nguồn toàn cục `D:\1\gptagycodex.md` (phiên bản `2026-09-22.1`). Nguồn toàn cục vẫn là bản hiệu lực; bản sao trong project chỉ để tham khảo.
+- Đọc `AGENTS.md` và `.project/PROJECT.md` hiện hành; các chỉ thị điều phối AGY/Codex MCP bắt buộc, SKIP GPT và tự động chạy test trong ghi chép cũ đã bị thay thế bởi FAST BOOT mới.
+- Người dùng đã cho phép sử dụng Remote Desktop Commander cho tác vụ này; đây không phải thay đổi transport mặc định cho tác vụ mới.
+- Đã giữ nguyên mọi thay đổi source/config/media/release và trạng thái các tiến trình ngoài phạm vi. Không chạy test hoặc build.
+
+- Đã hoàn thành cập nhật tài liệu theo commit `21864fc` (chỉ 4 tệp hướng dẫn); các cập nhật bộ nhớ `.project` khác được giữ ngoài commit để không gộp thay đổi cũ.
+- Không chạy test/build hoặc thay đổi runtime; không có thông báo Telegram được xác minh trong phiên này.
+
+## 2026-09-23 handoff — cambida-review5-fix-212-20260923
+- Relevant task edits: 1.py; index.html; tests/test_launcher.py; RELEASE_VERSION.txt.
+- New task files: config.release.json; CCTV_2.1.2.spec; CCTV_2.1.2.launcher.cmd; version_info_2_1_2.txt; package_2.1.2.ps1.
+- Output: D:\1\Cambida\staging\2.1.2 (onedir), EXE SHA256 FD25641C82CE94AE30317C56A9315B87B664891379EF9516A8672BFC0AA19F83.
+- Staging contains all seven HTML sidecars, ffmpeg.exe, updater.cmd, launchers, safe embedded config.release.json and 10 Dahua NetSDK DLLs.
+- No config.json, analytics.db, cctv_videos, logs or nvr_cache exists anywhere in staging.
+- Existing 2.1.1 release/config hashes were rechecked after packaging and remained unchanged.
+- First package command completed PyInstaller/COLLECT but its post-check failed because PowerShell treated $name and $Name as the same variable; package_2.1.2.ps1 was corrected to use $forbiddenName. The already-created staging package was then manually output-validated; EXE was not launched.
+- YATO executor wrapper for AGY was incompatible with current AGY CLI (--workspace); after failed tasks were confirmed inactive, the same approved AGY executor was recovered through YATO shell transport without duplicate writers.
+- Tests: NOT RUN - not requested. No production deployment performed.

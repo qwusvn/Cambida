@@ -4,25 +4,39 @@ Cập nhật: 2026-09-22 +07
 
 ## Trạng thái hiện tại
 - Workspace: `D:\1\cambida`, branch `main`.
-- Production: **2.1.0**, `D:\1\cambida\release\2.1.0\CCTV_2.1.0.exe`, port `8004`.
+- Production: **2.1.1**, `D:\1\cambida\release\2.1.1\CCTV_2.1.1.exe`, port `8004`.
 - Commit timeline chính: `5efc105` — `feat: switch NVR replay to timeline-only UI`.
 - Commit sửa regression quay lại từ Cut: `338a842` — `fix: restore timeline after returning from cut`.
-- Commit tinh chỉnh UI mobile player: `c56c756` — `refactor(ui): streamline player layout, timeline colors and contrast`.
+- Commit tinh chỉnh UI mobile player: `8bfd68a` — `feat(ui): embed cut progress in button, default 2h zoom, and format ruler HH:00`.
+- Commit loại bỏ phụ thuộc ổ D: & portable: `c1e01a1` — `fix(core): remove hardcoded D: drive paths, import winreg, and ensure portable execution`.
+- Release 2.1.1:
+  + Đóng gói PyInstaller onedir `CCTV_2.1.1.exe` (482 KB) kèm 10 DLL NetSDK trong `_internal/vendor/dahua_netsdk`.
+  + Triển khai đầy đủ sidecar HTML, `ffmpeg.exe`, và giữ nguyên `config.json` cấu hình bàn/camera hiện có.
+  + Độc lập 100% với ổ đĩa (chạy được trên C:, D:, E:, USB): `INSTANCE_STATE_FILE` đưa vào `tempfile.gettempdir()`, import an toàn `winreg`, đường dẫn động `SPECPATH` trong spec.
+  + Launcher `CCTV_2.1.1.launcher.cmd` và `release\2.1.1\Chay_CCTV.cmd` tự định vị thư mục thực thi và truyền cờ `/D` cho working directory.
 - UI Player 2026-09-22:
   + Icon nút xem trực tiếp chuyển sang sóng phát thanh chuẩn đối xứng (`((•))`).
   + Tiêu đề phân mục "Tốc độ phát" (trái) và "Thu phóng" (phải) trên cả màn hình Replay và Cut.
   + Nút tốc độ đặt sẵn 0.5X / 1X / 2X / 4X thành cụm segmented gọn gàng, nút đang chọn có gạch chân xanh làm điểm nhấn.
-  + Timeline cắt video render đầy đủ coverage/ruler khi mở, nhãn mốc thời gian hiển thị `(Hôm trước)` khi đoạn cắt nằm ở ngày trước.
+  + Bỏ nhãn "Hôm trước"/"Hôm nay" (giờ 0 là `00:00`, nhãn mốc thời gian hiển thị `HH:mm:ss` thuần).
+  + Mặc định thu phóng timeline là 2 tiếng (`DEFAULT_TIMELINE_ZOOM = 24`, hiển thị 2 giờ trong viewport).
+  + Thanh tiến trình cắt video tích hợp trực tiếp vào nút "Cắt và tải về" (`#mergeButtonFill`, text tiến trình `Đang xử lý... xx%`, reset sạch sẽ).
+  + Thước đo timeline hiển thị giờ định dạng `HH:00` (`22:00`, `23:00`, `00:00`, `24:00`).
 
 ## Replay/Timeline hiện tại
-- Timeline-only: không còn ô nhập giờ, không còn mode chọn giờ cũ.
-- Không có Server 1/Server 2; dùng duy nhất NVR đã cấu hình cho camera.
+- Mô hình lưu trữ và phát lại: **Local là chính, NVR là dự phòng**.
+- Camera kết nối NVR luôn được kích hoạt ghi hình trực tiếp vào PC (`cctv_videos/`) làm nguồn phát lại chính.
+- Màn hình xem lại (`/replay/camX`) mặc định phát và tải video từ Local; có nút toggle `sourceToggleBtn` để chủ động chuyển đổi giữa **Local (Chính)** và **NVR (Dự phòng)**.
+- Khi cắt video (`/merge`), hệ thống ưu tiên cắt trực tiếp từ Local; nếu Local bị khuyết file thì tự động fallback tải bù từ NVR dự phòng.
 - Kim/playhead cố định giữa; kéo ruler/timeline chạy bên dưới.
-- Đoạn có bản ghi NVR tô xanh; gap để trống; không thumbnail.
-- Timeline dùng `StartTime/EndTime` NVR làm source of truth.
-- Khi thả kéo, playback/download NVR dùng `at=YYYY-MM-DDTHH:MM:SS` đúng mốc dưới kim.
-- Cut cũng timeline-only; start/end là datetime tuyệt đối trên cả ngày, có thể đi qua nhiều segment/gap, tối đa theo `MAX_MERGE_MINUTES`.
-- Khi Hủy Cut quay lại replay, timeline coverage/ruler được render lại sau khi màn hình hiện, tránh mất vùng xanh/cắt nhãn.
+- Đoạn có bản ghi tô xanh; gap để trống; không thumbnail.
+- Timeline dùng mốc datetime tuyệt đối, hỗ trợ cắt video linh hoạt.
+
+## Auto-Update & Telegram
+- Tích hợp module Auto-Update từ GitHub Releases (`qwusvn/Cambida`).
+- Tự động kiểm tra ngầm định kỳ mỗi 60 phút và hỗ trợ lệnh nhắn trực tiếp `/update` trên Telegram.
+- Quá trình nâng cấp tự động tải gói `.zip`, bảo toàn 100% dữ liệu (`config.json`, `analytics.db`, `cctv_videos/`), bàn giao cho `updater.cmd` thay thế file và khởi động lại.
+- Tự động gửi thông báo Telegram hoàn tất sau khi nâng cấp thành công lên phiên bản mới.
 
 ## Kiểm chứng
 - `python -m py_compile 1.py`: PASS.
@@ -422,3 +436,21 @@ Cập nhật: 2026-09-22 +07
   - `python -m py_compile 1.py`: PASS.
   - `git diff --check index.html tests/`: PASS.
 - Status: COMPLETED.
+
+## 2026-09-22 — Đồng bộ hướng dẫn điều phối
+- Task: `cambida-guidance-sync-20260922`; phạm vi chỉ tài liệu hướng dẫn và bản sao quy tắc; tuyến người dùng chỉ định: Remote Desktop Commander trên Yato.
+- Tệp toàn cục `D:\1\gptagycodex.md` có `SPEC_VERSION=2026-09-22.1`, patch `CHATGPT-ONLY-SOL-YATO-ONE-ENTITY` và không bị sửa.
+- Bản sao `D:\1\Cambida\gptagycodex.md` đã có SHA-256 trùng tệp toàn cục tại thời điểm sao chép.
+- `AGENTS.md`, `.project/PROJECT.md`, `YATO_REMOTE_WORKFLOW.md` được cập nhật hướng dẫn; `.project` ghi nhận quy tắc và bàn giao. Thay đổi source/config/media/release đang có từ trước được giữ nguyên.
+- Không thực hiện kiểm thử, build, deploy hay restart server vì người dùng không yêu cầu.
+
+- Terminal: COMPLETED. Commit tài liệu scoped `21864fc` đã được kiểm tra chứa đúng bốn tệp hướng dẫn; các tệp đó sạch sau commit. Bộ nhớ `.project` còn thay đổi ngoài commit và không được gom cùng source dirty cũ.
+- Kiểm thử: NOT RUN (không được yêu cầu). Không gửi Telegram vì không có tuyến thông báo Telegram khả dụng/được xác minh trong phiên thực hiện này.
+
+## 2026-09-23 — cambida-review5-fix-212-20260923
+- Status: COMPLETED for requested source/output scope.
+- Release target changed by user to 2.1.2. Staging package: D:\1\Cambida\staging\2.1.2.
+- Built from branch main, Git HEAD 21864fc6dcc6396ccbffa45694d4f1abae203bee with inherited dirty worktree preserved.
+- Staged EXE SHA256: FD25641C82CE94AE30317C56A9315B87B664891379EF9516A8672BFC0AA19F83.
+- Production 2.1.1 and operational config files were not modified or deployed.
+- Tests: NOT RUN - not requested.

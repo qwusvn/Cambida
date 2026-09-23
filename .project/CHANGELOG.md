@@ -163,3 +163,15 @@
 - PyInstaller 6.16.0 onedir và smoke từ chính EXE PASS; final release smoke `/`, `/admin/login`, `/timeline` đều HTTP 200, cleanup PASS.
 - Artifact `D:\1\cambida\release\2.1.0\CCTV_2.1.0.exe` cùng nested copy có SHA-256 `E5F23EE373665FED3149569C7AB764CC7545321F0D2D1CFAF2314B5F834BC83B`.
 - Giữ version 2.1.0 vì live private NetSDK media chưa có bằng chứng credential hợp lệ/snapshot/frame/MP4; config và media hiện có được bảo toàn.
+
+## 2026-09-22 — Guidance sync
+- Sao chép `gptagycodex.md` từ nguồn toàn cục vào thư mục dự án theo yêu cầu, cập nhật AGENTS.md, `.project/PROJECT.md`, YATO_REMOTE_WORKFLOW.md và dấu mốc bộ nhớ điều phối.
+- Chỉ thay đổi tài liệu; không chỉnh sửa mã nguồn/config/media/release hay chạy kiểm thử/build.
+
+## 2026-09-23 — 2.1.2 staging hardening
+- Hardened first-run release config seeding and removed operational config.json from PyInstaller inputs.
+- Added 2.1.2 spec, launcher, Windows version metadata and reproducible staging packaging script.
+- Restored separate playback direction controls (forward/reverse) for Replay/Cut while keeping preset playback rates.
+- Corrected launcher source assertions to require port reuse and /D "%EXE_DIR%".
+- Created and statically verified staging onedir package at D:\1\Cambida\staging\2.1.2.
+- Tests: NOT RUN - not requested.

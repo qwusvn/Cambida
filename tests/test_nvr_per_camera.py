@@ -256,15 +256,14 @@ class NvrPerCameraTests(unittest.TestCase):
         self.assertNotIn("Server 2 - Local", body)
         self.assertIn('const CAMERA_MODE = "nvr";', body)
 
-    def test_nvr_backup_camera_replay_keeps_nvr_as_primary_source(self):
+    def test_nvr_backup_camera_replay_uses_local_as_primary_source(self):
         response = self.client.get("/replay/cam3")
         self.assertEqual(response.status_code, 200)
         body = response.get_data(as_text=True)
         self.assertIn("Bàn 3 (NVR with backup)", body)
-        self.assertNotIn('name="replaySource"', body)
-        self.assertNotIn("Server 1 - NVR", body)
-        self.assertNotIn("Server 2 - Local", body)
-        self.assertIn('const CAMERA_MODE = "nvr";', body)
+        self.assertIn('const CAMERA_MODE = "local";', body)
+        self.assertIn("sourceToggleBtn", body)
+        self.assertIn("Local (Chính)", body)
 
     def test_list_videos_allows_backup_local_but_keeps_nvr_isolated(self):
         filename = "cam3_10-00-00_to_10-05-00_(11-09-2026).mp4"

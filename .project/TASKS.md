@@ -15,6 +15,11 @@
 - [x] 2026-09-21 — Tối ưu độ trễ luồng trực tiếp NetSDK từ 8.5s xuống 0.8s, triệt tiêu đệm trôi lag; giữ nguyên 100% luồng ghi hình 60s (`0b7a585`).
 - [x] 2026-09-21 — Thêm biểu tượng loading spinner khi chờ nạp luồng trực tiếp (`00b7421`).
 - [x] 2026-09-22 — Cải tiến UI player: icon xem trực tiếp sóng radio cân đối; nhãn "Tốc độ phát" & "Thu phóng"; cụm nút tốc độ đặt sẵn 0.5X/1X/2X/4X với gạch chân xanh nút active; timeline cắt video hiển thị nhãn "(Hôm trước)" và render coverage/ruler đầy đủ.
+- [x] 2026-09-22 — Đóng gói phát hành bản 2.1.1: tạo spec và build PyInstaller onedir CCTV_2.1.1.exe (482 KB, bundle 10 DLL NetSDK); triển khai release\2.1.1\ đầy đủ sidecar HTML, ffmpeg.exe, config.json.
+- [x] 2026-09-22 — Loại bỏ ràng buộc ổ D: và tối ưu chạy đa ổ đĩa cho 2.1.1: import an toàn winreg trong 1.py; chuyển INSTANCE_STATE_FILE sang thư mục temp chuẩn của OS; chuyển CCTV_2.1.1.spec sang đường dẫn động qua SPECPATH; cập nhật CCTV_2.1.1.launcher.cmd và bổ sung Chay_CCTV.cmd trong release\2.1.1 để chạy độc lập mọi ổ đĩa (C:, D:, USB). Rebuild và đóng gói lại bản 2.1.1 hoàn tất.
+- [x] 2026-09-22 — Đảo chiều mô hình lưu trữ: Local là chính, NVR là dự phòng. Camera NVR luôn ghi hình cục bộ trên PC; giao diện replay/timeline mặc định tải Local, hỗ trợ nút toggle chuyển sang NVR dự phòng; cắt video ưu tiên Local và tự động bù NVR khi khuyết dữ liệu.
+- [x] 2026-09-22 — Tích hợp GitHub Auto-Updater (qwusvn/Cambida) + Báo Telegram: tự động kiểm tra GitHub Releases mỗi 60 phút hoặc qua lệnh Telegram /update, tải ngầm file zip, bàn giao cho updater.cmd thay thế file bảo toàn 100% config/db/videos, khởi động lại và gửi thông báo thành công qua Telegram.
+- [x] 2026-09-22 — Bộ kiểm thử tự động 99/99 unittest PASS (bao gồm test_auto_update.py mới, test_nvr_per_camera.py cập nhật).
 
 ## DOING
 - Không có task thuộc batch hiện tại.
@@ -314,3 +319,25 @@ elease\2.1.0\index.html byte-identically with source index.html.
 - [x] (6) Đồng bộ sidecar runtime `release/2.1.0/index.html` byte-identically với `index.html` (SHA-256 trùng khớp: `51E2014130B5909978C0B6233983986441DE9602952120B4BD03E64ACE6699DB`).
 - [x] (7) Kiểm chứng toàn diện: Node tests **22/22 PASS** (`replay_timeline_ui.test.js`, `admin_camera_logic.test.js`, `live_preview_ui.test.js`); Python unittests **92/92 PASS**; `python -m py_compile 1.py` PASS; `git diff --check index.html tests/` PASS.
 - Status: COMPLETED.
+
+## Đồng bộ hướng dẫn và bản sao gptagycodex — 2026-09-22
+- task_id: `cambida-guidance-sync-20260922`.
+- [x] Đọc FAST BOOT nguồn toàn cục; người dùng xác nhận thực hiện và chỉ định Remote Desktop Commander.
+- [x] Kiểm tra kết nối Yato, Git/worktree, `.project` và tài liệu điều phối hiện hành.
+- [x] Sao chép `D:\1\gptagycodex.md` vào thư mục Cambida và đối chiếu SHA-256.
+- [x] Cập nhật hướng dẫn dự án, workflow Yato và bộ nhớ điều phối liên quan; bảo toàn các thay đổi đang có từ trước.
+- [ ] Xác minh nội dung/diff đúng phạm vi và tạo commit riêng chỉ cho tài liệu phù hợp; không stage các thay đổi source hoặc bộ nhớ cũ ngoài task.
+- Kiểm thử/build: NOT RUN (không được yêu cầu).
+
+- [x] Đã xác minh 4 tệp hướng dẫn đúng phạm vi, mã SHA-256 của bản sao trùng bản toàn cục, và tạo commit riêng `21864fc` chỉ gồm `AGENTS.md`, `YATO_REMOTE_WORKFLOW.md`, `.project/PROJECT.md`, `gptagycodex.md`.
+- Status: COMPLETED — các thay đổi `.project` khác từ trước và source đang dirty vẫn được giữ nguyên, không stage/commit chung.
+
+## [x] cambida-review5-fix-212-20260923 — Review 5 commits / release 2.1.2
+- [x] Replace embedded operational config with safe config.release.json seed.
+- [x] Preserve existing external config.json; first-run creation is exclusive/non-overwriting and generates a random admin_session_secret.
+- [x] Verify old 2.1.1 EXE statically already contains portable BASE_DIR/BUNDLE_DIR, tempfile instance state and winreg changes.
+- [x] Restore compact forward/reverse controls for Replay and Cut while retaining 0.5X/1X/2X/4X rate controls.
+- [x] Fix launcher source test expectations for /D "%EXE_DIR%" and port reuse; add 2.1.2 launcher coverage in source.
+- [x] Add reproducible PyInstaller onedir packaging inputs for 2.1.2 and stage complete package.
+- [x] Verify staging contents/hashes and absence of operational config/database/log/media/cache.
+- Tests: NOT RUN - not requested.

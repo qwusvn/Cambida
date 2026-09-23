@@ -119,3 +119,20 @@
   - Xem lại: Hàng điều khiển chọn ngày và `Xem trực tiếp`, timeline card hiện đại, nút CTA gradient lớn `Cắt Video`.
   - Cắt video: Hàng nút back tròn + date + xem trực tiếp, timeline cắt với drag handles và mask rõ ràng, card thông tin 3 cột trực quan, CTA gradient `Cắt và tải về` cùng nút `Hủy`.
   - Bảo toàn 100% logic backend, NVR/Local mode, timeline playback, và toàn bộ suite tests hiện hữu.
+
+## 2026-09-22 — Quy tắc đóng gói (Packaging Policy)
+- Chỉ thực hiện đóng gói (PyInstaller / build binary) khi người dùng có yêu cầu rõ ràng.
+- Mọi thao tác sửa code, refactor, tính năng chỉ chỉnh sửa trực tiếp source code / script và kiểm tra cú pháp/chuẩn bị; không tự ý chạy build/repackage.
+
+## 2026-09-22 — Đồng bộ hướng dẫn 2026-09-22.1
+- Theo yêu cầu người dùng, lưu bản sao `D:\1\Cambida\gptagycodex.md` từ `D:\1\gptagycodex.md`; nguồn điều phối hiệu lực vẫn là tệp toàn cục, bản sao không tự trở thành nguồn mới.
+- Với tác vụ ChatGPT: SOL + YATO là một chủ thể; MCP và CLI là transport có thể chọn theo phạm vi đã duyệt. Các ghi chép điều phối trước đây về bắt buộc AGY/Codex MCP cho mọi task, `SKIP GPT`, fallback tự động, hay tự chạy test đã được thay thế bằng FAST BOOT hiện hành.
+- Người dùng đã chỉ định Remote Desktop Commander để hoàn tất chính tác vụ đồng bộ tài liệu này; không mở rộng thành cho phép dùng mặc định ở các task khác.
+- Quy tắc riêng Cambida về bảo toàn source/Git/config/media/release và chỉ đóng gói khi có yêu cầu rõ ràng tiếp tục áp dụng.
+
+## 2026-09-23 — Release configuration decision (2.1.2)
+- Operational config.json must never be embedded in a release.
+- PyInstaller embeds only config.release.json, containing no cameras, usable admin password or Telegram/GitHub token.
+- On first run, 1.py reads the safe seed only when external config.json is absent, generates a random admin_session_secret, and creates config.json with exclusive create mode so an existing/racing config is never overwritten.
+- Existing external config.json remains the source of truth for deployed credentials/camera settings.
+- Release packaging remains PyInstaller onedir and uses paths relative to SPECPATH/project instead of developer-machine absolute paths.

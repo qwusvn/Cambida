@@ -15,6 +15,7 @@ import logging
 import math
 import os
 import re
+import secrets
 import shutil
 import socket
 import sqlite3
@@ -91,16 +92,52 @@ INSTANCE_STATE_FILE = os.path.join(tempfile.gettempdir(), "cctv_recorder_instanc
 INSTANCE_MUTEX_HANDLE = None
 
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
-EMBEDDED_CONFIG_FILE = os.path.join(BUNDLE_DIR, "config.json")
+EMBEDDED_CONFIG_FILE = os.path.join(BUNDLE_DIR, "config.release.json")
+
+def _load_app_version():
+    candidates = [
+        os.path.join(BASE_DIR, "RELEASE_VERSION.txt"),
+        os.path.join(BUNDLE_DIR, "RELEASE_VERSION.txt"),
+    ]
+    for path in candidates:
+        try:
+            if os.path.isfile(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    ver = f.read().strip()
+                    if ver:
+                        return ver
+        except OSError:
+            pass
+    return "2.1.2"
+
+APP_VERSION = _load_app_version()
 
 def _ensure_first_run_files():
     if not os.path.exists(CONFIG_FILE) and os.path.isfile(EMBEDDED_CONFIG_FILE):
+        created_config = False
         try:
-            shutil.copyfile(EMBEDDED_CONFIG_FILE, CONFIG_FILE)
-        except OSError as exc:
+            with open(EMBEDDED_CONFIG_FILE, "r", encoding="utf-8-sig") as source:
+                initial_config = json.load(source)
+            if not isinstance(initial_config, dict):
+                raise ValueError("Cấu hình phát hành mặc định không hợp lệ.")
+            initial_config["admin_session_secret"] = secrets.token_hex(32)
+            try:
+                target = open(CONFIG_FILE, "x", encoding="utf-8")
+            except FileExistsError:
+                return
+            created_config = True
+            with target:
+                json.dump(initial_config, target, ensure_ascii=False, indent=2)
+                target.write("\n")
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            if created_config:
+                try:
+                    os.remove(CONFIG_FILE)
+                except OSError:
+                    pass
             _show_error_box(
-                "L?i kh?i t?o CCTV",
-                f"Kh?ng th? t? t?o file config.json trong th? m?c:\n{BASE_DIR}\n\n{exc}",
+                "Lỗi khởi tạo CCTV",
+                f"Không thể tự tạo file config.json trong thư mục:\n{BASE_DIR}\n\n{exc}",
             )
             sys.exit(1)
 
@@ -763,21 +800,11 @@ def get_playback_source_config(source=None):
     }
 
 
-def _camera_playback_mode(cam_id, playback=None):
-    if isinstance(cam_id, int) and 1 <= cam_id <= len(CAMERA_LIST):
-        camera = CAMERA_LIST[cam_id - 1]
-        if isinstance(camera, dict):
-            mode = str(camera.get("playback_source", "")).strip().lower()
-            if mode in {"local", "nvr"}:
-                return mode
-            if mode == "hybrid":
-                return "nvr"
-    return "local"
-
-
-def _timeline_playback_mode(cam_id):
-    """Return the active replay source without mutating persistent camera config."""
-    return _camera_playback_mode(cam_id)
+def camera_has_nvr(camera):
+    if not isinstance(camera, dict):
+        return False
+    rec = get_camera_recorder_config(camera)
+    return bool(rec.get("host") and rec.get("username"))
 
 
 def should_record_locally(camera):
@@ -785,8 +812,29 @@ def should_record_locally(camera):
         return False
     mode = str(camera.get("playback_source", "local")).strip().lower()
     if mode == "nvr":
-        return bool(camera.get("backup_local", False))
+        # Local recording is primary; defaults to True
+        return bool(camera.get("backup_local", True))
     return True
+
+
+def _camera_playback_mode(cam_id, playback=None):
+    if isinstance(cam_id, int) and 1 <= cam_id <= len(CAMERA_LIST):
+        camera = CAMERA_LIST[cam_id - 1]
+        if isinstance(camera, dict):
+            mode = str(camera.get("playback_source", "")).strip().lower()
+            if mode == "nvr":
+                # If local recording is enabled, Local is primary playback mode
+                if should_record_locally(camera):
+                    return "local"
+                return "nvr"
+            if mode in {"local", "hybrid"}:
+                return "local"
+    return "local"
+
+
+def _timeline_playback_mode(cam_id):
+    """Return the active replay source without mutating persistent camera config."""
+    return _camera_playback_mode(cam_id)
 
 
 def _nvr_base_url(nvr):
@@ -2242,6 +2290,7 @@ def telegram_command_help():
     return (
         "📋 **LỆNH CCTV**\n"
         "`/status` — Xem trạng thái hệ thống.\n"
+        "`/update` — Kiểm tra và cập nhật tự động từ GitHub.\n"
         "`/reset` hoặc `/restart` — Khởi động lại ứng dụng.\n"
         "`/list` — Hiển thị danh sách lệnh này."
     )
@@ -2747,6 +2796,210 @@ def daily_report_task():
             time.sleep(60)
 
 
+# ==============================================================================
+# GITHUB AUTO-UPDATER & TELEGRAM NOTIFICATION MODULE
+# ==============================================================================
+
+GITHUB_REPO = "qwusvn/Cambida"
+
+
+def _parse_version_tuple(v_str):
+    """Convert version string like 'v2.1.2' or '2.1.2' into numeric tuple (2, 1, 2)."""
+    parts = []
+    for chunk in re.split(r"[.\-_]", str(v_str).lstrip("vV")):
+        if chunk.isdigit():
+            parts.append(int(chunk))
+        elif chunk:
+            break
+    return tuple(parts) if parts else (0,)
+
+
+def check_github_update(repo=GITHUB_REPO, token=None):
+    """Query GitHub Releases API to check for a newer release than APP_VERSION."""
+    gh_conf = CONFIG.get("github_update", {}) if isinstance(CONFIG, dict) else {}
+    actual_repo = gh_conf.get("repo") or repo or GITHUB_REPO
+    actual_token = token or gh_conf.get("token") or CONFIG.get("github_token")
+
+    url = f"https://api.github.com/repos/{actual_repo}/releases/latest"
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": f"Cambida-CCTV/{APP_VERSION}",
+    }
+    if actual_token:
+        headers["Authorization"] = f"Bearer {actual_token}"
+
+    try:
+        resp = requests.get(url, headers=headers, timeout=15)
+        if resp.status_code == 404:
+            logger.info("[AutoUpdate] Không tìm thấy bản phát hành nào trên %s (404).", actual_repo)
+            return {"has_update": False, "reason": "Chưa có bản phát hành trên GitHub."}
+        if resp.status_code != 200:
+            logger.warning("[AutoUpdate] Lỗi GitHub API (%s): %s", resp.status_code, resp.text[:200])
+            return {"has_update": False, "reason": f"GitHub API HTTP {resp.status_code}"}
+
+        data = resp.json()
+        raw_tag = data.get("tag_name", "").strip()
+        new_version = raw_tag.lstrip("vV").strip()
+        if not new_version:
+            return {"has_update": False, "reason": "Tag phiên bản không hợp lệ."}
+
+        curr_tuple = _parse_version_tuple(APP_VERSION)
+        new_tuple = _parse_version_tuple(new_version)
+
+        if new_tuple > curr_tuple:
+            assets = data.get("assets", [])
+            download_url = None
+            asset_name = None
+            for asset in assets:
+                name = asset.get("name", "")
+                if name.lower().endswith(".zip"):
+                    download_url = asset.get("browser_download_url")
+                    asset_name = name
+                    break
+            if not download_url:
+                download_url = data.get("zipball_url")
+                asset_name = f"{new_version}.zip"
+
+            return {
+                "has_update": True,
+                "current_version": APP_VERSION,
+                "new_version": new_version,
+                "download_url": download_url,
+                "asset_name": asset_name,
+                "release_notes": data.get("body", ""),
+            }
+
+        return {"has_update": False, "current_version": APP_VERSION, "latest_version": new_version}
+    except Exception as exc:
+        logger.warning("[AutoUpdate] Không thể kiểm tra cập nhật GitHub: %s", exc)
+        return {"has_update": False, "error": str(exc)}
+
+
+def apply_github_update(download_url, new_version, token=None):
+    """Download zip update, extract, launch updater.cmd, and exit gracefully."""
+    import zipfile
+    temp_dir = os.path.join(tempfile.gettempdir(), "cambida_update")
+    os.makedirs(temp_dir, exist_ok=True)
+    zip_path = os.path.join(temp_dir, f"update_{new_version}.zip")
+    extract_dir = os.path.join(temp_dir, f"extracted_{new_version}")
+
+    if os.path.exists(extract_dir):
+        shutil.rmtree(extract_dir, ignore_errors=True)
+    os.makedirs(extract_dir, exist_ok=True)
+
+    gh_conf = CONFIG.get("github_update", {}) if isinstance(CONFIG, dict) else {}
+    actual_token = token or gh_conf.get("token") or CONFIG.get("github_token")
+    headers = {"User-Agent": f"Cambida-CCTV/{APP_VERSION}"}
+    if actual_token:
+        headers["Authorization"] = f"Bearer {actual_token}"
+
+    logger.info("[AutoUpdate] Bắt đầu tải bản cập nhật v%s từ %s...", new_version, download_url)
+    resp = requests.get(download_url, headers=headers, stream=True, timeout=180)
+    resp.raise_for_status()
+
+    with open(zip_path, "wb") as f:
+        for chunk in resp.iter_content(chunk_size=65536):
+            if chunk:
+                f.write(chunk)
+
+    logger.info("[AutoUpdate] Đang giải nén và kiểm tra file cập nhật...")
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        bad_file = zf.testzip()
+        if bad_file:
+            raise RuntimeError(f"File zip bị hỏng: {bad_file}")
+        zf.extractall(extract_dir)
+
+    # Ghi nhận marker để khi app mới khởi động sẽ gửi Telegram báo thành công
+    marker_file = os.path.join(BASE_DIR, ".pending_update_notification")
+    try:
+        with open(marker_file, "w", encoding="utf-8") as f:
+            json.dump({
+                "previous_version": APP_VERSION,
+                "new_version": new_version,
+                "updated_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            }, f, ensure_ascii=False, indent=2)
+    except Exception as exc:
+        logger.warning("[AutoUpdate] Không thể tạo file marker thông báo: %s", exc)
+
+    updater_cmd = os.path.join(BASE_DIR, "updater.cmd")
+    if not os.path.isfile(updater_cmd):
+        logger.error("[AutoUpdate] Không tìm thấy updater.cmd tại %s", updater_cmd)
+        return False
+
+    current_pid = os.getpid()
+    logger.info("[AutoUpdate] Kích hoạt updater.cmd (PID: %s)...", current_pid)
+    flags = subprocess.CREATE_NEW_PROCESS_GROUP
+    if hasattr(subprocess, "DETACHED_PROCESS"):
+        flags |= subprocess.DETACHED_PROCESS
+
+    subprocess.Popen(
+        ["cmd.exe", "/c", updater_cmd, str(current_pid), extract_dir, BASE_DIR],
+        creationflags=flags,
+        close_fds=True,
+    )
+
+    try:
+        stop_recording_loop()
+    except Exception:
+        pass
+    time.sleep(1)
+    os._exit(0)
+
+
+def check_and_notify_pending_update():
+    """If .pending_update_notification exists on startup, send success alert to Telegram."""
+    marker_file = os.path.join(BASE_DIR, ".pending_update_notification")
+    if not os.path.isfile(marker_file):
+        return
+    try:
+        with open(marker_file, "r", encoding="utf-8") as f:
+            info = json.load(f)
+        prev_v = info.get("previous_version", "cũ")
+        new_v = info.get("new_version", APP_VERSION)
+        updated_at = info.get("updated_at", datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+        msg = (
+            f"🎉 **CAMBIDA CCTV ĐÃ TỰ ĐỘNG CẬP NHẬT THÀNH CÔNG!**\n"
+            f"➖➖➖➖➖➖➖➖➖➖\n"
+            f"🔹 **Phiên bản mới:** v{new_v}\n"
+            f"🔹 **Phiên bản trước:** v{prev_v}\n"
+            f"⏱ **Thời gian:** {updated_at}\n"
+            f"✅ Tất cả camera và hệ thống đang hoạt động bình thường."
+        )
+        send_telegram_alert(msg)
+        logger.info("[AutoUpdate] Đã gửi thông báo Telegram cập nhật thành công lên v%s", new_v)
+    except Exception as exc:
+        logger.warning("[AutoUpdate] Lỗi xử lý marker cập nhật: %s", exc)
+    finally:
+        try:
+            os.remove(marker_file)
+        except OSError:
+            pass
+
+
+def start_github_update_worker():
+    """Start background thread checking GitHub updates periodically."""
+    def _worker():
+        time.sleep(30)
+        while True:
+            try:
+                res = check_github_update()
+                if res.get("has_update") and res.get("download_url"):
+                    new_v = res["new_version"]
+                    logger.info("[AutoUpdate] Phát hiện bản cập nhật mới v%s. Đang tự động nâng cấp...", new_v)
+                    send_telegram_alert(
+                        f"🚀 **PHÁT HIỆN BẢN CẬP NHẬT MỚI!**\n"
+                        f"🔹 Phiên bản: **v{new_v}**\n"
+                        f"📥 Đang tự động tải về và nâng cấp ứng dụng..."
+                    )
+                    apply_github_update(res["download_url"], new_v)
+            except Exception as exc:
+                logger.warning("[AutoUpdate] Lỗi worker kiểm tra cập nhật: %s", exc)
+            time.sleep(3600)
+
+    t = threading.Thread(target=_worker, daemon=True, name="GitHubUpdateWorker")
+    t.start()
+
+
 def monitor_telegram_commands():
     token = CONFIG.get("telegram_token")
     admin_id = str(CONFIG.get("telegram_chat_id"))
@@ -2784,6 +3037,24 @@ def monitor_telegram_commands():
                         )
                         time.sleep(1)
                         os.execl(sys.executable, sys.executable, *sys.argv)
+                    if text in ("/update", "/checkupdate"):
+                        send_telegram_alert("🔍 Đang kiểm tra bản cập nhật mới trên GitHub...")
+                        res = check_github_update()
+                        if not res.get("has_update"):
+                            reason = res.get("reason")
+                            detail = f" ({reason})" if reason else ""
+                            send_telegram_alert(f"✅ Hệ thống đang ở phiên bản mới nhất: **v{APP_VERSION}**{detail}.")
+                        else:
+                            new_v = res["new_version"]
+                            send_telegram_alert(
+                                f"🚀 **PHÁT HIỆN BẢN CẬP NHẬT MỚI!**\n"
+                                f"🔹 Phiên bản: **v{new_v}**\n"
+                                f"📥 Đang tự động tải về và nâng cấp ứng dụng..."
+                            )
+                            try:
+                                apply_github_update(res["download_url"], new_v)
+                            except Exception as e:
+                                send_telegram_alert(f"❌ Lỗi khi cập nhật tự động: {e}")
                     if text == "/status":
                         hdd_free = get_total_size_gb()
                         logs = get_last_logs(30)
@@ -3204,15 +3475,16 @@ def replay_cam(cam_id):
     if not 1 <= cam_id <= len(CAMERA_LIST):
         return "Camera không tồn tại", 404
     cam = CAMERA_LIST[cam_id - 1]
+    has_nvr = camera_has_nvr(cam)
     mode = _timeline_playback_mode(cam_id)
-    backup_local = False
     return render_template(
         "index.html",
         cam_id=cam_id,
         camera_name=get_camera_name(cam_id),
         camera_mode=mode,
+        has_nvr=has_nvr,
         camera_view_stream=cam.get("view_stream", "auto"),
-        backup_local=backup_local,
+        backup_local=bool(cam.get("backup_local", True)),
         site=get_site_config(),
         max_merge_minutes=MAX_MERGE_MINUTES,
     )
@@ -3336,19 +3608,19 @@ def list_videos_by_cam(cam_id):
     if not 1 <= cam_id <= len(CAMERA_LIST):
         return jsonify([]), 404
     cam = CAMERA_LIST[cam_id - 1]
-    mode = _timeline_playback_mode(cam_id)
+    has_nvr = camera_has_nvr(cam)
+    records_locally = should_record_locally(cam)
 
     req_source = request.args.get("source", "").strip().lower()
-    if mode == "nvr":
-        # A local archive is an optional backup of an NVR card. It can never
-        # become the default or be used when the card has no local backup.
-        target_source = (
-            "local"
-            if req_source in {"server2", "local"} and bool(cam.get("backup_local"))
-            else "nvr"
-        )
+    if has_nvr:
+        # Local là chính; NVR là dự phòng khi được yêu cầu rõ ràng hoặc khi camera không ghi local
+        if req_source in {"nvr", "server2"}:
+            target_source = "nvr"
+        elif not records_locally:
+            target_source = "nvr"
+        else:
+            target_source = "local"
     else:
-        # A local card has no NVR source merely because a stale query asks for it.
         target_source = "local"
 
     if target_source == "nvr":
@@ -3697,6 +3969,7 @@ def api_status():
             )
     return jsonify(
         {
+            "version": APP_VERSION,
             "site": get_site_config()["name"],
             "video_used_gb": round(get_total_size_gb(), 2),
             "video_limit_gb": SIZE_LIMIT_GB,
@@ -4679,7 +4952,11 @@ def merge_video():
                 mimetype="text/event-stream",
             )
 
-        if _timeline_playback_mode(cam_id) == "nvr":
+        cam = CAMERA_LIST[cam_id - 1] if (1 <= cam_id <= len(CAMERA_LIST)) else {}
+        has_nvr = camera_has_nvr(cam)
+        req_source = request.args.get("source", "").strip().lower()
+
+        if has_nvr and (req_source in {"nvr", "server2"} or not should_record_locally(cam)):
             return _merge_nvr_response(cam_id, req_start, req_end)
 
         files = glob.glob(os.path.join(VIDEO_DIR, f"cam{cam_id}_*.mp4"))
@@ -4695,6 +4972,9 @@ def merge_video():
                 candidates.append((f_start, f_end, f_path))
         candidates.sort(key=lambda item: item[0])
         if not candidates:
+            if has_nvr:
+                logger.info("[Merge Cam %s] Không có video Local, tự động lấy từ NVR dự phòng.", cam_id)
+                return _merge_nvr_response(cam_id, req_start, req_end)
             return Response(
                 "data: error:Không có video\n\n", mimetype="text/event-stream"
             )
@@ -5042,7 +5322,9 @@ if __name__ == "__main__":
     threading.Thread(
         target=start_recording_loop, daemon=True, name="Recorder"
     ).start()
-    send_telegram_alert("🚀 Hệ thống CCTV đã khởi động thành công!")
+    check_and_notify_pending_update()
+    start_github_update_worker()
+    send_telegram_alert(f"🚀 Hệ thống CCTV (v{APP_VERSION}) đã khởi động thành công!")
 
     run_startup = CONFIG.get("run_on_startup", "no").lower() == "yes"
     run_tray = CONFIG.get("run_in_tray", "no").lower() == "yes"

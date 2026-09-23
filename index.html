@@ -441,6 +441,7 @@
       display: flex;
       align-items: flex-end;
       justify-content: space-between;
+      gap: 6px;
       margin-bottom: 10px;
       min-height: 36px;
     }
@@ -454,6 +455,7 @@
       display: flex;
       align-items: flex-end;
       justify-content: space-between;
+      gap: 6px;
       margin-bottom: 10px;
     }
     .live-date-wrap { margin-right: auto; }
@@ -462,6 +464,19 @@
       border-radius: 18px;
       padding: 0 12px;
       font-size: 12.5px;
+    }
+    .source-toggle-pill {
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid var(--border);
+      gap: 6px;
+      font-weight: 700;
+      transition: all 0.15s ease;
+    }
+    .source-toggle-pill.is-nvr {
+      background: #fef3c7;
+      color: #b45309;
+      border-color: #fde68a;
     }
     .timeline-control-block {
       display: flex;
@@ -529,6 +544,57 @@
       bottom: 2px;
       left: 6px;
       right: 6px;
+      height: 2.5px;
+      background: var(--blue);
+      border-radius: 2px;
+    }
+    .timeline-dir-group {
+      display: inline-flex;
+      align-items: center;
+      height: 32px;
+      box-sizing: border-box;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .dir-button {
+      height: 26px;
+      width: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #475569;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .dir-button svg {
+      width: 12px;
+      height: 12px;
+      display: block;
+    }
+    .dir-button:hover {
+      color: var(--blue);
+      background: rgba(29, 114, 242, 0.06);
+    }
+    .dir-button.is-active {
+      background: #ffffff;
+      color: var(--blue);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+    .dir-button.is-active::after {
+      content: "";
+      position: absolute;
+      bottom: 2px;
+      left: 5px;
+      right: 5px;
       height: 2.5px;
       background: var(--blue);
       border-radius: 2px;
@@ -974,6 +1040,7 @@
       .app { padding-left: 10px; padding-right: 10px; }
       .pill { font-size: 12px; padding: 0 10px; }
       .rate-button { min-width: 50px; padding: 0 6px; }
+      .dir-button { width: 24px; }
       .zoom-button { width: 28px; }
     }
   </style>
@@ -1011,6 +1078,15 @@
             <span id="liveDateLabel" hidden></span>
           </label>
         </div>
+        {% if has_nvr %}
+        <div class="source-toggle-wrap" id="sourceToggleWrap">
+          <button id="sourceToggleBtn" class="pill pill-toolbar source-toggle-pill" type="button" title="Đổi nguồn phát lại: Local (Chính) / NVR (Dự phòng)" aria-label="Nguồn phát lại">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+            <span id="sourceToggleLabel">Local (Chính)</span>
+          </button>
+          <input type="hidden" id="selectedReplaySource" value="local">
+        </div>
+        {% endif %}
         <button id="liveButton" class="pill live-switch-pill pill-toolbar" type="button" aria-label="Xem trực tiếp">
           <svg id="liveButtonIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4.93 19.07a10 10 0 0 1 0-14.14M19.07 4.93a10 10 0 0 1 0 14.14M7.76 16.24a6 6 0 0 1 0-8.48M16.24 7.76a6 6 0 0 1 0 8.48"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
           <span id="liveButtonText">Xem trực tiếp</span>
@@ -1019,6 +1095,13 @@
 
       <!-- Row 2: Speed on left, Zoom on right -->
       <div class="timeline-sub-row" role="toolbar" aria-label="Điều khiển tốc độ và thu phóng timeline">
+        <div class="timeline-control-block">
+          <div class="control-block-label">Hướng</div>
+          <div class="timeline-dir-group" role="group" aria-label="Hướng phát">
+            <button class="dir-button" type="button" data-timeline-context="replay" data-direction="reverse" title="Phát lùi" aria-label="Phát lùi"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 17-5-5 5-5M11 17l-5-5 5-5"/></svg></button>
+            <button class="dir-button is-active" type="button" data-timeline-context="replay" data-direction="forward" title="Phát tiến" aria-label="Phát tiến"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 17 5-5-5-5M13 17l5-5-5-5"/></svg></button>
+          </div>
+        </div>
         <div class="timeline-control-block">
           <div class="control-block-label">Tốc độ phát</div>
           <div class="timeline-rate-group" role="group" aria-label="Tốc độ phát">
@@ -1096,6 +1179,13 @@
 
     <div class="timeline-card" id="cutTimelineCard">
       <div class="timeline-toolbar" role="toolbar" aria-label="Điều khiển timeline cắt video">
+        <div class="timeline-control-block">
+          <div class="control-block-label">Hướng</div>
+          <div class="timeline-dir-group" role="group" aria-label="Hướng phát">
+            <button class="dir-button" type="button" data-timeline-context="cut" data-direction="reverse" title="Phát lùi" aria-label="Phát lùi"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 17-5-5 5-5M11 17l-5-5 5-5"/></svg></button>
+            <button class="dir-button is-active" type="button" data-timeline-context="cut" data-direction="forward" title="Phát tiến" aria-label="Phát tiến"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 17 5-5-5-5M13 17l5-5-5-5"/></svg></button>
+          </div>
+        </div>
         <div class="timeline-control-block">
           <div class="control-block-label">Tốc độ phát</div>
           <div class="timeline-rate-group" role="group" aria-label="Tốc độ phát">
@@ -1196,8 +1286,12 @@
   const autoplayWaiters = new WeakMap();
   const gestureStates = new WeakMap();
 
-  function getSelectedSource(){ return CAMERA_MODE === "nvr" ? "nvr" : "local"; }
-  function isNvrSource(){ return CAMERA_MODE === "nvr"; }
+  function getSelectedSource(){
+    const input = document.getElementById("selectedReplaySource");
+    if(input && input.value) return input.value;
+    return CAMERA_MODE === "nvr" ? "nvr" : "local";
+  }
+  function isNvrSource(){ return getSelectedSource() === "nvr"; }
   function getVideoName(v){ return String(v?.name||v?.filename||""); }
   function parseDate(v){ if(!v)return null; const d=new Date(v); return Number.isNaN(d.getTime())?null:d; }
   function getVideoRange(v){
@@ -1217,7 +1311,7 @@
   function getPlayUrl(v){return v?.url||`/video/${encodeURIComponent(getVideoName(v))}`}
   function getDownloadUrl(v){return v?.download_url||`/download/${encodeURIComponent(getVideoName(v))}`}
   function appendQueryParam(url,key,value){if(!value)return url;return `${url}${url.includes("?")?"&":"?"}${encodeURIComponent(key)}=${encodeURIComponent(value)}`}
-  function isNvrVideo(v){const url=getPlayUrl(v);return CAMERA_MODE === "nvr" || v?.source === "nvr" || url.startsWith("/nvr/")}
+  function isNvrVideo(v){const url=getPlayUrl(v);return getSelectedSource() === "nvr" || v?.source === "nvr" || url.startsWith("/nvr/")}
   function getPlayerBaseDate(player){const fromData=parseDate(player?.dataset?.baseAt);if(fromData)return fromData;return getVideoRange(currentVideo)?.start||null}
 
   function setDateLabel(inputId,labelId){ const input=$(inputId); if(!input?.value)return; const d=new Date(`${input.value}T12:00:00`); const label=$(labelId); if(label)label.textContent=fmtDate(d); }
@@ -1319,10 +1413,22 @@
   function renderTimeline(context,progress=null){const state=timelineStates[context],track=$(state.trackId),viewport=$(state.viewportId),hit=$(state.hitId);if(!state||!track||!viewport)return;const resolved=clamp(progress==null?state.progress:progress,0,1),width=Math.max(0,viewport.getBoundingClientRect().width),trackWidth=width*state.zoom;state.progress=resolved;state.offset=width/2-resolved*trackWidth;track.style.width=`${Math.max(1,state.zoom*100)}%`;track.style.transform=`translate3d(${state.offset}px,0,0)`;const bubble=$(state.bubbleId);if(bubble)bubble.textContent=formatBubbleTime(getTimelineDateAtProgress(resolved));if(hit){hit.setAttribute("aria-valuenow",String(Math.round(resolved*100)));hit.setAttribute("aria-valuetext",formatBubbleTime(getTimelineDateAtProgress(resolved)));}}
   function syncTimelineForPlayer(context,player){if(!currentVideo)return;let prog=getTimelineProgressForPlayer(player);if(context==="cut"&&clipStartAt&&clipEndAt)prog=clamp(prog,getTimelineProgressForDate(clipStartAt),getTimelineProgressForDate(clipEndAt));renderTimeline(context,prog);}
   function setAnchor(anchor,url,name){ if(!anchor)return; if(!url){anchor.href="#";anchor.setAttribute("aria-disabled","true");anchor.removeAttribute("download");anchor.tabIndex=-1;return;} anchor.href=url;anchor.setAttribute("download",name||"");anchor.setAttribute("aria-disabled","false");anchor.tabIndex=0; }
-  function getPlaybackState(player){let state=playbackStates.get(player);if(!state){state={mode:"normal",rate:1,reverseTimer:null};playbackStates.set(player,state);}return state;}
+  function getPlaybackState(player){let state=playbackStates.get(player);if(!state){state={direction:"forward",rate:1,reverseTimer:null};playbackStates.set(player,state);}return state;}
   function getPlaybackRateButton(context,rate=1){
     const r=String(rate!=null?rate:1);
     return typeof document.querySelector==="function"?document.querySelector(`.rate-button[data-timeline-context="${context}"][data-rate="${r}"]`):null;
+  }
+  function getPlaybackDirectionButton(context,direction="forward"){
+    return typeof document.querySelector==="function"?document.querySelector(`.dir-button[data-timeline-context="${context}"][data-direction="${direction}"]`):null;
+  }
+  function clearDirectionButtons(context){
+    if(typeof document.querySelectorAll!=="function")return;
+    document.querySelectorAll(`.dir-button[data-timeline-context="${context}"]`).forEach(button=>button?.classList?.remove?.("is-active"));
+  }
+  function setDirectionButtonActive(context,direction="forward"){
+    clearDirectionButtons(context);
+    const btn=getPlaybackDirectionButton(context,direction);
+    if(btn)btn?.classList?.add?.("is-active");
   }
   function getNextPlaybackRate(rate){return rate===0.5?1:rate===1?2:rate===2?4:1;}
   function clearPlaybackButtons(context){
@@ -1333,12 +1439,13 @@
     if(!player)return;
     const state=getPlaybackState(player);
     if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;}
-    state.mode="normal";
+    state.direction="forward";
     state.rate=1;
     player.playbackRate=1;
     clearPlaybackButtons(context);
     const oneBtn=getPlaybackRateButton(context,1);
     if(oneBtn)oneBtn?.classList?.add?.("is-active");
+    setDirectionButtonActive(context,"forward");
   }
   function syncPlayerUi(player,context,time){
     const duration=getMediaDuration(player);let current=clamp(Number(player.currentTime)||0,0,duration);
@@ -1349,7 +1456,50 @@
     if(tsEl&&base){tsEl.textContent=fmtFullDateTime(new Date(base.getTime()+current*1000));}
     syncTimelineForPlayer(context,player);
   }
-  function startReversePlayback(context,rate,button=null){const player=getTimelinePlayer(context);if(!player||!currentVideo)return;const state=getPlaybackState(player);if(state.reverseTimer)clearInterval(state.reverseTimer);player.pause();player.playbackRate=1;state.mode="reverse";state.rate=rate;clearPlaybackButtons(context);button?.classList?.add?.("is-active");state.reverseTimer=setInterval(()=>{const next=clamp((Number(player.currentTime)||0)-0.06*rate,0,getMediaDuration(player));player.currentTime=next;syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));if(next<=0)stopPlayback(player,context);},60);}
+  function startReversePlayback(context,rate=null,button=null){
+    const player=getTimelinePlayer(context);if(!player||!currentVideo)return;
+    const state=getPlaybackState(player);
+    ["replay","cut"].forEach(otherContext=>{const otherPlayer=getTimelinePlayer(otherContext);if(!otherPlayer)return;const otherState=getPlaybackState(otherPlayer);if(otherState.reverseTimer){clearInterval(otherState.reverseTimer);otherState.reverseTimer=null;}if(otherContext!==context&&otherState.direction==="reverse"){otherState.direction="forward";setDirectionButtonActive(otherContext,"forward");}});
+    player.pause();
+    player.playbackRate=1;
+    state.direction="reverse";
+    const resolvedRate=Number(rate)||state.rate||1;
+    state.rate=resolvedRate;
+    setDirectionButtonActive(context,"reverse");
+    if(button)button?.classList?.add?.("is-active");
+    clearPlaybackButtons(context);
+    const rateBtn=getPlaybackRateButton(context,resolvedRate);
+    if(rateBtn)rateBtn?.classList?.add?.("is-active");
+    state.reverseTimer=setInterval(()=>{
+      let minSec=0;
+      if(context==="cut"&&clipStartAt){
+        const base=getPlayerBaseDate(player);
+        if(base)minSec=Math.max(0,(clipStartAt.getTime()-base.getTime())/1000);
+      }
+      const current=Number(player.currentTime)||0;
+      const next=clamp(current-0.06*state.rate,minSec,getMediaDuration(player));
+      player.currentTime=next;
+      syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));
+      if(next<=minSec&&state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;}
+    },60);
+  }
+  function setPlaybackDirection(context,direction){
+    const player=getTimelinePlayer(context);
+    if(!player||!currentVideo)return;
+    const state=getPlaybackState(player);
+    if(direction==="reverse"){
+      startReversePlayback(context,state.rate);
+    }else{
+      if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;}
+      state.direction="forward";
+      player.playbackRate=state.rate||1;
+      setDirectionButtonActive(context,"forward");
+      clearPlaybackButtons(context);
+      const rateBtn=getPlaybackRateButton(context,state.rate||1);
+      if(rateBtn)rateBtn?.classList?.add?.("is-active");
+      if(player.paused&&!player.ended)player.play().catch(()=>{});
+    }
+  }
   function setPlaybackRate(context,rate,button=null){
     const player=getTimelinePlayer(context);
     if(!player||!currentVideo)return;
@@ -1360,13 +1510,19 @@
     }
     button=button||getPlaybackRateButton(context,targetRate);
     const state=getPlaybackState(player);
-    if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;}
-    state.mode="normal";
     state.rate=targetRate;
-    player.playbackRate=targetRate;
     clearPlaybackButtons(context);
     button?.classList?.add?.("is-active");
-    if(player.paused&&!player.ended)player.play().catch(()=>{});
+    if(state.direction==="reverse"){
+      if(state.reverseTimer)startReversePlayback(context,targetRate);
+      else setDirectionButtonActive(context,"reverse");
+    }else{
+      if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;}
+      state.direction="forward";
+      player.playbackRate=targetRate;
+      setDirectionButtonActive(context,"forward");
+      if(player.paused&&!player.ended)player.play().catch(()=>{});
+    }
   }
   function wirePlaybackControls(context){
     if(typeof document.querySelectorAll!=="function")return;
@@ -1374,6 +1530,12 @@
       button.addEventListener("click",()=>{
         const rate=Number(button.dataset.rate)||1;
         setPlaybackRate(context,rate,button);
+      });
+    });
+    document.querySelectorAll(`.dir-button[data-timeline-context="${context}"]`).forEach(button=>{
+      button.addEventListener("click",()=>{
+        const dir=button.dataset.direction||"forward";
+        setPlaybackDirection(context,dir);
       });
     });
   }
@@ -1395,8 +1557,8 @@
   function wirePlayer(playerId,buttonId,iconId,timeId,frameId,fullId,context){
     const p=$(playerId),b=$(buttonId),icon=$(iconId),time=$(timeId),frame=$(frameId),full=$(fullId);
     const sync=()=>syncPlayerUi(p,context,time);
-    if(b)b.addEventListener("click",()=>{const state=getPlaybackState(p);if(state.mode==="reverse")stopPlayback(p,context);if(p.paused)p.play().catch(()=>{});else p.pause();});
-    p.addEventListener("play",()=>{});
+    if(b)b.addEventListener("click",()=>{const state=getPlaybackState(p);if(state.direction==="reverse"){if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;p.pause();}else{startReversePlayback(context,state.rate);}return;}if(p.paused)p.play().catch(()=>{});else p.pause();});
+    p.addEventListener("play",()=>{const state=getPlaybackState(p);if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;}if(state.direction==="reverse"){state.direction="forward";setDirectionButtonActive(context,"forward");}});
     p.addEventListener("pause",()=>{});
     p.addEventListener("timeupdate",sync);
     p.addEventListener("loadedmetadata",sync);
@@ -1412,7 +1574,7 @@
     const range=getVideoRange(v),targetSec=Number.isFinite(Number(seekSec))?Math.max(0,Number(seekSec)):0;
     const targetDate=range?new Date(range.start.getTime()+targetSec*1000):getTimelineDateAtProgress(timelineStates.replay.progress);
     const loadSerial=loadPlayer($("videoPlayer"),v,targetDate);
-    const cutPlayer=$("cutPlayer");if(cutPlayer){cutPlayer.pause();cutPlayer.removeAttribute("src");cutPlayer.dataset.baseAt=formatLocalSecond(targetDate);cutPlayer.load();}
+    const cutPlayer=$("cutPlayer");if(cutPlayer){stopPlayback(cutPlayer,"cut");cutPlayer.pause();cutPlayer.removeAttribute("src");cutPlayer.dataset.baseAt=formatLocalSecond(targetDate);cutPlayer.load();}
     let downloadUrl=getDownloadUrl(v);if(isNvrVideo(v)&&targetDate)downloadUrl=appendQueryParam(downloadUrl,"at",formatLocalSecond(targetDate));
     $("cutButton").disabled=false;$("watchError").hidden=true;
     if(range){updateRuler("ruler");updateRuler("cutRuler");}
@@ -1462,7 +1624,12 @@
         }
       }
     }
-    const player=getTimelinePlayer(context),requestSerial=nextPlayerRequest(player);renderTimeline(context,resolved);
+    const player=getTimelinePlayer(context),requestSerial=nextPlayerRequest(player);
+    if(userInitiated||autoplay){
+      const state=getPlaybackState(player);
+      if(state.direction==="reverse"){if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;}state.direction="forward";setDirectionButtonActive(context,"forward");}
+    }
+    renderTimeline(context,resolved);
     const tsEl=$(context==="cut"?"cutPlayerTimestamp":"playerTimestamp");
     if(tsEl&&targetDate)tsEl.textContent=fmtFullDateTime(targetDate);
     if(!match.video){player?.pause();if(context==="replay"){$("cutButton").disabled=true;$("watchError").textContent=`Không có bản ghi tại ${fmtTime(targetDate)}.`;$("watchError").hidden=false;}return;}
@@ -1711,6 +1878,7 @@
     if($("segmentedControl")) $("segmentedControl").hidden=false;
     activeScreen="replay";
     $("headerTitle").textContent=replayTitle||"{{ camera_name }}";
+    stopPlayback($("cutPlayer"),"cut");
     $("cutPlayer").pause();
     requestAnimationFrame(()=>{
       renderTimelineCoverage("filmstrip");
@@ -1748,6 +1916,7 @@
     $("mainTitleSection").hidden=true;
     if($("segmentedControl")) $("segmentedControl").hidden=true;
     activeScreen="cut";
+    stopPlayback($("videoPlayer"),"replay");
     $("videoPlayer").pause();
     loadPlayer($("cutPlayer"),currentVideo,targetDate);
     configureClipRange(targetDate);
@@ -1764,6 +1933,8 @@
   function showDone(){
     setScreenLive("replay",false);
     setScreenLive("cut",false);
+    stopPlayback($("videoPlayer"),"replay");
+    stopPlayback($("cutPlayer"),"cut");
     $("replayScreen").hidden=true;
     $("cutScreen").hidden=true;
     $("doneScreen").hidden=false;
@@ -1801,7 +1972,7 @@
     if($("mergeProgress"))$("mergeProgress").hidden=false;
     $("mergeButton").disabled=true;
     setMergeProgress(3,"Đang chuẩn bị video...");
-    const url=`/merge?cam_id=${encodeURIComponent(CAMERA_ID)}&start=${encodeURIComponent(formatLocalSecond(bounds.start))}&end=${encodeURIComponent(formatLocalSecond(bounds.end))}`;
+    const url=`/merge?cam_id=${encodeURIComponent(CAMERA_ID)}&start=${encodeURIComponent(formatLocalSecond(bounds.start))}&end=${encodeURIComponent(formatLocalSecond(bounds.end))}&source=${encodeURIComponent(getSelectedSource())}`;
     mergeEventSource=new EventSource(url);
     mergeEventSource.onmessage=(event)=>{
       const data=String(event.data||"");
@@ -1861,6 +2032,25 @@
     // Replay & Cut Live toggles
     $("liveButton")?.addEventListener("click",()=>toggleLive("replay"));
     $("cutLiveButton")?.addEventListener("click",()=>toggleLive("cut"));
+
+    // Source toggle (Local chính / NVR dự phòng)
+    const sourceToggleBtn = $("sourceToggleBtn");
+    const sourceToggleLabel = $("sourceToggleLabel");
+    const selectedReplaySource = $("selectedReplaySource");
+    if (sourceToggleBtn && selectedReplaySource) {
+      sourceToggleBtn.addEventListener("click", () => {
+        if (selectedReplaySource.value === "local") {
+          selectedReplaySource.value = "nvr";
+          if (sourceToggleLabel) sourceToggleLabel.textContent = "NVR (Dự phòng)";
+          sourceToggleBtn.classList.add("is-nvr");
+        } else {
+          selectedReplaySource.value = "local";
+          if (sourceToggleLabel) sourceToggleLabel.textContent = "Local (Chính)";
+          sourceToggleBtn.classList.remove("is-nvr");
+        }
+        fetchVideos();
+      });
+    }
 
     // Date change listeners
     $("filterDate")?.addEventListener("change",()=>{syncAllDates($("filterDate").value);fetchVideos();});
