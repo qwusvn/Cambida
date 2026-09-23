@@ -2653,7 +2653,7 @@ def _run_recording_attempt(cam_id, rtsp_url, temp_filepath, stop_event):
     ]
     # Giữ nguyên cơ chế ghi: copy trực tiếp luồng camera vào MP4, không
     # chuyển mã và không thay đổi tốc độ/độ phân giải.
-    cmd.extend(["-vcodec", "copy", "-f", "mp4", temp_filepath])
+    cmd.extend(["-vcodec", "copy", "-movflags", "+faststart", "-f", "mp4", temp_filepath])
     proc = None
     last_err = ""
     timed_out = False
