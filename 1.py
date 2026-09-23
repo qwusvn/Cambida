@@ -4061,7 +4061,7 @@ def serve_video(filename):
     safe_path = safe_video_path(unquote(filename))
     if not safe_path or not os.path.isfile(safe_path):
         return "Video not found", 404
-    return send_from_directory(VIDEO_DIR, os.path.basename(safe_path), mimetype="video/mp4")
+    return send_from_directory(VIDEO_DIR, os.path.basename(safe_path), mimetype="video/mp4", conditional=True)
 
 
 @app.route("/download/<path:filename>")
@@ -4069,7 +4069,14 @@ def download_video(filename):
     safe_path = safe_video_path(unquote(filename))
     if not safe_path or not os.path.isfile(safe_path):
         return "Video not found", 404
-    return send_from_directory(VIDEO_DIR, os.path.basename(safe_path), as_attachment=True)
+    inline = request.args.get("inline") in {"1", "true", "yes"}
+    return send_from_directory(
+        VIDEO_DIR,
+        os.path.basename(safe_path),
+        as_attachment=not inline,
+        mimetype="video/mp4",
+        conditional=True,
+    )
 
 
 @app.route("/nvr/video/<token>")

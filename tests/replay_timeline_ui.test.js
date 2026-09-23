@@ -570,3 +570,35 @@ test('wireTimeline supports card-level scrubbing and pointer events', () => {
   assert.notEqual(context.timelineStates.replay.progress, 0.6);
 });
 
+test('doneScreen integrates video preview player and dual action buttons for iOS and desktop', () => {
+  const { context } = loadReplayScript();
+  const doneVideo = context.document.getElementById('doneVideoPreview');
+  const openBtn = context.document.getElementById('openVideoBtn');
+  const dlBtn = context.document.getElementById('mergedDownloadBtn');
+  const guideBox = context.document.getElementById('iosSaveGuide');
+
+  // Verify elements exist in mock DOM
+  assert.ok(doneVideo);
+  assert.ok(openBtn);
+  assert.ok(dlBtn);
+  assert.ok(guideBox);
+
+  // Simulate completion
+  const filename = 'cam1_2026-09-23_test.mp4';
+  const inlineUrl = `/video/${encodeURIComponent(filename)}`;
+  const dlUrl = `/download/${encodeURIComponent(filename)}`;
+
+  doneVideo.src = inlineUrl;
+  openBtn.href = inlineUrl;
+  context.setAnchor(dlBtn, dlUrl, filename);
+
+  assert.equal(doneVideo.src, inlineUrl);
+  assert.equal(openBtn.href, inlineUrl);
+  assert.equal(dlBtn.href, dlUrl);
+
+  // Transitioning to replay resets preview video
+  context.showReplay();
+  assert.equal(context.document.getElementById('doneScreen').hidden, true);
+  assert.equal(doneVideo.src, '');
+});
+

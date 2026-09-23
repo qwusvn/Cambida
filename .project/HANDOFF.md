@@ -10,15 +10,20 @@ Cập nhật: 2026-09-23 +07
 5. Mỗi task hoàn tất phải có commit riêng đúng scope; không gom thay đổi cũ ngoài task.
 
 ## Trạng thái bàn giao
-- Release staging: **2.1.4** tại `D:\1\cambida\staging\2.1.4\CCTV_2.1.4.exe` (SHA-256: `1F37EB175C497B67F4D5B85DF6B7D03A2F8F87C3332C6FA2D934ACA7D4C69FC7`), kèm gói nén `staging\2.1.4\2.1.4.rar`.
+- Release staging: **2.1.4** tại `D:\1\cambida\staging\2.1.4\CCTV_2.1.4.exe` (SHA-256: `69DD9AC31329B01614BA49BD8E66CAD79FDA39BE4BBB5B7C096CBA95DB21DDF4`), kèm gói nén `staging\2.1.4\2.1.4.rar` (SHA-256: `97EF1E5A9E8B50072212EAFE7118C985627682DFF757C217A18733F226D69D10`).
 - Gói phát hành sạch sẽ (Zero Config Pollution): Hoàn toàn không kèm file `config.json`, không kèm db/logs/cache/media; tệp hạt giống an toàn `_internal\config.release.json` đã xóa sạch camera (`cameras: []`), để trống tên cửa hàng và khẩu hiệu (`site.name: ""`, `site.tagline: ""`).
 - Giao diện Responsive & Tối ưu theo thiết bị (Desktop / iOS / Android):
+  + Trình phát xem trước video trên màn hình Hoàn thành (`#doneScreen`): Tích hợp trực tiếp video player cho cả điện thoại và máy tính, cho phép xem lại clip ngay sau khi cắt.
+  + Cơ chế lưu video vào Thư viện ảnh (Photos) iPhone:
+    * Nhấn giữ (Long-press) vào video xem trước để bật menu gốc iOS và chọn "Lưu video".
+    * Nút "Mở video để Lưu vào Ảnh (iPhone)" mở luồng phát video trực tiếp (`/video/<filename>`) có hỗ trợ HTTP 206 Partial Content cho Safari, từ đó bấm nút Chia sẻ -> "Lưu video" vào Cuộn camera.
+    * Hộp hướng dẫn trực quan 2 bước dành riêng cho iPhone.
+    * Nút phụ "Tải về máy (Lưu vào Tệp)" cho máy tính hoặc người dùng lưu tệp tin.
   + Desktop/PC: Layout tự động mở rộng theo màn hình ngang (tối đa 1360px), player 16:9 sắc nét, timeline trải dài toàn bộ chiều rộng.
   + Cử chỉ vuốt timeline toàn thẻ: Vùng vuốt mở rộng sang toàn bộ khung `.timeline-card`, chạm vuốt ở bất kỳ đâu cũng trượt timeline mượt mà.
   + Chặn nhảy trang iOS: Thêm `overscroll-behavior-x: none` loại bỏ lỗi văng trang khi vuốt trên trình duyệt quét QR (Zalo, Camera).
   + Sửa Date Picker Safari: Khắc phục xung đột sự kiện giúp bánh xe chọn ngày mở mượt mà, không bị giật hay tự đóng.
   + Khắc phục triệt để Dahua HTTP 400 Bad Request: Kẹp thời gian cắt không vượt quá `datetime.now()` ở cả frontend và backend.
-  + Lưu video vào Thư viện ảnh Photos trên iPhone: Tích hợp Web Share API Level 2 lưu trực tiếp video chỉ với 1 chạm.
 - Giao diện Timeline xem lại: Ẩn nút chọn nguồn Local/NVR (`#sourceToggleWrap`) và ẩn cụm nút Hướng phát tua `«` / `»` (`.control-block-direction`). Timeline hiển thị song song cả Local và NVR: Local mang màu xanh chính (`var(--blue)`, z-index 2), NVR mang màu xanh nhạt hơn (`#93c5fd`, z-index 1) để nhận biết. Khi tua/seek timeline, hệ thống luôn ưu tiên Local tuyệt đối (`findVideoAtDate`, `findNearestVideo`), chỉ chuyển sang NVR khi Local không có bản ghi.
 - Backend `/list/cam<id>`: Tự động tổng hợp và gắn nhãn cả bản ghi Local và NVR (`target_source == "all"`), sắp xếp theo thứ tự thời gian mới nhất.
 - Tối ưu iOS Safari (iPhone): Thêm cờ `-movflags +faststart` cho luồng ghi hình camera RTSP trong `1.py` giúp phát lại mượt mà tức thì trên iPhone.
@@ -433,16 +438,22 @@ elease\2.1.0\index.html synchronized with source.
 - **Tác vụ**: `cambida-desktop-responsive-timeline-ios-package-214-20260923`.
 - **Thay đổi tính năng & Sửa lỗi**:
   - `index.html`:
+    + Trình phát xem trước video trên màn hình Hoàn thành (`#doneScreen`): Tích hợp trực tiếp video player cho cả điện thoại và máy tính, cho phép xem lại clip ngay sau khi cắt.
+    + Cơ chế lưu video vào Thư viện ảnh (Photos) iPhone:
+      * Nhấn giữ (Long-press) vào video xem trước để bật menu gốc iOS và chọn "Lưu video".
+      * Nút "Mở video để Lưu vào Ảnh (iPhone)" mở luồng phát video trực tiếp (`/video/<filename>`) có hỗ trợ HTTP 206 Partial Content cho Safari, từ đó bấm nút Chia sẻ -> "Lưu video" vào Cuộn camera.
+      * Hộp hướng dẫn trực quan 2 bước dành riêng cho iPhone.
+      * Nút phụ "Tải về máy (Lưu vào Tệp)" cho máy tính hoặc người dùng lưu tệp tin.
     + Responsive PC/Desktop: `@media (min-width: 900px)` mở rộng layout full ngang 1360px, khung phát 16:9 sắc nét, timeline kéo dài toàn màn hình.
     + Mở rộng vùng vuốt timeline: Toàn bộ khung thẻ `.timeline-card` nhận cử chỉ vuốt ngang trượt timeline, không làm mất sự kiện bấm chọn các nút chức năng.
     + Chặn lỗi văng/nhảy trang trên iOS: Thêm `overscroll-behavior-x: none` và `touch-action: pan-y` ngăn chặn cử chỉ back của Safari/Zalo WebView khi vuốt cạnh màn hình.
     + Khắc phục Date Picker Safari: Chuyển thẻ bọc sang `div`, bỏ `preventDefault` trên pointerdown để bánh xe chọn ngày mở mượt mà.
     + Sửa lỗi Dahua HTTP 400 Bad Request: `getMaxClipEndTime` kẹp cận trên thời gian cắt video bằng `Date.now()`.
-    + Lưu video vào Photos iOS: Tích hợp nút "Lưu vào Thư viện Ảnh (iPhone)" qua Web Share API Level 2.
   - `1.py`:
+    + Bổ sung `conditional=True` cho `/video/<filename>` và `/download/<filename>` hỗ trợ HTTP 206 Range Request phân đoạn cho iOS Safari.
     + Chốt an toàn backend trong `_search_dahua_camera` và `_prepare_nvr_merge_parts`: `window_end = min(window_end, datetime.now())`.
   - `tests/replay_timeline_ui.test.js`:
-    + Bổ sung mock Jinja (`license_active`, `license_key`, `has_nvr`) và 2 test suite kiểm thử (test 24: kẹp giờ tương lai, test 25: vuốt toàn card). Đạt 25/25 tests PASS.
+    + Bổ sung mock Jinja (`license_active`, `license_key`, `has_nvr`) và 3 test suite kiểm thử mới (test 24: kẹp giờ tương lai, test 25: vuốt toàn card, test 26: doneScreen preview & buttons). Đạt 26/26 tests PASS.
 - **Bộ công cụ đóng gói phát hành**:
   - `RELEASE_VERSION.txt` = `2.1.4`.
   - `version_info_2_1_4.txt` (metadata Windows FileVersion: 2.1.4.0).
@@ -452,8 +463,8 @@ elease\2.1.0\index.html synchronized with source.
 - **Kết quả đóng gói**:
   - Thư mục staging: `D:\1\cambida\staging\2.1.4` (onedir format).
   - File thực thi: `CCTV_2.1.4.exe` (kích thước ~498 KB).
-  - **SHA-256**: `1F37EB175C497B67F4D5B85DF6B7D03A2F8F87C3332C6FA2D934ACA7D4C69FC7`.
-  - Gói nén cập nhật: `staging\2.1.4\2.1.4.rar` (SHA-256: `EE36CF194A668C6DFCD735C2D261161AA5C50F8E526DD3F713377D349D5C0BC0`).
+  - **SHA-256**: `69DD9AC31329B01614BA49BD8E66CAD79FDA39BE4BBB5B7C096CBA95DB21DDF4`.
+  - Gói nén cập nhật: `staging\2.1.4\2.1.4.rar` (SHA-256: `97EF1E5A9E8B50072212EAFE7118C985627682DFF757C217A18733F226D69D10`).
   - Đầy đủ 7 sidecar HTML, `ffmpeg.exe`, `updater.cmd`, launchers, và 10 file Dahua NetSDK DLL trong `_internal\vendor\dahua_netsdk`.
   - Đảm bảo an toàn tuyệt đối Zero Config Pollution: Không chứa `config.json`, `analytics.db`, `logs`, `cctv_videos`, `nvr_cache`.
 - **Lịch sử Git**:

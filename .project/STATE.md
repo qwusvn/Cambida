@@ -4,14 +4,19 @@ Cập nhật: 2026-09-23 +07
 
 ## Trạng thái hiện tại
 - Workspace: `D:\1\cambida`, branch `main` (tracking `origin/main` tại `https://github.com/qwusvn/Cambida`).
-- Phiên bản phát triển và đóng gói: **2.1.4** (`RELEASE_VERSION.txt` = `2.1.4`, spec và launcher `CCTV_2.1.4.spec`, `CCTV_2.1.4.launcher.cmd`, `package_2.1.4.ps1`). Gói staging onedir: `D:\1\cambida\staging\2.1.4\CCTV_2.1.4.exe` (SHA-256: `1F37EB175C497B67F4D5B85DF6B7D03A2F8F87C3332C6FA2D934ACA7D4C69FC7`), kèm gói nén cập nhật `staging\2.1.4\2.1.4.rar`.
+- Phiên bản phát triển và đóng gói: **2.1.4** (`RELEASE_VERSION.txt` = `2.1.4`, spec và launcher `CCTV_2.1.4.spec`, `CCTV_2.1.4.launcher.cmd`, `package_2.1.4.ps1`). Gói staging onedir: `D:\1\cambida\staging\2.1.4\CCTV_2.1.4.exe` (SHA-256: `69DD9AC31329B01614BA49BD8E66CAD79FDA39BE4BBB5B7C096CBA95DB21DDF4`), kèm gói nén cập nhật `staging\2.1.4\2.1.4.rar` (SHA-256: `97EF1E5A9E8B50072212EAFE7118C985627682DFF757C217A18733F226D69D10`).
 - Tính năng phiên bản 2.1.4:
+  + Trình phát xem trước video trên màn hình Hoàn thành (`#doneScreen`): Tích hợp trực tiếp video player cho cả điện thoại và máy tính, cho phép xem lại clip ngay sau khi cắt.
+  + Cơ chế lưu video vào Thư viện ảnh (Photos) iPhone:
+    * Nhấn giữ (Long-press) vào video xem trước để bật menu gốc iOS và chọn "Lưu video".
+    * Nút "Mở video để Lưu vào Ảnh (iPhone)" mở luồng phát video trực tiếp (`/video/<filename>`) có hỗ trợ HTTP 206 Partial Content cho Safari, từ đó bấm nút Chia sẻ -> "Lưu video" vào Cuộn camera.
+    * Hộp hướng dẫn trực quan 2 bước dành riêng cho iPhone.
+    * Nút phụ "Tải về máy (Lưu vào Tệp)" cho máy tính hoặc người dùng lưu tệp tin.
   + Giao diện Desktop Responsive (`@media (min-width: 900px)`): Tự động mở rộng full ngang màn hình trên máy tính/laptop (tối đa 1360px), player 16:9 sắc nét, timeline trải dài toàn bộ chiều rộng màn hình. Giữ nguyên giao diện dọc tối ưu trên Android Native App và iPhone.
   + Cử chỉ vuốt timeline toàn thẻ: Mở rộng vùng vuốt timeline sang toàn bộ bề mặt `.timeline-card` (khung đỏ), chạm vuốt ở bất kỳ đâu trên card cũng trượt timeline mượt mà.
   + Chặn điều hướng lùi trang iOS: Thêm `overscroll-behavior-x: none` triệt tiêu lỗi vuốt ngang bị văng/nhảy trang trên trình duyệt quét QR (Zalo, Camera).
   + Khắc phục triệt để lỗi Dahua HTTP 400 Bad Request: Chốt chặn cận trên thời gian cắt ở cả Frontend (`getMaxClipEndTime`) và Backend (`1.py`) không bao giờ vượt quá giờ hiện tại (`datetime.now()`).
   + Khắc phục lỗi Date Picker trên Safari iOS: Chuyển thẻ bọc sang `div`, loại bỏ `pointerdown` + `preventDefault()` đè sự kiện giúp bánh xe chọn ngày mở tự nhiên, không bị giật hay tự đóng.
-  + Lưu video vào Thư viện ảnh (Photos) cho iPhone: Tích hợp Web Share API Level 2 cho phép lưu trực tiếp video đã cắt vào Cuộn camera chỉ với 1 chạm.
 - Đóng gói phát hành sạch sẽ (Zero Config Pollution): Gói `staging\2.1.4` hoàn toàn không kèm file `config.json`, không kèm db/logs/cache/media; tệp hạt giống an toàn `_internal\config.release.json` đã xóa sạch camera (`cameras: []`), để trống tên cửa hàng và khẩu hiệu (`site.name: ""`, `site.tagline: ""`).
 - Giao diện Timeline xem lại: Ẩn nút chọn nguồn Local/NVR (`#sourceToggleWrap`) và ẩn cụm nút Hướng phát tua `«` / `»` (`.control-block-direction`). Timeline hiển thị song song cả Local và NVR: Local mang màu xanh chính (`var(--blue)`, z-index 2), NVR mang màu xanh nhạt hơn (`#93c5fd`, z-index 1) để người dùng dễ nhận biết. Khi tua/seek timeline, hệ thống luôn ưu tiên Local tuyệt đối (`findVideoAtDate`, `findNearestVideo`), chỉ chuyển sang NVR khi Local không có bản ghi.
 - Dọn dẹp workspace: Đã loại bỏ toàn bộ tệp rác, binary vô danh, 18 ảnh render UI, tàn dư Drive sync, các thư mục build trung gian (giải phóng >1.3 GB) và 25 file probe/log tạm trong `.project`.
