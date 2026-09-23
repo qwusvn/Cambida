@@ -6,6 +6,7 @@ Cập nhật: 2026-09-23 +07
 - Workspace: `D:\1\cambida`, branch `main` (tracking `origin/main` tại `https://github.com/qwusvn/Cambida`).
 - Phiên bản phát triển hiện tại: **2.1.2** (`RELEASE_VERSION.txt` = `2.1.2`, spec và launcher đã tinh gọn thành `CCTV_2.1.2.spec`, `CCTV_2.1.2.launcher.cmd`, `package_2.1.2.ps1`).
 - Dọn dẹp workspace: Đã loại bỏ toàn bộ tệp rác, binary vô danh, 18 ảnh render UI, tàn dư Drive sync, các thư mục build trung gian (giải phóng >1.3 GB) và 25 file probe/log tạm trong `.project`.
+- Bản quyền xem lại (Hard Drive License Gate): Gắn mã kích hoạt theo số sê-ri phân vùng ổ đĩa (Volume Serial Number, ví dụ `00E1-1D9A`). Nằm đúng ổ đĩa thì dùng bình thường khi có trong tin nhắn ghim Telegram; copy sang ổ khác mã đổi thành mã mới -> lỗi bản quyền. Khi chưa kích hoạt: camera vẫn ghi hình bình thường, trang xem trực tiếp (`/`) và trang admin (`/admin`) vẫn truy cập bình thường; khi kéo timeline hoặc ấn cắt video sẽ hiển thị popup `Mã kích hoạt: 00E1-1D9A` (kèm nút Sao chép). Khi thấy tin ghim Telegram: tự động lưu ngày giờ kích hoạt lần đầu vào SQLite `analytics.db` và gửi thông báo Telegram.
 - Production: **2.1.1**, `D:\1\cambida\release\2.1.1\CCTV_2.1.1.exe`, port `8004`.
 - Commit timeline chính: `5efc105` — `feat: switch NVR replay to timeline-only UI`.
 - Commit sửa regression quay lại từ Cut: `338a842` — `fix: restore timeline after returning from cut`.

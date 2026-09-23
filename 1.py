@@ -50,6 +50,7 @@ from flask import (
     jsonify,
     redirect,
     render_template,
+    render_template_string,
     request,
     session,
     send_file,
@@ -2286,10 +2287,255 @@ def get_resource_path(relative_path):
 
 
 
+LICENSE_LOCK = threading.RLock()
+LICENSE_ENFORCEMENT_ENABLED = False
+LICENSE_CHECK_INTERVAL_SEC = 60
+LICENSE_STATE = {
+    "active": False,
+    "key": "",
+    "activated_at": None,
+    "checked_at": 0.0,
+    "reason": "Chưa kiểm tra bản quyền.",
+}
+
+
+def _get_drive_volume_serial(path=None):
+    """Read the Volume Serial Number of the partition where path (or BASE_DIR) is located."""
+    try:
+        target_path = os.path.abspath(path or BASE_DIR)
+        drive = os.path.splitdrive(target_path)[0]
+        if not drive:
+            drive = os.path.abspath(os.sep)
+        if not drive.endswith("\\"):
+            drive += "\\"
+        volume_serial = ctypes.c_ulong()
+        res = ctypes.windll.kernel32.GetVolumeInformationW(
+            drive, None, 0, ctypes.byref(volume_serial), None, None, None, 0
+        )
+        if res != 0 and volume_serial.value:
+            val = volume_serial.value
+            return f"{(val >> 16) & 0xFFFF:04X}-{val & 0xFFFF:04X}"
+    except Exception as exc:
+        logger.error("Không đọc được Volume Serial của ổ đĩa: %s", exc)
+    return None
+
+
+def _read_windows_machine_guid():
+    """Read the physical Windows MachineGuid used as a fallback identity."""
+    if not winreg:
+        return None
+    try:
+        access = winreg.KEY_READ
+        if hasattr(winreg, "KEY_WOW64_64KEY"):
+            access |= winreg.KEY_WOW64_64KEY
+        key = winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\Microsoft\Cryptography",
+            0,
+            access,
+        )
+        try:
+            value, _ = winreg.QueryValueEx(key, "MachineGuid")
+        finally:
+            winreg.CloseKey(key)
+        value = str(value or "").strip()
+        return value or None
+    except OSError as exc:
+        logger.error("Không đọc được Windows MachineGuid: %s", exc)
+        return None
+
+
+def get_machine_license_key():
+    """Return the hardware drive volume license key (e.g. 00E1-1D9A)."""
+    key = _get_drive_volume_serial()
+    if key:
+        return key
+    machine_guid = _read_windows_machine_guid()
+    if machine_guid:
+        return hashlib.sha256(machine_guid.encode("utf-8")).hexdigest().upper()[:16]
+    return "UNKNOWN-DRIVE"
+
+
+def record_license_activation(license_key):
+    """Record the first activation timestamp for this license key in SQLite DB."""
+    if not license_key:
+        return None
+    try:
+        now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS license_meta ("
+                "  key TEXT PRIMARY KEY,"
+                "  activated_at TEXT,"
+                "  created_at TEXT"
+                ")"
+            )
+            cursor = conn.cursor()
+            cursor.execute("SELECT activated_at FROM license_meta WHERE key = ?", (license_key,))
+            row = cursor.fetchone()
+            if row and row[0]:
+                return row[0]
+            cursor.execute(
+                "INSERT OR IGNORE INTO license_meta (key, activated_at, created_at) VALUES (?, ?, ?)",
+                (license_key, now_str, now_str)
+            )
+            conn.commit()
+            send_telegram_alert(
+                "🎉 **BẢN QUYỀN ĐÃ KÍCH HOẠT THÀNH CÔNG!**\n"
+                f"🔑 Mã kích hoạt (Ổ cứng): `{license_key}`\n"
+                f"⏰ Ngày kích hoạt: `{now_str}`"
+            )
+            return now_str
+    except Exception as exc:
+        logger.warning("[License] Lỗi ghi nhận ngày kích hoạt: %s", exc)
+        return datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+
+def get_license_activated_at(license_key):
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT activated_at FROM license_meta WHERE key = ?", (license_key,))
+            row = cursor.fetchone()
+            return row[0] if row else None
+    except Exception:
+        return None
+
+
+def _telegram_pinned_text():
+    token = str(CONFIG.get("telegram_token") or "").strip()
+    chat_id = str(CONFIG.get("telegram_chat_id") or "").strip()
+    if not token or not chat_id:
+        raise RuntimeError("Thiếu telegram_token hoặc telegram_chat_id trong cấu hình.")
+    response = requests.get(
+        f"https://api.telegram.org/bot{token}/getChat",
+        params={"chat_id": chat_id},
+        timeout=8,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not payload.get("ok"):
+        raise RuntimeError(str(payload.get("description") or "Telegram getChat thất bại."))
+    pinned = payload.get("result", {}).get("pinned_message") or {}
+    return str(pinned.get("text") or pinned.get("caption") or "")
+
+
+def _pinned_message_has_key(pinned_text, license_key):
+    if not pinned_text or not license_key:
+        return False
+    clean_key = str(license_key).strip()
+    no_dash_key = clean_key.replace("-", "")
+    for candidate in (clean_key, no_dash_key):
+        pattern = rf"(?<![A-Za-z0-9]){re.escape(candidate)}(?![A-Za-z0-9])"
+        if re.search(pattern, str(pinned_text), re.IGNORECASE):
+            return True
+    return False
+
+
+def refresh_license_state():
+    """Re-evaluate the license from Drive Serial + the Telegram pinned message."""
+    license_key = get_machine_license_key()
+    active = False
+    reason = ""
+    activated_at = get_license_activated_at(license_key)
+    try:
+        if not license_key or license_key == "UNKNOWN-DRIVE":
+            reason = "Không đọc được mã ổ cứng."
+        else:
+            pinned_text = _telegram_pinned_text()
+            active = _pinned_message_has_key(pinned_text, license_key)
+            if active:
+                activated_at = record_license_activation(license_key)
+                reason = f"Mã ổ cứng đã có trong tin ghim Telegram (Kích hoạt: {activated_at})."
+            else:
+                reason = "Mã ổ cứng chưa có trong tin nhắn ghim Telegram."
+    except Exception as exc:
+        reason = f"Không xác minh được tin nhắn ghim Telegram: {exc}"
+        logger.warning("[License] %s", reason)
+    with LICENSE_LOCK:
+        LICENSE_STATE.update(
+            active=bool(active),
+            key=license_key,
+            activated_at=activated_at,
+            checked_at=time.time(),
+            reason=reason,
+        )
+    logger.info("[License] active=%s key=%s activated_at=%s reason=%s", active, license_key or "N/A", activated_at or "N/A", reason)
+    return bool(active)
+
+
+def initialize_license_enforcement():
+    global LICENSE_ENFORCEMENT_ENABLED
+    LICENSE_ENFORCEMENT_ENABLED = True
+    return refresh_license_state()
+
+
+def license_watch_loop():
+    while True:
+        time.sleep(max(30, int(CONFIG.get("license_check_interval_sec", LICENSE_CHECK_INTERVAL_SEC) or LICENSE_CHECK_INTERVAL_SEC)))
+        refresh_license_state()
+
+
+def get_license_snapshot():
+    with LICENSE_LOCK:
+        return dict(LICENSE_STATE)
+
+
+def _is_replay_license_path(path_value):
+    exact = {"/merge"}
+    prefixes = (
+        "/video/",
+        "/download/",
+        "/nvr/video/",
+        "/nvr/download/",
+    )
+    return path_value in exact or any(path_value.startswith(prefix) for prefix in prefixes)
+
+
+@app.before_request
+def enforce_replay_license():
+    """Keep recording/live/admin and replay UI accessible while media extraction requires a valid pin."""
+    if not LICENSE_ENFORCEMENT_ENABLED or not _is_replay_license_path(request.path):
+        return None
+    state = get_license_snapshot()
+    if state.get("active"):
+        return None
+    key_value = state.get("key") or get_machine_license_key()
+    if request.path == "/merge":
+        return Response(
+            f"data: error:Bản quyền xem lại chưa được kích hoạt cho ổ đĩa này. Mã kích hoạt: {key_value}\n\n",
+            status=403,
+            mimetype="text/event-stream",
+        )
+    return jsonify(
+        {
+            "ok": False,
+            "error": "Bản quyền xem lại chưa được kích hoạt cho ổ đĩa này.",
+            "license_key": key_value,
+        }
+    ), 403
+
+
+@app.route("/api/license/status")
+def api_license_status():
+    state = get_license_snapshot()
+    key = state.get("key") or get_machine_license_key()
+    return jsonify({
+        "ok": True,
+        "active": bool(state.get("active", False)),
+        "license_key": key,
+        "activated_at": state.get("activated_at"),
+        "reason": state.get("reason", "")
+    })
+
+
+
 def telegram_command_help():
     return (
         "📋 **LỆNH CCTV**\n"
         "`/status` — Xem trạng thái hệ thống.\n"
+        "`/license` — Xem key và trạng thái bản quyền xem lại.\n"
+        "`/activate \"KEY\"` — Kiểm tra lại KEY với tin nhắn ghim.\n"
         "`/update` — Kiểm tra và cập nhật tự động từ GitHub.\n"
         "`/reset` hoặc `/restart` — Khởi động lại ứng dụng.\n"
         "`/list` — Hiển thị danh sách lệnh này."
@@ -3027,6 +3273,35 @@ def monitor_telegram_commands():
                     if re.fullmatch(r"/list(?:@\w+)?", text):
                         send_telegram_alert(telegram_command_help())
                         continue
+                    if re.fullmatch(r"/license(?:@\w+)?", text):
+                        state = get_license_snapshot()
+                        key = state.get("key") or get_machine_license_key()
+                        act_str = f"\n⏰ Ngày kích hoạt: {state.get('activated_at')}" if state.get("activated_at") else ""
+                        send_telegram_alert(
+                            "🔐 **BẢN QUYỀN XEM LẠI**\n"
+                            f"🔑 Mã ổ cứng: `{key or 'N/A'}`\n"
+                            f"Trạng thái: {'✅ Hợp lệ' if state.get('active') else '⛔ Chưa kích hoạt'}"
+                            f"{act_str}\n"
+                            f"Chi tiết: {state.get('reason') or 'Chưa kiểm tra.'}"
+                        )
+                        continue
+                    activate_match = re.fullmatch(r'/activate(?:@\w+)?(?:\s+["“]?([^"”\s]+)["”]?)?', raw_text, re.IGNORECASE)
+                    if activate_match:
+                        supplied_key = (activate_match.group(1) or "").strip()
+                        machine_key = get_machine_license_key()
+                        if supplied_key and machine_key and supplied_key.casefold() != machine_key.casefold():
+                            send_telegram_alert(
+                                "⛔ Key không khớp với máy CCTV này.\n"
+                                f"Key máy: `{machine_key or 'N/A'}`"
+                            )
+                        elif refresh_license_state():
+                            send_telegram_alert("✅ Bản quyền xem lại hợp lệ. Key đã có trong tin nhắn ghim Telegram.")
+                        else:
+                            send_telegram_alert(
+                                "⛔ Chưa kích hoạt. Hãy thêm đúng key máy vào tin nhắn ghim Telegram rồi thử lại.\n"
+                                f"Key máy: `{machine_key or 'N/A'}`"
+                            )
+                        continue
                     if text in ("/reset", "/restart"):
                         requests.get(
                             f"https://api.telegram.org/bot{token}/getUpdates?"
@@ -3477,6 +3752,9 @@ def replay_cam(cam_id):
     cam = CAMERA_LIST[cam_id - 1]
     has_nvr = camera_has_nvr(cam)
     mode = _timeline_playback_mode(cam_id)
+    lic = get_license_snapshot()
+    license_key = lic.get("key") or get_machine_license_key()
+    license_active = bool(lic.get("active", False))
     return render_template(
         "index.html",
         cam_id=cam_id,
@@ -3487,6 +3765,8 @@ def replay_cam(cam_id):
         backup_local=bool(cam.get("backup_local", True)),
         site=get_site_config(),
         max_merge_minutes=MAX_MERGE_MINUTES,
+        license_active=license_active,
+        license_key=license_key,
     )
 
 
@@ -5307,6 +5587,10 @@ if __name__ == "__main__":
     if not acquire_single_instance():
         sys.exit()
     init_db()
+    license_active = initialize_license_enforcement()
+    threading.Thread(
+        target=license_watch_loop, daemon=True, name="LicenseWatcher"
+    ).start()
     threading.Thread(
         target=health_check_loop, daemon=True, name="Watchdog"
     ).start()
@@ -5324,7 +5608,19 @@ if __name__ == "__main__":
     ).start()
     check_and_notify_pending_update()
     start_github_update_worker()
-    send_telegram_alert(f"🚀 Hệ thống CCTV (v{APP_VERSION}) đã khởi động thành công!")
+    if license_active:
+        send_telegram_alert(
+            f"🚀 Hệ thống CCTV (v{APP_VERSION}) đã khởi động thành công!\n"
+            "🔐 Bản quyền xem lại: hợp lệ theo tin nhắn ghim."
+        )
+    else:
+        state = get_license_snapshot()
+        send_telegram_alert(
+            f"🚀 Hệ thống CCTV (v{APP_VERSION}) đã khởi động; camera vẫn tiếp tục ghi.\n"
+            "⛔ Xem lại đang khóa do bản quyền chưa hợp lệ.\n"
+            f"Key máy: `{state.get('key') or 'N/A'}`\n"
+            "Hãy thêm key này vào tin nhắn ghim Telegram."
+        )
 
     run_startup = CONFIG.get("run_on_startup", "no").lower() == "yes"
     run_tray = CONFIG.get("run_in_tray", "no").lower() == "yes"

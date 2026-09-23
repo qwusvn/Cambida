@@ -22,6 +22,7 @@
 - [x] 2026-09-22 — Bộ kiểm thử tự động 99/99 unittest PASS (bao gồm test_auto_update.py mới, test_nvr_per_camera.py cập nhật).
 - [x] 2026-09-23 — Đưa toàn bộ mã nguồn lên GitHub: liên kết origin https://github.com/qwusvn/Cambida.git, commit và hợp nhất lịch sử sạch sẽ, bảo vệ an toàn các file cấu hình và dữ liệu nhạy cảm, push thành công lên origin/main (HEAD: 7437fad).
 - [x] 2026-09-23 — Dọn dẹp toàn diện thư mục dự án và bộ nhớ vận hành .project: xóa các file rác vô danh (Q, fail.txt, step208.py), xóa 18 ảnh render UI và script test screenshot tạm thời, xóa tàn dư Drive sync cũ, xóa các thư mục rỗng và các thư mục build trung gian (build, dist, staging giải phóng >1.3GB); dọn sạch 25 file probe/log tạm trong .project; loại bỏ các spec/launcher/version cũ (1.3.42 -> 2.1.1) và lưu hành duy nhất bộ đóng gói 2.1.2 mới nhất (commit f34c280).
+- [x] 2026-09-23 — Khôi phục cơ chế bản quyền bảo vệ chức năng xem lại theo mã ổ cứng (Hard Drive License Gate): đọc Volume Serial Number (ví dụ `00E1-1D9A`) qua Win32 GetVolumeInformationW; xác thực trung tâm qua tin nhắn ghim Telegram; camera ghi hình bình thường, trang chủ và trang admin không bị chặn; khi kéo timeline hoặc ấn cắt video hiển thị popup 'Mã kích hoạt: 00E1-1D9A' (kèm nút Sao chép); tự động ghi nhận ngày kích hoạt lần đầu vào SQLite analytics.db và thông báo Telegram; hỗ trợ lệnh Telegram /license và /activate; bộ kiểm thử test_license_pin.py đạt 100% (104/104 unittest PASS).
 
 ## DOING
 - Không có task thuộc batch hiện tại.

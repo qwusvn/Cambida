@@ -1043,6 +1043,25 @@
       .dir-button { width: 24px; }
       .zoom-button { width: 28px; }
     }
+
+    /* License Activation Modal */
+    .license-modal { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; padding: 16px; }
+    .license-modal[hidden] { display: none !important; }
+    .license-modal-backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, .65); backdrop-filter: blur(4px); }
+    .license-modal-dialog { position: relative; z-index: 2; width: min(100%, 360px); background: #fff; border-radius: 20px; padding: 24px 20px 20px; box-shadow: 0 20px 40px rgba(0, 0, 0, .25); text-align: center; border: 1px solid #e4ebf3; animation: modalPop .2s ease-out; }
+    @keyframes modalPop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .license-modal-icon { width: 52px; height: 52px; margin: 0 auto 12px; border-radius: 50%; background: #fff5eb; color: #f58220; display: grid; place-items: center; }
+    .license-modal-title { margin: 0 0 6px; font-size: 17px; font-weight: 760; color: #17233a; }
+    .license-modal-desc { margin: 0 0 16px; font-size: 13px; line-height: 1.45; color: #6b7c93; }
+    .license-key-box { background: #f4f7fb; border: 1.5px dashed #cbd6e2; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
+    .license-key-label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .6px; color: #8a9bb0; margin-bottom: 4px; text-transform: uppercase; }
+    .license-key-val { display: block; font-size: 22px; font-weight: 800; letter-spacing: 1.5px; color: #0878ea; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .license-modal-actions { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .license-btn-copy { height: 44px; border: 0; border-radius: 12px; background: linear-gradient(90deg, #10a9ef 0%, #118af5 100%); color: #fff; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 3px 10px rgba(17, 139, 245, .2); cursor: pointer; }
+    .license-btn-copy:hover { filter: brightness(1.05); }
+    .license-btn-close { height: 44px; border: 1px solid #dce4ec; border-radius: 12px; background: #f8fafc; color: #5a6b82; font-size: 13.5px; font-weight: 650; cursor: pointer; }
+    .license-btn-close:hover { background: #edf2f7; }
+    .license-modal-hint { margin: 0; font-size: 11.5px; color: #94a3b8; line-height: 1.4; }
   </style>
 </head>
 <body>
@@ -1261,9 +1280,43 @@
       <div class="actions"><a id="mergedDownloadBtn" class="action primary cut-primary" href="#" aria-disabled="true">Tải về máy</a><button id="doneBackButton" class="action cancel" type="button">Quay về xem lại</button></div>
     </div>
   </section>
+
+  <!-- License Modal -->
+  <div id="licenseModal" class="license-modal" hidden>
+    <div class="license-modal-backdrop" id="licenseModalBackdrop"></div>
+    <div class="license-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="licenseModalTitle">
+      <div class="license-modal-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <h3 class="license-modal-title" id="licenseModalTitle">Mã kích hoạt: {{ license_key }}</h3>
+      <p class="license-modal-desc">Chức năng xem lại và cắt video chưa được kích hoạt cho ổ đĩa này.</p>
+      
+      <div class="license-key-box">
+        <span class="license-key-label">MÃ KÍCH HOẠT</span>
+        <strong id="licenseModalKey" class="license-key-val">{{ license_key }}</strong>
+      </div>
+
+      <div class="license-modal-actions">
+        <button id="copyLicenseKeyBtn" class="license-btn-copy" type="button">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span id="copyLicenseKeyText">Sao chép</span>
+        </button>
+        <button id="closeLicenseModalBtn" class="license-btn-close" type="button">Đóng</button>
+      </div>
+      <p class="license-modal-hint">Thêm mã kích hoạt này vào tin nhắn ghim Telegram để mở khóa.</p>
+    </div>
+  </div>
 </main>
 
 <script>
+  const LICENSE_ACTIVE = {{ 'true' if license_active else 'false' }};
+  const LICENSE_KEY = "{{ license_key }}";
   const CAMERA_MODE = "{{ camera_mode }}";
   const CAMERA_ID = "{{ cam_id }}";
   const MAX_MERGE_MINUTES = Number({{ max_merge_minutes|int }});
@@ -1290,6 +1343,38 @@
     const input = document.getElementById("selectedReplaySource");
     if(input && input.value) return input.value;
     return CAMERA_MODE === "nvr" ? "nvr" : "local";
+  }
+  function showLicenseModal(){
+    const modal = $("licenseModal");
+    if(modal) modal.hidden = false;
+  }
+  function hideLicenseModal(){
+    const modal = $("licenseModal");
+    if(modal) modal.hidden = true;
+  }
+  function copyLicenseKey(){
+    const key = (typeof LICENSE_KEY !== "undefined" && LICENSE_KEY) ? LICENSE_KEY : ($("licenseModalKey")?.textContent || "").trim();
+    if(!key) return;
+    const updateLabel = () => {
+      const text = $("copyLicenseKeyText");
+      if(text){
+        text.textContent = "Đã sao chép!";
+        setTimeout(()=>{ text.textContent = "Sao chép"; }, 2000);
+      }
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(key).then(updateLabel).catch(fallbackCopy);
+    } else {
+      fallbackCopy();
+    }
+    function fallbackCopy(){
+      const input = document.createElement("input");
+      input.value = key;
+      document.body.appendChild(input);
+      input.select();
+      try { document.execCommand("copy"); updateLabel(); } catch(_){}
+      document.body.removeChild(input);
+    }
   }
   function isNvrSource(){ return getSelectedSource() === "nvr"; }
   function getVideoName(v){ return String(v?.name||v?.filename||""); }
@@ -1544,6 +1629,11 @@
   function wireVideoGestures(frameId,playerId){const frame=$(frameId),player=$(playerId);if(!frame||!player)return;const state={scale:1,x:0,y:0,pointers:new Map(),gesture:null};gestureStates.set(frame,state);const isControl=target=>target?.closest("button,a,input");const readPoint=ev=>({x:ev.clientX,y:ev.clientY});const beginGesture=()=>{const points=[...state.pointers.values()];if(points.length===2){const [a,b]=points,stateStart={distance:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),midX:(a.x+b.x)/2,midY:(a.y+b.y)/2,scale:state.scale,x:state.x,y:state.y};state.gesture={type:"pinch",...stateStart};}else if(points.length===1&&state.scale>1){state.gesture={type:"pan",startX:points[0].x,startY:points[0].y,x:state.x,y:state.y};}};frame.addEventListener("pointerdown",ev=>{if(ev.pointerType!=="touch"||isControl(ev.target))return;state.pointers.set(ev.pointerId,readPoint(ev));try{frame.setPointerCapture(ev.pointerId);}catch(_){ }beginGesture();ev.preventDefault();},{passive:false});frame.addEventListener("pointermove",ev=>{if(!state.pointers.has(ev.pointerId))return;state.pointers.set(ev.pointerId,readPoint(ev));const points=[...state.pointers.values()];if(points.length>=2&&state.gesture?.type==="pinch"){const [a,b]=points,distance=Math.max(1,Math.hypot(a.x-b.x,a.y-b.y)),midX=(a.x+b.x)/2,midY=(a.y+b.y)/2;state.scale=clamp(state.gesture.scale*distance/state.gesture.distance,1,3);state.x=state.gesture.x+(midX-state.gesture.midX);state.y=state.gesture.y+(midY-state.gesture.midY);applyVideoTransform(frame,player,state);ev.preventDefault();}else if(points.length===1&&state.gesture?.type==="pan"){const point=points[0];state.x=state.gesture.x+(point.x-state.gesture.startX);state.y=state.gesture.y+(point.y-state.gesture.startY);applyVideoTransform(frame,player,state);ev.preventDefault();}},{passive:false});const end=ev=>{state.pointers.delete(ev.pointerId);if(state.pointers.size===1&&state.scale>1){const point=[...state.pointers.values()][0];state.gesture={type:"pan",startX:point.x,startY:point.y,x:state.x,y:state.y};}else if(!state.pointers.size)state.gesture=null;};frame.addEventListener("pointerup",end);frame.addEventListener("pointercancel",end);frame.addEventListener("lostpointercapture",end);}
   function loadPlayer(player,v,targetDate=null){
     if(!v)return;
+    if(!LICENSE_ACTIVE){
+      player.pause();
+      player.removeAttribute("src");
+      return;
+    }
     const requestSerial=nextPlayerRequest(player),context=getTimelineContext(player);stopPlayback(player,context);player.pause();
     const range=getVideoRange(v);let requested=targetDate instanceof Date&&!Number.isNaN(targetDate.getTime())?new Date(targetDate):range?.start||null;
     if(range&&requested){if(requested<range.start)requested=new Date(range.start);if(requested>=range.end)requested=new Date(Math.max(range.start.getTime(),range.end.getTime()-1000));}
@@ -1557,7 +1647,12 @@
   function wirePlayer(playerId,buttonId,iconId,timeId,frameId,fullId,context){
     const p=$(playerId),b=$(buttonId),icon=$(iconId),time=$(timeId),frame=$(frameId),full=$(fullId);
     const sync=()=>syncPlayerUi(p,context,time);
-    if(b)b.addEventListener("click",()=>{const state=getPlaybackState(p);if(state.direction==="reverse"){if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;p.pause();}else{startReversePlayback(context,state.rate);}return;}if(p.paused)p.play().catch(()=>{});else p.pause();});
+    if(b)b.addEventListener("click",()=>{
+      if(!LICENSE_ACTIVE){
+        showLicenseModal();
+        return;
+      }
+      const state=getPlaybackState(p);if(state.direction==="reverse"){if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;p.pause();}else{startReversePlayback(context,state.rate);}return;}if(p.paused)p.play().catch(()=>{});else p.pause();});
     p.addEventListener("play",()=>{const state=getPlaybackState(p);if(state.reverseTimer){clearInterval(state.reverseTimer);state.reverseTimer=null;}if(state.direction==="reverse"){state.direction="forward";setDirectionButtonActive(context,"forward");}});
     p.addEventListener("pause",()=>{});
     p.addEventListener("timeupdate",sync);
@@ -1686,6 +1781,11 @@
     };
     hit.addEventListener("pointerdown",ev=>{
       if(!visibleVideos.length)return;
+      if(!LICENSE_ACTIVE){
+        ev.preventDefault();
+        showLicenseModal();
+        return;
+      }
       ev.preventDefault();
       try{hit.setPointerCapture(ev.pointerId);}catch(_){ }
       if(cut&&currentVideo&&clipStartAt&&clipEndAt){
@@ -1729,6 +1829,11 @@
     hit.addEventListener("lostpointercapture",endDrag);
     hit.addEventListener("keydown",ev=>{
       if(!visibleVideos.length)return;
+      if(!LICENSE_ACTIVE){
+        ev.preventDefault();
+        showLicenseModal();
+        return;
+      }
       let progress=timelineStates[context].progress,step=(ev.shiftKey?10:1)/172800;
       if(context==="cut"&&clipStartAt&&clipEndAt){
         const minProg=getTimelineProgressForDate(clipStartAt),maxProg=getTimelineProgressForDate(clipEndAt);
@@ -1866,7 +1971,14 @@
     }
   }
 
-  function toggleLive(screen=activeScreen){const screenEl=$(screen==="cut"?"cutScreen":"replayScreen");if(screenEl&&!screenEl.hidden)setScreenLive(screen,!screenEl.classList.contains("is-live"));}
+  function toggleLive(screen=activeScreen){
+    const screenEl=$(screen==="cut"?"cutScreen":"replayScreen");
+    if(screenEl&&screenEl.classList.contains("is-live")&&!LICENSE_ACTIVE){
+      showLicenseModal();
+      return;
+    }
+    if(screenEl&&!screenEl.hidden)setScreenLive(screen,!screenEl.classList.contains("is-live"));
+  }
 
   function showReplay(){
     setScreenLive("cut",false);
@@ -1898,6 +2010,10 @@
   }
 
   function showCut(){
+    if(!LICENSE_ACTIVE){
+      showLicenseModal();
+      return;
+    }
     resetMergeButton();
     if(!currentVideo){
       if(visibleVideos && visibleVideos.length){
@@ -1963,6 +2079,10 @@
   }
 
   function mergeVideo(){
+    if(!LICENSE_ACTIVE){
+      showLicenseModal();
+      return;
+    }
     if(!currentVideo)return;
     const bounds=getMergeBounds();
     if(!bounds)return;
@@ -2015,10 +2135,27 @@
     wireTimelineZoom("replay");wireTimelineZoom("cut");
     wirePlaybackControls("replay");wirePlaybackControls("cut");
 
+    // License modal event handlers
+    $("copyLicenseKeyBtn")?.addEventListener("click",copyLicenseKey);
+    $("closeLicenseModalBtn")?.addEventListener("click",hideLicenseModal);
+    $("licenseModalBackdrop")?.addEventListener("click",hideLicenseModal);
+
     // Segmented control tabs
     $("tabLive")?.addEventListener("click",()=>setScreenLive("replay",true));
-    $("tabReplay")?.addEventListener("click",()=>setScreenLive("replay",false));
-    $("bottomCalloutCard")?.addEventListener("click",()=>setScreenLive("replay",false));
+    $("tabReplay")?.addEventListener("click",()=>{
+      if(!LICENSE_ACTIVE){
+        showLicenseModal();
+        return;
+      }
+      setScreenLive("replay",false);
+    });
+    $("bottomCalloutCard")?.addEventListener("click",()=>{
+      if(!LICENSE_ACTIVE){
+        showLicenseModal();
+        return;
+      }
+      setScreenLive("replay",false);
+    });
 
     // Nav bar buttons
     $("navBackBtn")?.addEventListener("click",()=>{
