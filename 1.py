@@ -1058,6 +1058,11 @@ def _dahua_get(nvr, path, media=False, stream=False):
 
 def _search_dahua_camera(cam_id, window_start, window_end, nvr):
     channel = _nvr_channel_number(cam_id, nvr)
+    now = datetime.now()
+    if window_end > now:
+        window_end = now
+    if window_start >= window_end:
+        return []
     create = _dahua_get(nvr, "/cgi-bin/mediaFileFind.cgi?action=factory.create")
     create.raise_for_status()
     object_match = re.search(r"result=(\S+)", create.text)
@@ -5002,6 +5007,11 @@ def timeline_api_from_db():
 
 def _prepare_nvr_merge_parts(cam_id, req_start, req_end):
     nvr = get_camera_recorder_config(cam_id)
+    now = datetime.now()
+    if req_end > now:
+        req_end = now
+    if req_start >= req_end:
+        req_start = max(req_start - timedelta(minutes=1), req_end - timedelta(minutes=1))
     vendor = str(nvr.get("vendor") or "hikvision").strip().lower()
     searcher = _search_dahua_camera if vendor == "dahua" else _search_hikvision_camera
     segments = searcher(cam_id, req_start, req_end, nvr)

@@ -39,6 +39,8 @@
       color: var(--text);
       font-family: var(--system);
       -webkit-font-smoothing: antialiased;
+      overscroll-behavior-x: none;
+      overscroll-behavior-y: auto;
     }
     body { min-height: 100svh; }
     button, input, a { font: inherit; }
@@ -54,6 +56,7 @@
       padding: calc(16px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
       display: flex;
       flex-direction: column;
+      overscroll-behavior-x: none;
     }
 
     /* Top Navigation Bar */
@@ -436,6 +439,10 @@
       box-shadow: var(--shadow-md);
       padding: 14px 14px 10px;
       margin-bottom: 14px;
+      touch-action: pan-y;
+      overscroll-behavior-x: none;
+      user-select: none;
+      -webkit-user-select: none;
     }
     .timeline-toolbar {
       display: flex;
@@ -633,6 +640,9 @@
       background: transparent;
       border-radius: 14px;
       overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
     }
     .time-bubble {
       position: absolute;
@@ -826,7 +836,7 @@
 
     .timeline-hit {
       position: absolute;
-      inset: 28px 0 0;
+      inset: 0;
       z-index: 10;
       touch-action: none;
       user-select: none;
@@ -1054,6 +1064,45 @@
       .zoom-button { width: 28px; }
     }
 
+    @media (min-width: 900px) {
+      .app {
+        width: 100%;
+        max-width: 1360px;
+        padding: 24px 36px calc(24px + env(safe-area-inset-bottom));
+      }
+      .title-section {
+        margin-bottom: 16px;
+      }
+      .main-title {
+        font-size: 30px;
+      }
+      .segmented-control {
+        max-width: 440px;
+        margin: 0 auto 16px;
+      }
+      .player {
+        max-height: 60vh;
+        margin-bottom: 16px;
+      }
+      .timeline-card {
+        padding: 18px 24px 14px;
+        margin-bottom: 16px;
+      }
+      .cut-control-bar {
+        max-width: 600px;
+        margin: 0 auto 14px;
+      }
+      .selection-info {
+        max-width: 720px;
+        margin: 0 auto 14px;
+      }
+      .actions {
+        max-width: 480px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+    }
+
     /* License Activation Modal */
     .license-modal { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; padding: 16px; }
     .license-modal[hidden] { display: none !important; }
@@ -1098,14 +1147,14 @@
       <!-- Row 1: Date picker on left, Live/Replay switch button on right -->
       <div class="timeline-top-row" role="toolbar" aria-label="Điều khiển ngày và chế độ phát">
         <div class="live-date-wrap" id="liveDateWrap">
-          <label class="pill date-control pill-toolbar" aria-label="Chọn ngày">
+          <div class="pill date-control pill-toolbar" role="group" aria-label="Chọn ngày">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
             <span id="dateLabel">--/--/----</span>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg>
             <input id="filterDate" class="date-input" type="date">
             <input id="liveFilterDate" class="date-input" type="date" hidden>
             <span id="liveDateLabel" hidden></span>
-          </label>
+          </div>
         </div>
         {% if has_nvr %}
         <div class="source-toggle-wrap" id="sourceToggleWrap">
@@ -1194,12 +1243,12 @@
 
     <div class="cut-control-bar" id="cutControlBar">
       <button id="cutBackCircleBtn" class="circle-btn" type="button" aria-label="Quay lại"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <label class="pill date-control" aria-label="Chọn ngày">
+      <div class="pill date-control" role="group" aria-label="Chọn ngày">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
         <span id="cutDateLabel">--/--/----</span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg>
         <input id="cutFilterDate" class="date-input" type="date">
-      </label>
+      </div>
       <button id="cutLiveButton" class="pill live-switch-pill" type="button" aria-label="Xem trực tiếp">
         <svg id="cutLiveButtonIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4.93 19.07a10 10 0 0 1 0-14.14M19.07 4.93a10 10 0 0 1 0 14.14M7.76 16.24a6 6 0 0 1 0-8.48M16.24 7.76a6 6 0 0 1 0 8.48"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
         <span id="cutLiveButtonText">Xem trực tiếp</span>
@@ -1287,7 +1336,17 @@
     <div class="done-panel">
       <div class="done-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg></div>
       <h2>Đã cắt video thành công</h2><p>Đoạn video đã sẵn sàng để tải về.</p>
-      <div class="actions"><a id="mergedDownloadBtn" class="action primary cut-primary" href="#" aria-disabled="true">Tải về máy</a><button id="doneBackButton" class="action cancel" type="button">Quay về xem lại</button></div>
+      <div class="actions">
+        <button id="iosSaveShareBtn" class="action primary cut-primary" type="button" style="display:none">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          <span id="iosSaveShareText">Lưu vào Thư viện Ảnh (iPhone)</span>
+        </button>
+        <a id="mergedDownloadBtn" class="action primary cut-primary" href="#" aria-disabled="true">Tải về máy (Tệp)</a>
+        <button id="doneBackButton" class="action cancel" type="button">Quay về xem lại</button>
+      </div>
+      <p id="iosHint" class="ios-hint" style="display:none; font-size: 13px; color: #64748b; margin-top: 10px; text-align: center;">
+        💡 <strong>Mẹo iPhone:</strong> Bấm <em>"Lưu vào Thư viện Ảnh"</em> rồi chọn <strong>"Lưu video"</strong> trong bảng chia sẻ để video nhảy thẳng vào Cuộn camera.
+      </p>
     </div>
   </section>
 
@@ -1412,7 +1471,7 @@
   function getPlayerBaseDate(player){const fromData=parseDate(player?.dataset?.baseAt);if(fromData)return fromData;return getVideoRange(currentVideo)?.start||null}
 
   function setDateLabel(inputId,labelId){ const input=$(inputId); if(!input?.value)return; const d=new Date(`${input.value}T12:00:00`); const label=$(labelId); if(label)label.textContent=fmtDate(d); }
-  function wireDatePicker(inputId){const input=$(inputId),pill=input?.closest(".pill");if(!input||!pill)return;const open=()=>{input.focus({preventScroll:true});try{if(typeof input.showPicker==="function")input.showPicker();else input.click();}catch(_){input.click();}};input.addEventListener("pointerdown",ev=>{if(typeof input.showPicker!=="function")return;ev.preventDefault();open();});pill.addEventListener("click",ev=>{if(ev.target===input)return;ev.preventDefault();open();});}
+  function wireDatePicker(inputId){const input=$(inputId),pill=input?.closest(".pill");if(!input||!pill)return;pill.addEventListener("click",ev=>{if(ev.target===input)return;try{if(typeof input.showPicker==="function")input.showPicker();else input.focus();}catch(_){input.focus();}});}
   function syncAllDates(newDateStr){
     const inputs=["filterDate","cutFilterDate","liveFilterDate"];
     inputs.forEach(id=>{const el=$(id);if(el)el.value=newDateStr;});
@@ -1830,25 +1889,27 @@
   }
   function updateCutFromPointer(context,clientX){
     if(!timelineDrag||!clipStartAt||!clipEndAt)return;
-    const day=getTimelineDayBounds(),progress=getTimelineProgressAt(context,clientX),targetDate=getTimelineDateAtProgress(progress),maxMs=MAX_MERGE_SECONDS*1000;
+    const day=getTimelineDayBounds(),maxEndMs=getMaxClipEndTime(day),progress=getTimelineProgressAt(context,clientX),targetDate=getTimelineDateAtProgress(progress),maxMs=MAX_MERGE_SECONDS*1000;
     if(timelineDrag.mode==="start"){
       const latestStart=new Date(clipEndAt.getTime()-1000),earliestStart=new Date(Math.max(day.start.getTime(),clipEndAt.getTime()-maxMs));
       clipStartAt=new Date(clamp(targetDate.getTime(),earliestStart.getTime(),latestStart.getTime()));
     }else if(timelineDrag.mode==="end"){
-      const earliestEnd=new Date(clipStartAt.getTime()+1000),latestEnd=new Date(Math.min(day.end.getTime(),clipStartAt.getTime()+maxMs));
+      const earliestEnd=new Date(clipStartAt.getTime()+1000),latestEnd=new Date(Math.min(maxEndMs,clipStartAt.getTime()+maxMs));
       clipEndAt=new Date(clamp(targetDate.getTime(),earliestEnd.getTime(),latestEnd.getTime()));
     }else if(timelineDrag.mode==="selection"){
       const width=timelineDrag.selectionWidthMs,rawStart=targetDate.getTime()-timelineDrag.grabOffsetMs;
-      const nextStart=clamp(rawStart,day.start.getTime(),day.end.getTime()-width);
+      const nextStart=clamp(rawStart,day.start.getTime(),maxEndMs-width);
       clipStartAt=new Date(nextStart);clipEndAt=new Date(nextStart+width);
     }
     updateClipVisual();
   }
   function wireTimeline(hitId,cut=false){
-    const context=cut?"cut":"replay",hit=$(hitId),endDrag=ev=>{
+    const context=cut?"cut":"replay",hit=$(hitId),card=$(cut?"cutTimelineCard":"timelineCard");
+    const endDrag=ev=>{
       if(timelineDrag?.pointerId!==ev.pointerId)return;
       const drag=timelineDrag;
-      try{if(hit.hasPointerCapture?.(ev.pointerId))hit.releasePointerCapture(ev.pointerId);}catch(_){ }
+      try{if(hit?.hasPointerCapture?.(ev.pointerId))hit.releasePointerCapture(ev.pointerId);}catch(_){ }
+      try{if(card?.hasPointerCapture?.(ev.pointerId))card.releasePointerCapture(ev.pointerId);}catch(_){ }
       timelineDrag=null;
       if(drag?.mode==="seek"&&Number.isFinite(drag.pendingProgress)){
         let p=drag.pendingProgress;
@@ -1869,20 +1930,24 @@
         }
       }
     };
-    hit.addEventListener("pointerdown",ev=>{
+    const onStart=ev=>{
       if(!visibleVideos.length)return;
       if(!LICENSE_ACTIVE){
         ev.preventDefault();
         showLicenseModal();
         return;
       }
+      if(ev.target.closest("button, input, select, a, .date-control, .live-switch-pill, .circle-btn"))return;
       ev.preventDefault();
-      try{hit.setPointerCapture(ev.pointerId);}catch(_){ }
+      try{
+        if(hit&&ev.target===hit)hit.setPointerCapture(ev.pointerId);
+        else if(card)card.setPointerCapture(ev.pointerId);
+      }catch(_){ }
       if(cut&&currentVideo&&clipStartAt&&clipEndAt){
         const progress=getTimelineProgressAt(context,ev.clientX),targetDate=getTimelineDateAtProgress(progress),startRect=$("cutHandleStart")?.getBoundingClientRect?.()||{},endRect=$("cutHandleEnd")?.getBoundingClientRect?.()||{},selectionRect=$("cutSelection")?.getBoundingClientRect?.()||{},filmstripRect=$("cutFilmstrip")?.getBoundingClientRect?.()||{};
         const isRulerArea=Number.isFinite(filmstripRect.bottom)&&Number.isFinite(ev.clientY)&&ev.clientY>filmstripRect.bottom;
-        if(ev.clientX>=(startRect.left||0)-10&&ev.clientX<=(startRect.right||0)+10)timelineDrag={mode:"start",pointerId:ev.pointerId};
-        else if(ev.clientX>=(endRect.left||0)-10&&ev.clientX<=(endRect.right||0)+10)timelineDrag={mode:"end",pointerId:ev.pointerId};
+        if(ev.clientX>=(startRect.left||0)-12&&ev.clientX<=(startRect.right||0)+12)timelineDrag={mode:"start",pointerId:ev.pointerId};
+        else if(ev.clientX>=(endRect.left||0)-12&&ev.clientX<=(endRect.right||0)+12)timelineDrag={mode:"end",pointerId:ev.pointerId};
         else if(!isRulerArea&&ev.clientX>(selectionRect.left||0)&&ev.clientX<(selectionRect.right||0))timelineDrag={mode:"selection",pointerId:ev.pointerId,grabOffsetMs:targetDate.getTime()-clipStartAt.getTime(),selectionWidthMs:clipEndAt.getTime()-clipStartAt.getTime()};
       }
       if(!timelineDrag){
@@ -1894,8 +1959,8 @@
         timelineDrag={mode:"seek",pointerId:ev.pointerId,startX:ev.clientX,startProgress:initProg,pendingProgress:initProg};
       }
       else if(timelineDrag.mode!=="seek")updateCutFromPointer(context,ev.clientX);
-    });
-    hit.addEventListener("pointermove",ev=>{
+    };
+    const onMove=ev=>{
       if(timelineDrag?.pointerId!==ev.pointerId)return;
       if(timelineDrag.mode==="seek"){
         const viewport=$(timelineStates[context].viewportId),width=Math.max(1,viewport?.getBoundingClientRect().width||1),trackWidth=width*timelineStates[context].zoom,delta=(ev.clientX-timelineDrag.startX)/trackWidth,rawProgress=timelineDrag.startProgress-delta;
@@ -1913,10 +1978,21 @@
           bubble.textContent=formatBubbleTime(getTimelineDateAtProgress(timelineDrag.pendingProgress??next));
         }
       }else if(cut)updateCutFromPointer(context,ev.clientX);
-    });
-    hit.addEventListener("pointerup",endDrag);
-    hit.addEventListener("pointercancel",endDrag);
-    hit.addEventListener("lostpointercapture",endDrag);
+    };
+    if(hit){
+      hit.addEventListener("pointerdown",onStart);
+      hit.addEventListener("pointermove",onMove);
+      hit.addEventListener("pointerup",endDrag);
+      hit.addEventListener("pointercancel",endDrag);
+      hit.addEventListener("lostpointercapture",endDrag);
+    }
+    if(card&&card!==hit){
+      card.addEventListener("pointerdown",onStart);
+      card.addEventListener("pointermove",onMove);
+      card.addEventListener("pointerup",endDrag);
+      card.addEventListener("pointercancel",endDrag);
+      card.addEventListener("lostpointercapture",endDrag);
+    }
     hit.addEventListener("keydown",ev=>{
       if(!visibleVideos.length)return;
       if(!LICENSE_ACTIVE){
@@ -1964,10 +2040,24 @@
     $(state.zoomOutId)?.addEventListener("click",()=>setTimelineZoom(context,-1));
   }
 
+  function getMaxClipEndTime(day){
+    const now=new Date(), today=fmtDateInput(now), selected=$("filterDate")?.value||today;
+    if(selected>=today) return Math.min(day.end.getTime(), now.getTime());
+    return day.end.getTime();
+  }
+
   function configureClipRange(targetDate=null){
-    const day=getTimelineDayBounds(),focus=parseDate(targetDate)||getTimelineDateAtProgress(timelineStates.replay.progress),defaultMs=DEFAULT_CLIP_SECONDS*1000;
-    let startMs=clamp(focus.getTime(),day.start.getTime(),day.end.getTime()-1000),endMs=Math.min(day.end.getTime(),startMs+defaultMs);
-    if(endMs-startMs<defaultMs){endMs=day.end.getTime();startMs=Math.max(day.start.getTime(),endMs-defaultMs);}
+    const day=getTimelineDayBounds(), maxEndMs=getMaxClipEndTime(day), focus=parseDate(targetDate)||getTimelineDateAtProgress(timelineStates.replay.progress), defaultMs=DEFAULT_CLIP_SECONDS*1000;
+    let endMs = Math.min(maxEndMs, focus.getTime() + defaultMs);
+    let startMs = Math.max(day.start.getTime(), endMs - defaultMs);
+    if(focus.getTime() <= maxEndMs - 1000){
+      startMs = clamp(focus.getTime(), day.start.getTime(), maxEndMs - 1000);
+      endMs = Math.min(maxEndMs, startMs + defaultMs);
+    }
+    if(endMs - startMs < defaultMs){
+      endMs = Math.min(maxEndMs, startMs + defaultMs);
+      startMs = Math.max(day.start.getTime(), endMs - defaultMs);
+    }
     clipStartAt=new Date(startMs);clipEndAt=new Date(endMs);updateClipVisual();
   }
   function formatClipTime(date){
@@ -1976,7 +2066,7 @@
   }
   function updateClipVisual(){
     if(!clipStartAt||!clipEndAt)return;
-    const day=getTimelineDayBounds(),startMs=clamp(clipStartAt.getTime(),day.start.getTime(),day.end.getTime()-1000),maxEnd=Math.min(day.end.getTime(),startMs+MAX_MERGE_SECONDS*1000),endMs=clamp(clipEndAt.getTime(),startMs+1000,maxEnd);
+    const day=getTimelineDayBounds(), maxEndMs=getMaxClipEndTime(day), startMs=clamp(clipStartAt.getTime(),day.start.getTime(),maxEndMs-1000), maxEnd=Math.min(maxEndMs,startMs+MAX_MERGE_SECONDS*1000), endMs=clamp(clipEndAt.getTime(),startMs+1000,maxEnd);
     clipStartAt=new Date(startMs);clipEndAt=new Date(endMs);
     const left=getTimelineProgressForDate(clipStartAt)*100,right=getTimelineProgressForDate(clipEndAt)*100;
     $("clipStartLabel").textContent=formatClipTime(clipStartAt);$("clipEndLabel").textContent=formatClipTime(clipEndAt);
@@ -2154,6 +2244,8 @@
     const start=clipStartAt?new Date(clipStartAt):null,end=clipEndAt?new Date(clipEndAt):null;
     if(!start||!end)return null;
     start.setMilliseconds(0);end.setMilliseconds(0);
+    const day=getTimelineDayBounds(),maxEndMs=getMaxClipEndTime(day);
+    if(end.getTime()>maxEndMs) end.setTime(maxEndMs);
     if(end<=start)end.setTime(start.getTime()+1000);
     return{start,end,duration:(end-start)/1000};
   }
@@ -2194,11 +2286,28 @@
         resetMergeButton();
         return;
       }
+  let lastMergedFilename = "";
+  let lastMergedDownloadUrl = "";
+
+  function isIOSDevice(){
+    if (typeof navigator === "undefined") return false;
+    return /iPad|iPhone|iPod/.test(navigator.userAgent || "") || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1);
+  }
+
       if(data.startsWith("done:")){
         const file=data.slice(5).trim();
         mergeEventSource.close();mergeEventSource=null;
-        setAnchor($("mergedDownloadBtn"),`/download/${encodeURIComponent(file)}`,file);
+        lastMergedFilename = file;
+        lastMergedDownloadUrl = `/download/${encodeURIComponent(file)}`;
+        setAnchor($("mergedDownloadBtn"),lastMergedDownloadUrl,file);
         resetMergeButton();
+        if(isIOSDevice() && typeof navigator !== "undefined" && navigator.share){
+          const iosBtn = $("iosSaveShareBtn"), iosHint = $("iosHint");
+          if(iosBtn) iosBtn.style.display = "inline-flex";
+          if(iosHint) iosHint.style.display = "block";
+          const dlBtn = $("mergedDownloadBtn");
+          if(dlBtn) dlBtn.textContent = "Tải về ứng dụng Tệp";
+        }
         showDone();
         return;
       }
@@ -2229,6 +2338,37 @@
     $("copyLicenseKeyBtn")?.addEventListener("click",copyLicenseKey);
     $("closeLicenseModalBtn")?.addEventListener("click",hideLicenseModal);
     $("licenseModalBackdrop")?.addEventListener("click",hideLicenseModal);
+
+    // iOS Save to Photos (Share API)
+    $("iosSaveShareBtn")?.addEventListener("click", async () => {
+      if(!lastMergedDownloadUrl) return;
+      const btn = $("iosSaveShareBtn"), txt = $("iosSaveShareText");
+      const origText = txt ? txt.textContent : "Lưu vào Thư viện Ảnh (iPhone)";
+      try {
+        if(txt) txt.textContent = "Đang tải video...";
+        btn.disabled = true;
+        const resp = await fetch(lastMergedDownloadUrl);
+        if(!resp.ok) throw new Error("Không tải được video.");
+        const blob = await resp.blob();
+        const file = new File([blob], lastMergedFilename || "cambida_video.mp4", { type: "video/mp4" });
+        if(typeof navigator !== "undefined" && navigator.canShare && navigator.canShare({ files: [file] })){
+          await navigator.share({
+            files: [file],
+            title: lastMergedFilename || "Video Cambida"
+          });
+        } else {
+          location.href = lastMergedDownloadUrl;
+        }
+      } catch (err) {
+        if(err && err.name !== "AbortError"){
+          console.warn("Lưu video thất bại:", err);
+          location.href = lastMergedDownloadUrl;
+        }
+      } finally {
+        if(txt) txt.textContent = origText;
+        btn.disabled = false;
+      }
+    });
 
     // Segmented control tabs
     $("tabLive")?.addEventListener("click",()=>setScreenLive("replay",true));

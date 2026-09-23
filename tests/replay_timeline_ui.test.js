@@ -100,6 +100,9 @@ function loadReplayScript(cameraMode = 'nvr') {
   vm.createContext(context);
   const source = html
     .slice(start, end)
+    .replaceAll("{{ 'true' if license_active else 'false' }}", 'true')
+    .replaceAll('{{ license_key }}', 'TEST-KEY')
+    .replaceAll("{{ 'true' if has_nvr else 'false' }}", 'false')
     .replaceAll('{{ camera_mode }}', cameraMode)
     .replaceAll('{{ cam_id }}', '1')
     .replaceAll('{{ max_merge_minutes|int }}', '60');
@@ -527,3 +530,43 @@ test('merge button embeds cutting progress bar and resets cleanly', () => {
   assert.equal(fill.style.width, '0%');
   assert.equal(text.textContent, 'Cắt và tải về');
 });
+
+test('getMaxClipEndTime clamps clip range to current time when today is selected', () => {
+  const { context, elements } = loadReplayScript();
+  const todayStr = context.fmtDateInput(new Date());
+  elements.get('filterDate').value = todayStr;
+
+  const day = context.getTimelineDayBounds();
+  const maxEndMs = context.getMaxClipEndTime(day);
+  assert.ok(maxEndMs <= Date.now() + 50);
+
+  // If focus is set to now, clipEndAt does not exceed maxEndMs
+  context.configureClipRange(new Date(Date.now() + 100000));
+  const endMs = vm.runInContext('clipEndAt.getTime()', context);
+  assert.ok(endMs <= maxEndMs);
+});
+
+test('wireTimeline supports card-level scrubbing and pointer events', () => {
+  const { context } = loadReplayScript();
+  vm.runInContext(`visibleVideos = [
+    { name: 'cam1', started_at: '2026-09-20T00:00:00', end_at: '2026-09-20T23:59:59' }
+  ]; currentVideo = visibleVideos[0];`, context);
+  const card = context.document.getElementById('timelineCard');
+  const hit = context.document.getElementById('timelineHit');
+  const viewport = context.document.getElementById('timelineViewport');
+  const track = context.document.getElementById('timelineTrack');
+  viewport.getBoundingClientRect = () => ({ left: 0, width: 1000, right: 1000, top: 0, height: 100 });
+  context.wireTimeline('timelineHit', false);
+
+  context.timelineStates.replay.progress = 0.6;
+  context.timelineStates.replay.zoom = 1;
+
+  // Trigger drag via timelineCard
+  card.dispatch('pointerdown', { pointerId: 1, clientX: 500, preventDefault() {} });
+  card.dispatch('pointermove', { pointerId: 1, clientX: 550, preventDefault() {} });
+  card.dispatch('pointerup', { pointerId: 1 });
+
+  // Progress updated by drag within recorded video
+  assert.notEqual(context.timelineStates.replay.progress, 0.6);
+});
+
