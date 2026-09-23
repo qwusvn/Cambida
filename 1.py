@@ -1040,12 +1040,26 @@ def _get_embedded_replay_template():
         digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
         if digest != _EMBEDDED_REPLAY_TEMPLATE_SHA256:
             raise RuntimeError("Embedded replay template integrity check failed")
+        download_binding = 'setAnchor($("mergedDownloadBtn"), lastMergedDownloadUrl, file);'
+        if raw.count(download_binding) != 1:
+            raise RuntimeError("Embedded replay download action markup changed")
+        raw = raw.replace(
+            download_binding,
+            'setAnchor($("mergedDownloadBtn"), lastMergedDownloadUrl, file);'
+            ' if(isIOS) $("mergedDownloadBtn")?.removeAttribute("download");',
+            1,
+        )
         _EMBEDDED_REPLAY_TEMPLATE_CACHE = raw
     return _EMBEDDED_REPLAY_TEMPLATE_CACHE
 
 def _render_replay_template(**context):
     try:
-        return render_template_string(_get_embedded_replay_template(), **context)
+        content = render_template_string(_get_embedded_replay_template(), **context)
+        return Response(
+            content,
+            mimetype="text/html",
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"},
+        )
     except Exception:
         logger.exception("Embedded replay template failed; falling back to external index.html")
         return render_template("index.html", **context)

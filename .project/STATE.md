@@ -515,3 +515,10 @@ Cập nhật: 2026-09-23 +07
 - Mọi điều chỉnh sau commit này (`e0da8f5`, `07a82ad`, `c06158c`) đã được rút lại trong `1.py`.
 - Không sửa đổi cấu hình, media/video hay các tệp nguồn khác.
 - Kiểm thử / build / triển khai / device test: NOT RUN (không được yêu cầu).
+
+## 2026-09-24 — Sửa nút Tải về máy mở Quick Look trên iOS
+- Task `cambida-ios-download-quicklook-fix-20260924`: COMPLETED ở phạm vi mã nguồn.
+- Chỉ sửa [1.py]: trên iOS, `#mergedDownloadBtn` giữ nguyên đường dẫn `/download/<filename>` và được gọi `removeAttribute("download")`.
+- Giao diện 2 nút nguyên bản của `41bcbd2` được giữ nguyên vẹn.
+- Tiến trình server cổng 8004 đã được khởi động lại để phục vụ thử nghiệm.
+- Kiểm thử thiết bị: NOT RUN (không được yêu cầu).

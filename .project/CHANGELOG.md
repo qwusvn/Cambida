@@ -198,3 +198,9 @@
 - Khôi phục mã nguồn `1.py` nguyên trạng tại commit `41bcbd2` (`feat(replay): embed iPhone save UI in 1.py`).
 - Loại bỏ toàn bộ các điều chỉnh sau `41bcbd2` trong `1.py` (bao gồm `e0da8f5`, `07a82ad`, `c06158c`).
 - Kiểm thử / build / device test: NOT RUN (không được yêu cầu).
+
+## 2026-09-24 — Sửa nút Tải về máy mở Quick Look trên iOS
+- Cập nhật `1.py`: Khi thiết bị là iOS, loại bỏ thuộc tính `download` trên nút `mergedDownloadBtn` nhưng giữ nguyên URL trỏ tới `/download/<filename>`.
+- Giúp trình duyệt WKWebView/Zalo trên iPhone thực hiện điều hướng tệp đính kèm và mở màn hình Quick Look MP4 (cho phép bấm Chia sẻ -> Lưu video vào Thư viện Ảnh).
+- Thêm `Cache-Control: no-store` cho trang Replay để tránh cache HTML cũ.
+- Kiểm thử thiết bị: NOT RUN (chờ người dùng xác nhận trên máy thật).

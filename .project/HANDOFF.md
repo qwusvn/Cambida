@@ -510,3 +510,9 @@ elease\2.1.0\index.html synchronized with source.
 - `1.py` hiện tại khớp 100% với phiên bản nhúng giao diện replay ban đầu tại `41bcbd2` (bỏ các thay đổi nút đơn, inline viewer route và cache-control mới hơn).
 - Tiến trình server chưa tự động khởi động lại; nếu cần áp dụng phiên bản vừa khôi phục vào server đang chạy cần khởi động lại `1.py` theo yêu cầu.
 - Tests/device trials: NOT RUN (không được yêu cầu).
+
+## 2026-09-24 handoff — Nút Tải về máy mở Quick Look trên iOS
+- Task `cambida-ios-download-quicklook-fix-20260924`: Đã sửa lỗi nút `#mergedDownloadBtn` trên iPhone trong [1.py].
+- Bằng cách gỡ bỏ thuộc tính HTML `download` trên iOS nhưng vẫn dùng `/download/<filename>`, trình duyệt Zalo/WKWebView sẽ điều hướng và mở trình xem tệp Quick Look MP4.
+- Tại màn hình Quick Look này, người dùng bấm Chia sẻ (hoặc "Thêm...") -> chọn "Lưu video" để lưu vào Thư viện Ảnh (Photos).
+- Máy chủ đang chạy cổng 8004 sau khi restart.

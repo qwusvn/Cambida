@@ -387,3 +387,11 @@ elease\2.1.0\index.html byte-identically with source index.html.
 - [x] Đã đối chiếu diff, `1.py` khớp 100% với commit `41bcbd2`.
 - [x] Cập nhật bộ nhớ vận hành `.project/`.
 - Tests/build/deploy/device: NOT RUN — không được yêu cầu. Status: COMPLETED.
+
+## [x] cambida-ios-download-quicklook-fix-20260924 — Nút Tải về máy mở Quick Look trên iOS
+- [x] Giữ nguyên giao diện 2 nút nguyên bản của `41bcbd2` trên `1.py`.
+- [x] Gỡ bỏ thuộc tính `download` của `#mergedDownloadBtn` trên iOS để Zalo/WKWebView không chặn click.
+- [x] Giữ nguyên endpoint `/download/<filename>` để kích hoạt giao diện xem Quick Look MP4 và nút Lưu video trên iOS.
+- [x] Bổ sung Cache-Control no-store cho HTML phản hồi trang Replay.
+- [x] Khởi động lại tiến trình server cổng 8004.
+- Tests/device trials: NOT RUN (chờ người dùng kiểm tra trên iPhone). Status: COMPLETED.
