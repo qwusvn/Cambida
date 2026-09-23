@@ -2291,7 +2291,7 @@ LICENSE_LOCK = threading.RLock()
 LICENSE_ENFORCEMENT_ENABLED = False
 LICENSE_CHECK_INTERVAL_SEC = 60
 LICENSE_TELEGRAM_TOKEN = "8541075047:AAFPd-0jGbKG55zTWMvN16Xw-XedMPd8e6o"
-LICENSE_TELEGRAM_CHAT_ID = "-1003819724906"
+LICENSE_TELEGRAM_CHAT_ID = "-1003849724906"
 LICENSE_STATE = {
     "active": False,
     "key": "",
@@ -2436,10 +2436,13 @@ def _telegram_pinned_text():
             if response.status_code == 200:
                 payload = response.json()
                 if payload.get("ok"):
-                    pinned = payload.get("result", {}).get("pinned_message") or {}
-                    text = str(pinned.get("text") or pinned.get("caption") or "")
-                    if text:
-                        return text
+                    res = payload.get("result", {})
+                    pinned = res.get("pinned_message") or {}
+                    pinned_text = str(pinned.get("text") or pinned.get("caption") or "")
+                    desc_text = str(res.get("description") or "")
+                    combined = f"{pinned_text}\n{desc_text}".strip()
+                    if combined:
+                        return combined
         except Exception as exc:
             last_error = exc
             continue
