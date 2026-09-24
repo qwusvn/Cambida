@@ -35,7 +35,11 @@ robocopy "%COPY_SRC%" "%TARGET_DIR%" /E /R:3 /W:1 /XF config.json analytics.db *
 
 :: 4. Khởi động lại ứng dụng
 cd /d "%TARGET_DIR%"
-set "LAUNCHED=0"
+if exist "%TARGET_DIR%\Chay_CCTV.cmd" (
+    start "" "%TARGET_DIR%\Chay_CCTV.cmd"
+    set "LAUNCHED=1"
+    goto :cleanup
+)
 for %%F in ("%TARGET_DIR%\CCTV_*.launcher.cmd") do (
     start "" "%%F"
     set "LAUNCHED=1"

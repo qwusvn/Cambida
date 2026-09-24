@@ -10,10 +10,13 @@ Cập nhật: 2026-09-23 +07
 5. Mỗi task hoàn tất phải có commit riêng đúng scope; không gom thay đổi cũ ngoài task.
 
 ## Trạng thái bàn giao
-- Phiên bản phát triển và đóng gói hiện tại: **2.1.54** (RELEASE_VERSION.txt = 2.1.54).
-- Tính năng phiên bản 2.1.54:
+- Phiên bản phát triển và đóng gói hiện tại: **2.1.60** (RELEASE_VERSION.txt = 2.1.60, release/2.1.60.zip, CCTV_2.1.60.exe, launcher).
+  + Gói zip patch siêu nhẹ: `release/2.1.60.zip` (525 KB, SHA-256: `BC8E7105673DFE575B2B568B5F5D4413AA6C0FB4C9A22BF33FC4988A853F1E98`), chỉ gồm các tệp cập nhật (`CCTV_2.1.60.exe`, `Chay_CCTV.cmd`, launcher, `index.html`, `1.py`, `updater.cmd`, `RELEASE_VERSION.txt`), không chứa các thư mục nặng hay file không đổi.
+  + File thực thi: `CCTV_2.1.60.exe` (SHA-256: `1C1120D53E95AC1BFD43B00E31ACB53FC36F0C89D6EF0EE755AC02FBECCB9ACF`).
+- Tính năng phiên bản 2.1.60:
   + Cố định mã QR bàn mang IP nội bộ LAN (`table_qr` trong `1.py`): Loại bỏ hoàn toàn việc nhúng link Cloudflare `public_base_url` trực tiếp vào ảnh QR bàn; tự động nhận diện IP LAN của máy chủ qua `get_local_lan_ip()`.
   + Phân loại thiết bị khi quét QR: Khách quét QR bàn gửi request về máy chủ LAN trước; máy chủ kiểm tra User-Agent: iOS tự động redirect 302 sang Cloudflare HTTPS để kích hoạt Web Share API lưu 1 chạm vào Ảnh; Android và các thiết bị khác ở lại mạng LAN nội bộ HTTP xem và tải trực tiếp, không phụ thuộc Cloudflare.
+  + Tự động cập nhật (Auto Update): Tối ưu `updater.cmd` ưu tiên `Chay_CCTV.cmd`, phát hành GitHub Release `v2.1.60` với gói patch `2.1.60.zip`.
 - Tính năng phiên bản 2.1.53:
   + Giao diện `#doneScreen` gọn gàng: loại bỏ popup/loading to chiếm màn hình, giữ nguyên layout xem trước video sạch đẹp.
   + Tiến trình 50/50 tích hợp trong nút: 0%-50% cắt trên máy qua SSE, 50%-100% nạp vào điện thoại qua stream fetch. Nút hoàn tất chuyển sang "Lưu và chia sẻ".

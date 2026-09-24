@@ -4,10 +4,11 @@ Cập nhật: 2026-09-24 +07
 
 ## Trạng thái hiện tại
 - Workspace: D:\1\cambida, branch main (tracking origin/main tại https://github.com/qwusvn/Cambida).
-- Phiên bản phát triển và đóng gói: **2.1.54** (RELEASE_VERSION.txt = 2.1.54).
-- Tính năng phiên bản 2.1.54:
+- Phiên bản phát triển và đóng gói: **2.1.60** (RELEASE_VERSION.txt = 2.1.60, spec và launcher CCTV_2.1.60.spec, CCTV_2.1.60.launcher.cmd, Chay_CCTV.cmd). Gói patch zip siêu nhẹ: `release/2.1.60.zip` (525 KB, SHA-256: `BC8E7105673DFE575B2B568B5F5D4413AA6C0FB4C9A22BF33FC4988A853F1E98`). File thực thi độc lập: `CCTV_2.1.60.exe` (SHA-256: `1C1120D53E95AC1BFD43B00E31ACB53FC36F0C89D6EF0EE755AC02FBECCB9ACF`).
+- Tính năng phiên bản 2.1.60:
   + Cố định mã QR bàn mang IP nội bộ LAN (`table_qr` trong `1.py`): Loại bỏ hoàn toàn việc nhúng link Cloudflare `public_base_url` trực tiếp vào ảnh QR bàn; tự động nhận diện IP LAN của máy chủ qua `get_local_lan_ip()`.
   + Phân loại thiết bị khi quét QR: Khách quét QR bàn gửi request về máy chủ LAN trước; máy chủ kiểm tra User-Agent: iOS tự động redirect 302 sang Cloudflare HTTPS để kích hoạt Web Share API lưu 1 chạm vào Ảnh; Android và các thiết bị khác ở lại mạng LAN nội bộ HTTP xem và tải trực tiếp, không phụ thuộc Cloudflare.
+  + Tự động cập nhật (Auto Update): Tối ưu `updater.cmd` ưu tiên `Chay_CCTV.cmd`, phát hành GitHub Release `v2.1.60` với gói patch `2.1.60.zip`.
 - Tính năng phiên bản 2.1.53:
   + Giao diện `#doneScreen` gọn gàng: Loại bỏ hoàn toàn các khung loading to tướng, spinner chiếm màn hình; giữ nguyên bố cục xem trước video và nút hành động bên dưới.
   + Tích hợp toàn bộ trạng thái nạp video trực tiếp vào nút "Lưu và chia sẻ" với tiến trình chia đôi 50/50: 0% - 50% cắt video trên máy tính (SSE), 50% - 100% chuyển nạp vào điện thoại (stream fetch blob). Khi hoàn tất 100%, nút mở khóa sang "Lưu và chia sẻ".

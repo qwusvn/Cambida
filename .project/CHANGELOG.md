@@ -260,7 +260,7 @@ elease/2.1.52.zip và đầy đủ cloudflared.exe + cloudflared_setup/.
 - Tịnh tiến phiên bản lên **2.1.53**.
 - **Đóng gói bản cập nhật gọn nhẹ 2.1.53**: Biên dịch `CCTV_2.1.53.exe` (SHA-256: `D8E0D01996104E4FBCDA46FADE2793BCA4134F965E6E0C35DA54AE2ACAD8A43E`), tạo file nén `release/2.1.53.zip` (523 KB, SHA-256: `73E6FD679342673D2D93D37AF09DE5C787AC2D743910F8FD11A960096FA3503A`) chỉ gồm các tệp cập nhật: `CCTV_2.1.53.exe`, `CCTV_2.1.53.launcher.cmd`, `Chay_CCTV.cmd`, `index.html`, `1.py`, `RELEASE_VERSION.txt`, loại bỏ toàn bộ các file tĩnh không đổi (`_internal/`, `ffmpeg.exe`, `cloudflared.exe`...).
 
-## 2026-09-24 — Sửa mã QR bàn luôn là IP nội bộ LAN, phân loại iOS/Android tự động (v2.1.54)
+## 2026-09-24 — Sửa mã QR bàn luôn là IP nội bộ LAN, phân loại iOS/Android tự động & Phát hành Auto Update (v2.1.60)
 - **Cố định mã QR bàn mang IP nội bộ LAN (`table_qr`)**:
   - Loại bỏ hoàn toàn việc nhúng link Cloudflare `public_base_url` trực tiếp vào ảnh QR bàn tại endpoint `/qr/table/<table_id>.png`.
   - Tự động phát hiện địa chỉ IP mạng nội bộ của máy chủ qua `get_local_lan_ip()` (kể cả khi mở trang admin từ `localhost` hoặc từ Cloudflare).
@@ -270,4 +270,10 @@ elease/2.1.52.zip và đầy đủ cloudflared.exe + cloudflared_setup/.
   - Máy chủ kiểm tra User-Agent tại `replay_cam`:
     + Thiết bị **iOS** (iPhone / iPad): Tự động chuyển hướng (302) sang Cloudflare HTTPS (`public_base_url`) để mở khóa Web Share API lưu 1 chạm vào Ảnh (Photos).
     + Thiết bị **Android / Khác**: **Giữ nguyên ở mạng LAN nội bộ HTTP**, tải nhanh, xem mượt, không tốn băng thông internet và không phụ thuộc Cloudflare.
-- Tịnh tiến phiên bản lên **2.1.54**.
+- **Tối ưu script tự động cập nhật (`updater.cmd`)**:
+  - Ưu tiên khởi động `Chay_CCTV.cmd` sau khi cập nhật để luôn trỏ chính xác vào file EXE của phiên bản mới nhất.
+- **Phát hành và Auto Update v2.1.60**:
+  - Đặt phiên bản chính thức lên **2.1.60** (vượt qua bản `2.1.53` trên máy chủ thực tế).
+  - Biên dịch PyInstaller tạo `CCTV_2.1.60.exe`, tạo launcher `CCTV_2.1.60.launcher.cmd`, `Chay_CCTV.cmd`.
+  - Đóng gói file zip cập nhật `release/2.1.60.zip`.
+  - Đẩy commit lên GitHub `qwusvn/Cambida`, tạo GitHub Release `v2.1.60` và đính kèm `2.1.60.zip` phục vụ auto update.
