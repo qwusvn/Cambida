@@ -258,3 +258,4 @@ elease/2.1.52.zip và đầy đủ cloudflared.exe + cloudflared_setup/.
 - **Kiểm thử hồi quy**: Cập nhật bộ test UI `tests/replay_timeline_ui.test.js`: 28/28 PASS.
 - Đồng bộ lại chuỗi Base85 và SHA-256 mới của `index.html` vào `1.py`.
 - Tịnh tiến phiên bản lên **2.1.53**.
+- **Đóng gói bản cập nhật gọn nhẹ 2.1.53**: Biên dịch `CCTV_2.1.53.exe` (SHA-256: `D8E0D01996104E4FBCDA46FADE2793BCA4134F965E6E0C35DA54AE2ACAD8A43E`), tạo file nén `release/2.1.53.zip` (523 KB, SHA-256: `73E6FD679342673D2D93D37AF09DE5C787AC2D743910F8FD11A960096FA3503A`) chỉ gồm các tệp cập nhật: `CCTV_2.1.53.exe`, `CCTV_2.1.53.launcher.cmd`, `Chay_CCTV.cmd`, `index.html`, `1.py`, `RELEASE_VERSION.txt`, loại bỏ toàn bộ các file tĩnh không đổi (`_internal/`, `ffmpeg.exe`, `cloudflared.exe`...).

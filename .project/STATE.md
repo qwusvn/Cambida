@@ -4,7 +4,7 @@ Cập nhật: 2026-09-24 +07
 
 ## Trạng thái hiện tại
 - Workspace: D:\1\cambida, branch main (tracking origin/main tại https://github.com/qwusvn/Cambida).
-- Phiên bản phát triển: **2.1.53** (RELEASE_VERSION.txt = 2.1.53).
+- Phiên bản phát triển và đóng gói: **2.1.53** (RELEASE_VERSION.txt = 2.1.53, spec và launcher CCTV_2.1.53.spec, CCTV_2.1.53.launcher.cmd, Chay_CCTV.cmd). Gói patch zip siêu nhẹ: D:\1\cambida\release\2.1.53.zip (523 KB, SHA-256: 73E6FD679342673D2D93D37AF09DE5C787AC2D743910F8FD11A960096FA3503A) chỉ chứa các file cập nhật (CCTV_2.1.53.exe, launcher, index.html, 1.py, RELEASE_VERSION.txt). File thực thi độc lập: CCTV_2.1.53.exe (SHA-256: D8E0D01996104E4FBCDA46FADE2793BCA4134F965E6E0C35DA54AE2ACAD8A43E).
 - Tính năng phiên bản 2.1.53:
   + Giao diện `#doneScreen` gọn gàng: Loại bỏ hoàn toàn các khung loading to tướng, spinner chiếm màn hình; giữ nguyên bố cục xem trước video và nút hành động bên dưới.
   + Tích hợp toàn bộ trạng thái nạp video trực tiếp vào nút "Lưu và chia sẻ" với tiến trình chia đôi 50/50: 0% - 50% cắt video trên máy tính (SSE), 50% - 100% chuyển nạp vào điện thoại (stream fetch blob). Khi hoàn tất 100%, nút mở khóa sang "Lưu và chia sẻ".

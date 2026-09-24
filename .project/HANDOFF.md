@@ -10,7 +10,9 @@ Cập nhật: 2026-09-23 +07
 5. Mỗi task hoàn tất phải có commit riêng đúng scope; không gom thay đổi cũ ngoài task.
 
 ## Trạng thái bàn giao
-- Phiên bản phát triển hiện tại: **2.1.53** (RELEASE_VERSION.txt = 2.1.53).
+- Phiên bản phát triển và đóng gói hiện tại: **2.1.53** (RELEASE_VERSION.txt = 2.1.53, release/2.1.53.zip, CCTV_2.1.53.exe, launcher).
+  + Gói zip patch siêu nhẹ: `release/2.1.53.zip` (523 KB, SHA-256: `73E6FD679342673D2D93D37AF09DE5C787AC2D743910F8FD11A960096FA3503A`), chỉ gồm các tệp cập nhật (`CCTV_2.1.53.exe`, `Chay_CCTV.cmd`, launcher, `index.html`, `1.py`, `RELEASE_VERSION.txt`), không chứa các thư mục nặng hay file không đổi.
+  + File thực thi: `CCTV_2.1.53.exe` (SHA-256: `D8E0D01996104E4FBCDA46FADE2793BCA4134F965E6E0C35DA54AE2ACAD8A43E`).
 - Tính năng phiên bản 2.1.53:
   + Giao diện `#doneScreen` gọn gàng: loại bỏ popup/loading to chiếm màn hình, giữ nguyên layout xem trước video sạch đẹp.
   + Tiến trình 50/50 tích hợp trong nút: 0%-50% cắt trên máy qua SSE, 50%-100% nạp vào điện thoại qua stream fetch. Nút hoàn tất chuyển sang "Lưu và chia sẻ".
