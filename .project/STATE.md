@@ -4,7 +4,14 @@ Cập nhật: 2026-09-25 +07
 
 ## Trạng thái hiện tại
 - Workspace: D:\1\cambida, branch main (tracking origin/main tại https://github.com/qwusvn/Cambida).
-- Phiên bản phát triển và đóng gói: **2.1.61** (RELEASE_VERSION.txt = 2.1.61, spec và launcher CCTV_2.1.61.spec, CCTV_2.1.61.launcher.cmd, Chay_CCTV.cmd, package_2.1.61.ps1). Gói phát hành đầy đủ chuẩn: `release/2.1.61.zip` (SHA-256: `9A8C4884473A07AA1C50ED4D91639388F79518C51E3F8991F1DA5E510486088D`) bao gồm đầy đủ runtime, sidecars, launcher. File thực thi onedir: `CCTV_2.1.61.exe` (SHA-256: `A03C89EC60736B00AA6BD8B517A622FF5BE87CD9B2EB9C7D2B504B97F2EF7F92`).
+- Phiên bản phát triển và đóng gói hiện tại: **2.1.62** (RELEASE_VERSION.txt = 2.1.62, spec và launcher CCTV_2.1.62.spec, CCTV_2.1.62.launcher.cmd, Chay_CCTV.cmd, package_2.1.62.ps1). Gói phát hành đầy đủ chuẩn: `release/2.1.62.zip` (SHA-256: `1898ADD4E41BC7FBFD9989DD80C8191749FB71D1396553FAD2C5673FF5E4DD65`) bao gồm đầy đủ runtime, sidecars, launcher. File thực thi onedir: `CCTV_2.1.62.exe` (SHA-256: `828BB4AA6987EB153DD2968CB6C4A4F427CB6FD9D22913BB61EDAD7EC96DB500`).
+- Tính năng phiên bản 2.1.62:
+  + Khắc phục triệt để lỗi tự động cập nhật (Auto-Update):
+    * Bổ sung hàm `_stop_all_recordings()` trong `1.py` để dừng mềm và thu hồi toàn bộ tiến trình FFmpeg trước khi kích hoạt updater, giải phóng hoàn toàn file lock trên `ffmpeg.exe`.
+    * Giải phóng Single Instance Mutex trước khi khởi động tiến trình nâng cấp.
+    * Thêm cơ chế taskkill cưỡng bức các tiến trình gây khóa file trong `updater.cmd` (`ffmpeg.exe`, `cloudflared.exe`, `CCTV_*`), tự động bỏ qua ghi đè `cloudflared.exe` khi file đích đã có.
+    * Ghi log chẩn đoán chi tiết ra `logs/updater.log`.
+    * `Chay_CCTV.cmd` tự động nhận diện phiên bản mới nhất từ `RELEASE_VERSION.txt` hoặc file `CCTV_*.exe` mới nhất, hỗ trợ cờ `--no-pause` tránh treo tiến trình ngầm.
 - Tính năng phiên bản 2.1.61:
   + Sửa triệt để lỗi kẹt vòng xoay "Đang tải..." trên trình duyệt di động: bỏ `stream.hidden = true`, thêm fallback timer 800ms tự động tắt spinner `#liveLoading` kể cả khi trình duyệt di động không bắn sự kiện `stream.onload` cho luồng MJPEG (`index.html`).
   + Tối ưu độ trễ thấp cho luồng xem trực tiếp trên LAN và VPN: OpenCV bật `rtsp_transport;tcp|fflags;nobuffer|max_delay;500000`, `CAP_PROP_BUFFERSIZE = 1`, cơ chế `cap.grab()` liên tục xả sạch bộ đệm đọng (Zero Buffer Backlog), điều tiết ~12.5 fps bám sát 100% thời gian thực bàn bida, nén JPEG chất lượng 65 giảm 50% CPU và thêm header chuẩn `Content-Length` (`1.py`).

@@ -308,3 +308,23 @@ elease/2.1.52.zip và đầy đủ cloudflared.exe + cloudflared_setup/.
   - Đóng gói đầy đủ `release/2.1.61.zip`.
   - SHA-256 `CCTV_2.1.61.exe`: `A03C89EC60736B00AA6BD8B517A622FF5BE87CD9B2EB9C7D2B504B97F2EF7F92`.
   - SHA-256 `2.1.61.zip`: `9A8C4884473A07AA1C50ED4D91639388F79518C51E3F8991F1DA5E510486088D`.
+
+## 2026-09-25 — Khắc phục triệt để lỗi tự động cập nhật và đóng băng tiến trình (v2.1.62)
+- **Sửa dứt điểm lỗi gọi hàm không tồn tại và rò rỉ tiến trình FFmpeg (`1.py`)**:
+  - Bổ sung hàm `_stop_all_recordings()` trong `1.py` để dừng mềm và thu hồi toàn bộ tiến trình FFmpeg trước khi kích hoạt updater, giải phóng hoàn toàn file lock trên `ffmpeg.exe`.
+  - Thay thế hàm lỗi `stop_recording_loop()` (vốn gây `NameError` và bị nuốt im lặng) bằng `_stop_all_recordings()`.
+  - Giải phóng Win32 Single Instance Mutex trước khi khởi động tiến trình nâng cấp.
+- **Nâng cấp kịch bản cập nhật mạnh mẽ và chống khóa file (`updater.cmd`)**:
+  - Bổ sung cơ chế taskkill cưỡng bức các tiến trình gây khóa file (`ffmpeg.exe`, `cloudflared.exe`, `CCTV_*`).
+  - Tự động bỏ qua ghi đè `cloudflared.exe` khi file đích đã có sẵn để tránh xung đột với Windows Service.
+  - Ghi log chẩn đoán chi tiết từng bước ra `logs/updater.log`.
+  - Khởi động lại ứng dụng qua `Chay_CCTV.cmd --no-pause`.
+- **Tối ưu launcher khởi động (`Chay_CCTV.cmd` và launcher shims)**:
+  - Tự động nhận diện phiên bản mới nhất từ `RELEASE_VERSION.txt` hoặc file `CCTV_*.exe` mới nhất, không còn bị phụ thuộc tên file cố định.
+  - Hỗ trợ tham số `--no-pause` loại bỏ lệnh `pause` khi chạy ngầm trong tác vụ cập nhật tự động.
+- **Biên dịch và đóng gói hoàn chỉnh `2.1.62.zip`**:
+  - Tịnh tiến phiên bản lên **2.1.62** (`RELEASE_VERSION.txt`, `version_info_2_1_62.txt`, `CCTV_2.1.62.spec`, `CCTV_2.1.62.launcher.cmd`, `Chay_CCTV.cmd`, `package_2.1.62.ps1`).
+  - Biên dịch PyInstaller onedir thành công tạo `CCTV_2.1.62.exe` (SHA-256: `828BB4AA6987EB153DD2968CB6C4A4F427CB6FD9D22913BB61EDAD7EC96DB500`).
+  - Đóng gói đầy đủ `release/2.1.62.zip` (SHA-256: `1898ADD4E41BC7FBFD9989DD80C8191749FB71D1396553FAD2C5673FF5E4DD65`).
+  - Phát hành GitHub Release `v2.1.62` và tải lên asset `2.1.62.zip`.
+

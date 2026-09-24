@@ -10,9 +10,19 @@ Cập nhật: 2026-09-23 +07
 5. Mỗi task hoàn tất phải có commit riêng đúng scope; không gom thay đổi cũ ngoài task.
 
 ## Trạng thái bàn giao
-- Phiên bản phát triển và đóng gói hiện tại: **2.1.60** (RELEASE_VERSION.txt = 2.1.60, release/2.1.60.zip, CCTV_2.1.60.exe, launcher).
-  + Gói zip phát hành đầy đủ chuẩn: `release/2.1.60.zip` (218 MB, SHA-256: `2823EF2503B5743F98EF831CF805107542CF3D44AD6145A5AFC54A9A5CF82FAD`), bao gồm toàn bộ runtime Python trong `_internal\`, module `qrcode`, NetSDK, Cloudflared, HTML sidecars, `updater.cmd`, `Chay_CCTV.cmd` và shim tương thích `CCTV_2.1.53.launcher.cmd`.
-  + File thực thi onedir: `CCTV_2.1.60.exe` (SHA-256: `215BB0491CEE8CDC23D87E51D093768AC7D94AF123EBCB22E43F343034F51B99`).
+- Phiên bản phát triển và đóng gói hiện tại: **2.1.62** (RELEASE_VERSION.txt = 2.1.62, release/2.1.62.zip, CCTV_2.1.62.exe, launcher).
+  + Gói zip phát hành đầy đủ chuẩn: `release/2.1.62.zip` (218 MB, SHA-256: `1898ADD4E41BC7FBFD9989DD80C8191749FB71D1396553FAD2C5673FF5E4DD65`), bao gồm toàn bộ runtime Python trong `_internal\`, module `qrcode`, NetSDK, Cloudflared, HTML sidecars, `updater.cmd`, `Chay_CCTV.cmd` và launcher shims.
+  + File thực thi onedir: `CCTV_2.1.62.exe` (SHA-256: `828BB4AA6987EB153DD2968CB6C4A4F427CB6FD9D22913BB61EDAD7EC96DB500`).
+- Tính năng phiên bản 2.1.62:
+  + Khắc phục triệt để lỗi tự động cập nhật (Auto-Update):
+    * Bổ sung hàm `_stop_all_recordings()` trong `1.py` để dừng mềm và thu hồi toàn bộ tiến trình FFmpeg trước khi kích hoạt updater, giải phóng hoàn toàn file lock trên `ffmpeg.exe`.
+    * Giải phóng Single Instance Mutex trước khi khởi động tiến trình nâng cấp.
+    * Thêm cơ chế taskkill cưỡng bức các tiến trình gây khóa file trong `updater.cmd` (`ffmpeg.exe`, `cloudflared.exe`, `CCTV_*`), tự động bỏ qua ghi đè `cloudflared.exe` khi file đích đã có.
+    * Ghi log chẩn đoán chi tiết ra `logs/updater.log`.
+    * `Chay_CCTV.cmd` tự động nhận diện phiên bản mới nhất từ `RELEASE_VERSION.txt` hoặc file `CCTV_*.exe` mới nhất, hỗ trợ cờ `--no-pause` tránh treo tiến trình ngầm.
+- Tính năng phiên bản 2.1.61:
+  + Sửa triệt để lỗi kẹt vòng xoay "Đang tải..." trên trình duyệt di động: bỏ `stream.hidden = true`, thêm fallback timer 800ms tự động tắt spinner `#liveLoading` kể cả khi trình duyệt di động không bắn sự kiện `stream.onload` cho luồng MJPEG (`index.html`).
+  + Tối ưu độ trễ thấp cho luồng xem trực tiếp trên LAN và VPN: OpenCV bật `rtsp_transport;tcp|fflags;nobuffer|max_delay;500000`, `CAP_PROP_BUFFERSIZE = 1`, cơ chế `cap.grab()` liên tục xả sạch bộ đệm đọng (Zero Buffer Backlog), điều tiết ~12.5 fps bám sát 100% thời gian thực bàn bida, nén JPEG chất lượng 65 giảm 50% CPU và thêm header chuẩn `Content-Length` (`1.py`).
 - Tính năng phiên bản 2.1.60:
   + Cố định mã QR bàn mang IP nội bộ LAN (`table_qr` trong `1.py`): Loại bỏ hoàn toàn việc nhúng link Cloudflare `public_base_url` trực tiếp vào ảnh QR bàn; tự động nhận diện IP LAN của máy chủ qua `get_local_lan_ip()`.
   + Phân loại thiết bị khi quét QR: Khách quét QR bàn gửi request về máy chủ LAN trước; máy chủ kiểm tra User-Agent: iOS tự động redirect 302 sang Cloudflare HTTPS để kích hoạt Web Share API lưu 1 chạm vào Ảnh; Android và các thiết bị khác ở lại mạng LAN nội bộ HTTP xem và tải trực tiếp, không phụ thuộc Cloudflare.
