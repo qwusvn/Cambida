@@ -4748,7 +4748,7 @@ def admin_logout():
 @app.route("/admin")
 @admin_required
 def admin_page():
-    return render_template("admin.html", site=get_site_config())
+    return render_template("admin.html", site=get_site_config(), version=APP_VERSION)
 
 
 @app.route("/api/admin/config", methods=["GET", "PUT"])

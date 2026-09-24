@@ -11,7 +11,7 @@ Cập nhật: 2026-09-23 +07
 
 ## Trạng thái bàn giao
 - Phiên bản phát triển và đóng gói hiện tại: **2.1.60** (RELEASE_VERSION.txt = 2.1.60, release/2.1.60.zip, CCTV_2.1.60.exe, launcher).
-  + Gói zip patch siêu nhẹ: `release/2.1.60.zip` (525 KB, SHA-256: `BAED9C460A3D4A8F41DB2F0C3392BD91109D4483666E094448CECDA366019F5E`), chỉ gồm các tệp cập nhật (`CCTV_2.1.60.exe`, `Chay_CCTV.cmd`, launcher, `index.html`, `1.py`, `updater.cmd`, `RELEASE_VERSION.txt`), không chứa các thư mục nặng hay file không đổi.
+  + Gói zip patch siêu nhẹ: `release/2.1.60.zip` (541 KB, SHA-256: `AD75B048235CDB8ADD6598544BB99C311F274C1E8843C0EDCCB8F617A02489AA`), chỉ gồm các tệp cập nhật (`CCTV_2.1.60.exe`, `Chay_CCTV.cmd`, launcher, `admin.html`, `index.html`, `1.py`, `updater.cmd`, `RELEASE_VERSION.txt`), không chứa các thư mục nặng hay file không đổi.
   + File thực thi: `CCTV_2.1.60.exe` (SHA-256: `1C1120D53E95AC1BFD43B00E31ACB53FC36F0C89D6EF0EE755AC02FBECCB9ACF`).
 - Tính năng phiên bản 2.1.60:
   + Cố định mã QR bàn mang IP nội bộ LAN (`table_qr` trong `1.py`): Loại bỏ hoàn toàn việc nhúng link Cloudflare `public_base_url` trực tiếp vào ảnh QR bàn; tự động nhận diện IP LAN của máy chủ qua `get_local_lan_ip()`.

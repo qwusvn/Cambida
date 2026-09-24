@@ -4,7 +4,7 @@ Cập nhật: 2026-09-24 +07
 
 ## Trạng thái hiện tại
 - Workspace: D:\1\cambida, branch main (tracking origin/main tại https://github.com/qwusvn/Cambida).
-- Phiên bản phát triển và đóng gói: **2.1.60** (RELEASE_VERSION.txt = 2.1.60, spec và launcher CCTV_2.1.60.spec, CCTV_2.1.60.launcher.cmd, Chay_CCTV.cmd). Gói patch zip siêu nhẹ: `release/2.1.60.zip` (525 KB, SHA-256: `BAED9C460A3D4A8F41DB2F0C3392BD91109D4483666E094448CECDA366019F5E`). File thực thi độc lập: `CCTV_2.1.60.exe` (SHA-256: `1C1120D53E95AC1BFD43B00E31ACB53FC36F0C89D6EF0EE755AC02FBECCB9ACF`).
+- Phiên bản phát triển và đóng gói: **2.1.60** (RELEASE_VERSION.txt = 2.1.60, spec và launcher CCTV_2.1.60.spec, CCTV_2.1.60.launcher.cmd, Chay_CCTV.cmd). Gói patch zip siêu nhẹ: `release/2.1.60.zip` (541 KB, SHA-256: `AD75B048235CDB8ADD6598544BB99C311F274C1E8843C0EDCCB8F617A02489AA`). File thực thi độc lập: `CCTV_2.1.60.exe` (SHA-256: `1C1120D53E95AC1BFD43B00E31ACB53FC36F0C89D6EF0EE755AC02FBECCB9ACF`).
 - Tính năng phiên bản 2.1.60:
   + Cố định mã QR bàn mang IP nội bộ LAN (`table_qr` trong `1.py`): Loại bỏ hoàn toàn việc nhúng link Cloudflare `public_base_url` trực tiếp vào ảnh QR bàn; tự động nhận diện IP LAN của máy chủ qua `get_local_lan_ip()`.
   + Phân loại thiết bị khi quét QR: Khách quét QR bàn gửi request về máy chủ LAN trước; máy chủ kiểm tra User-Agent: iOS tự động redirect 302 sang Cloudflare HTTPS để kích hoạt Web Share API lưu 1 chạm vào Ảnh; Android và các thiết bị khác ở lại mạng LAN nội bộ HTTP xem và tải trực tiếp, không phụ thuộc Cloudflare.
