@@ -229,3 +229,14 @@
 - Tích hợp `cloudflared.exe` và bộ công cụ cài đặt tunnel `cloudflared_setup/` vào gói phát hành.
 - Đóng gói hoàn tất bản **2.1.51** vào `release/2.1.51` và `staging/2.1.51` kèm file nén `release/2.1.51.zip`.
 - Khởi động lại dịch vụ máy chủ `python 1.py` trên cổng `8004` (PID 16052).
+
+## 2026-09-24 — Chuyển trang tức thì khi cắt video, tiến trình 2 giai đoạn, pinch zoom timeline & Đóng gói 2.1.52
+- Chuyển trang ngay lập tức sang #doneScreen khi bấm nút 'Cắt và tải về', loại bỏ thời gian chờ trên màn hình cắt.
+- Thanh tiến trình 2 giai đoạn trực quan: Giai đoạn 1/2 hiển thị tiến trình cắt video trên server theo SSE (0%-100%); Giai đoạn 2/2 hiển thị tiến trình nạp video vào bộ nhớ RAM thiết bị qua ReadableStream (MB và %) giúp phát lại tức thì (URL.createObjectURL(blob)) và sẵn sàng cho tính năng 1 chạm lưu vào Cuộn camera iPhone qua iOS Web Share.
+- Cử chỉ vuốt ngón tay phóng to/thu nhỏ Timeline (Pinch-to-Zoom): Cho phép dùng 2 ngón tay chụm/tách trên toàn thẻ timeline để zoom mượt mà từ 1x đến 96x.
+- Cập nhật template nhúng Base85 và SHA-256 mới trong 1.py.
+- Kiểm thử hồi quy UI 	ests/replay_timeline_ui.test.js: bổ sung test pinch zoom và done screen tiến trình 2 giai đoạn, đạt 28/28 PASS.
+- Đóng gói hoàn tất phiên bản **2.1.52** vào
+elease/2.1.52 và staging/2.1.52 kèm tệp nén
+elease/2.1.52.zip và đầy đủ cloudflared.exe + cloudflared_setup/.
+- Khởi động lại dịch vụ máy chủ python 1.py trên cổng 8004.

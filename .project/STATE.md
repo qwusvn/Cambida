@@ -3,13 +3,19 @@
 Cập nhật: 2026-09-24 +07
 
 ## Trạng thái hiện tại
-- Workspace: `D:\1\cambida`, branch `main` (tracking `origin/main` tại `https://github.com/qwusvn/Cambida`).
-- Phiên bản phát triển và đóng gói: **2.1.51** (`RELEASE_VERSION.txt` = `2.1.51`, spec và launcher `CCTV_2.1.51.spec`, `CCTV_2.1.51.launcher.cmd`, `package_2.1.51.ps1`). Gói release onedir: `D:\1\cambida\release\2.1.51\CCTV_2.1.51.exe` (SHA-256: `09BC1712A71C29E231691181EF7C06CB14C352E4DEE07F64344080143E70A562`), kèm gói nén cập nhật `release\2.1.51.zip` (SHA-256: `3F877312E3F11848AB0592AF9427F07555927E24941205E9DA3C8CD58E76B7FD`) và bản sao lưu tại `staging\2.1.51`. Đã tích hợp sẵn file nhị phân `cloudflared.exe` và thư mục công cụ cài đặt tunnel `cloudflared_setup/`.
-- Tính năng phiên bản 2.1.51:
-  + Sửa lỗi cú pháp JavaScript (SyntaxError) trong `index.html` và template nhúng trong `1.py` (loại bỏ dấu `}` thừa), khôi phục hoạt động của date picker, timeline ruler và marker thời gian.
-  + Tích hợp đầy đủ `cloudflared.exe` và thư mục `cloudflared_setup/` vào gói phát hành độc lập.
+- Workspace: D:\1\cambida, branch main (tracking origin/main tại https://github.com/qwusvn/Cambida).
+- Phiên bản phát triển và đóng gói: **2.1.52** (RELEASE_VERSION.txt = 2.1.52, spec và launcher CCTV_2.1.52.spec, CCTV_2.1.52.launcher.cmd, package_2.1.52.ps1). Gói release onedir: D:\1\cambida\release\2.1.52\CCTV_2.1.52.exe (SHA-256: EC56056A60CEB8AE08BCF567C0F5092BBBB3F9A3F99108D0BF34B1C3413D0527), kèm gói nén cập nhật
+elease\2.1.52.zip (SHA-256: F9B25D203195A9C06BDF764492DA6DAEAC97F69257F33E96548B402876250920) và bản sao lưu tại staging\2.1.52. Đã tích hợp sẵn file nhị phân cloudflared.exe và thư mục công cụ cài đặt tunnel cloudflared_setup/.
+- Tính năng phiên bản 2.1.52:
+  + Chuyển trang tức thì khi bấm Cắt video: Ngay khi ấn nút 'Cắt và tải về', giao diện lập tức nhảy sang màn hình Hoàn thành (#doneScreen), không bắt người dùng phải chờ đợi trên màn hình cắt.
+  + Thanh tiến trình 2 giai đoạn (Dual-Stage Progress Bar): Giai đoạn 1/2 hiển thị tiến trình cắt video trên server từ SSE (0% - 100%) kèm spinner; Giai đoạn 2/2 hiển thị tiến trình nạp video vào bộ nhớ RAM thiết bị qua ReadableStream (MB và %) giúp phát lại tức thì (URL.createObjectURL(blob)) và sẵn sàng cho tính năng 1 chạm lưu vào Cuộn camera iPhone qua iOS Web Share.
+  + Cử chỉ vuốt ngón tay phóng to/thu nhỏ Timeline (Pinch-to-Zoom): Cho phép dùng 2 ngón tay chụm/tách trên toàn thẻ timeline để zoom mượt mà từ 1x đến 96x mà không làm nhảy mốc thời gian.
   + Đã khởi động lại dịch vụ máy chủ trên cổng 8004.
-- **Quy tắc phiên bản theo commit**: Kể từ bản 2.1.5, mỗi commit tiếp theo sẽ tự động tịnh tiến phiên bản mới (2.1.6, 2.1.7...).
+- Quy tắc phiên bản theo commit: Kể từ bản 2.1.5, mỗi commit tiếp theo sẽ tự động tịnh tiến phiên bản mới (2.1.6, 2.1.7...).
+- Tính năng phiên bản 2.1.51:
+  + Sửa lỗi cú pháp JavaScript (SyntaxError) trong index.html và template nhúng trong 1.py, khôi phục hoạt động của date picker và timeline ruler.
+  + Tích hợp đầy đủ cloudflared.exe và thư mục cloudflared_setup/ vào gói phát hành độc lập.
+  + Đã khởi động lại dịch vụ máy chủ trên cổng 8004.
 - Tính năng phiên bản 2.1.5:
   + Tích hợp gói module camera độc lập `camera_modules/` (Dahua/Imou NetSDK, Hikvision/Ezviz, ONVIF, RTSP, Table Access, Discovery, Policy).
   + Công tắc riêng tư (Privacy Switch) trên trang chủ (`home.html`): Bật = Đỏ, Tắt = Xám; khi tắt, khách bị chặn xem trực tiếp, xem lại, cắt và tải video nhưng camera vẫn ghi hình ngầm liên tục 24/7.

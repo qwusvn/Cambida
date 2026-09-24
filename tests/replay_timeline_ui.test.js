@@ -602,3 +602,70 @@ test('doneScreen integrates video preview player and dual action buttons for iOS
   assert.equal(doneVideo.src, '');
 });
 
+test('instant cut screen transition and dual-stage progress bar on doneScreen', () => {
+  const { context, elements } = loadReplayScript();
+
+  // 1. showDone("cutting")
+  context.showDone("cutting");
+  assert.equal(elements.get('doneScreen').hidden, false);
+  assert.equal(elements.get('cutScreen').hidden, true);
+  assert.equal(elements.get('replayScreen').hidden, true);
+  assert.equal(elements.get('doneProcessingIcon').style.display, '');
+  assert.equal(elements.get('doneSuccessIcon').style.display, 'none');
+  assert.equal(elements.get('doneProgressWrap').style.display, 'block');
+  assert.equal(elements.get('doneVideoWrap').style.display, 'none');
+  assert.equal(elements.get('doneActions').style.display, 'none');
+  assert.ok(elements.get('doneTitle').textContent.includes('Đang xử lý'));
+
+  // 2. showDone("downloading")
+  context.showDone("downloading");
+  assert.equal(elements.get('doneProgressWrap').style.display, 'block');
+  assert.equal(elements.get('doneVideoWrap').style.display, 'none');
+  assert.ok(elements.get('doneTitle').textContent.includes('Đang nạp video'));
+  assert.equal(elements.get('doneProgressDetail').textContent, 'Giai đoạn 2/2: Nạp vào máy');
+
+  // 3. showDone("ready")
+  context.showDone("ready");
+  assert.equal(elements.get('doneProcessingIcon').style.display, 'none');
+  assert.equal(elements.get('doneSuccessIcon').style.display, '');
+  assert.equal(elements.get('doneProgressWrap').style.display, 'none');
+  assert.equal(elements.get('doneVideoWrap').style.display, 'block');
+  assert.equal(elements.get('doneActions').style.display, 'flex');
+
+  // 4. showDone("error", "Lỗi test")
+  context.showDone("error", "Lỗi test cắt video");
+  assert.equal(elements.get('doneProgressWrap').style.display, 'none');
+  assert.equal(elements.get('doneVideoWrap').style.display, 'none');
+  assert.equal(elements.get('doneActions').style.display, 'flex');
+  assert.equal(elements.get('doneError').style.display, 'block');
+  assert.equal(elements.get('doneError').textContent, 'Lỗi test cắt video');
+});
+
+test('wireTimeline supports multi-touch pinch-to-zoom gesture', () => {
+  const { context } = loadReplayScript();
+  vm.runInContext(`visibleVideos = [
+    { name: 'cam1', started_at: '2026-09-20T00:00:00', end_at: '2026-09-20T23:59:59' }
+  ]; currentVideo = visibleVideos[0];`, context);
+  const card = context.document.getElementById('timelineCard');
+  const viewport = context.document.getElementById('timelineViewport');
+  viewport.getBoundingClientRect = () => ({ left: 0, width: 1000, right: 1000, top: 0, height: 100 });
+  context.wireTimeline('timelineHit', false);
+
+  context.timelineStates.replay.zoom = 10;
+
+  // Touch 1 down at x=100, y=50
+  card.dispatch('pointerdown', { pointerId: 10, clientX: 100, clientY: 50, preventDefault() {} });
+  // Touch 2 down at x=200, y=50 -> initial dist = 100
+  card.dispatch('pointerdown', { pointerId: 11, clientX: 200, clientY: 50, preventDefault() {} });
+
+  // Move touch 2 to x=300 -> new dist = 200 (ratio = 2.0)
+  card.dispatch('pointermove', { pointerId: 11, clientX: 300, clientY: 50, preventDefault() {} });
+
+  // Zoom should have doubled: 10 * 2 = 20
+  assert.equal(context.timelineStates.replay.zoom, 20);
+
+  // Release touches
+  card.dispatch('pointerup', { pointerId: 10 });
+  card.dispatch('pointerup', { pointerId: 11 });
+});
+

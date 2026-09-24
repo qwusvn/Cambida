@@ -10,7 +10,20 @@ Cập nhật: 2026-09-23 +07
 5. Mỗi task hoàn tất phải có commit riêng đúng scope; không gom thay đổi cũ ngoài task.
 
 ## Trạng thái bàn giao
-- Release staging: **2.1.4** tại `D:\1\cambida\staging\2.1.4\CCTV_2.1.4.exe` (SHA-256: `69DD9AC31329B01614BA49BD8E66CAD79FDA39BE4BBB5B7C096CBA95DB21DDF4`), kèm gói nén `staging\2.1.4\2.1.4.rar` (SHA-256: `97EF1E5A9E8B50072212EAFE7118C985627682DFF757C217A18733F226D69D10`).
+- Phiên bản phát triển và đóng gói hiện tại: **2.1.52** tại
+elease/2.1.52 và staging/2.1.52 kèm
+elease/2.1.52.zip.
+  + File thực thi:
+elease/2.1.52/CCTV_2.1.52.exe (SHA-256: EC56056A60CEB8AE08BCF567C0F5092BBBB3F9A3F99108D0BF34B1C3413D0527).
+  + Gói zip:
+elease/2.1.52.zip (SHA-256: F9B25D203195A9C06BDF764492DA6DAEAC97F69257F33E96548B402876250920).
+  + Đã tích hợp đầy đủ file nhị phân cloudflared.exe và thư mục cloudflared_setup/.
+- Tính năng phiên bản 2.1.52:
+  + Chuyển tức thì sang màn hình Hoàn thành (#doneScreen) khi bấm nút 'Cắt và tải về'.
+  + Thanh tiến trình 2 giai đoạn (Giai đoạn 1/2 cắt server SSE, Giai đoạn 2/2 nạp video qua ReadableStream vào RAM kèm đếm MB và phát tức thì qua Blob URL).
+  + Cử chỉ vuốt 2 ngón tay chụm/tách (pinch-to-zoom) để phóng to/thu nhỏ timeline từ 1x đến 96x.
+  + Kiểm thử: 28/28 Node.js tests PASS.
+  + Máy chủ đang chạy cổng 8004.
 - Gói phát hành sạch sẽ (Zero Config Pollution): Hoàn toàn không kèm file `config.json`, không kèm db/logs/cache/media; tệp hạt giống an toàn `_internal\config.release.json` đã xóa sạch camera (`cameras: []`), để trống tên cửa hàng và khẩu hiệu (`site.name: ""`, `site.tagline: ""`).
 - Giao diện Responsive & Tối ưu theo thiết bị (Desktop / iOS / Android):
   + Trình phát xem trước video trên màn hình Hoàn thành (`#doneScreen`): Tích hợp trực tiếp video player cho cả điện thoại và máy tính, cho phép xem lại clip ngay sau khi cắt.
