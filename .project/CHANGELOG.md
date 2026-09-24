@@ -328,3 +328,16 @@ elease/2.1.52.zip và đầy đủ cloudflared.exe + cloudflared_setup/.
   - Đóng gói đầy đủ `release/2.1.62.zip` (SHA-256: `1898ADD4E41BC7FBFD9989DD80C8191749FB71D1396553FAD2C5673FF5E4DD65`).
   - Phát hành GitHub Release `v2.1.62` và tải lên asset `2.1.62.zip`.
 
+## 2026-09-25 — Đóng gói Python toàn diện vào EXE & Ưu tiên HTML bên ngoài (v2.1.63)
+- **Đóng gói toàn diện và bảo mật mã nguồn (`package_2.1.63.ps1`)**:
+  - Loại bỏ hoàn toàn file `1.py` khỏi danh sách sidecars trong gói phát hành, đưa vào danh sách kiểm tra cấm (`$Forbidden`) để đảm bảo không rò rỉ mã nguồn bên ngoài.
+  - Toàn bộ mã nguồn Python (`1.py`, `camera_modules/`, runtime) được đóng gói 100% vào trong `CCTV_2.1.63.exe` và thư mục `_internal/`.
+- **Ưu tiên nạp trực tiếp file `index.html` bên ngoài (`1.py`)**:
+  - Sửa hàm `_render_replay_template()` kiểm tra sự tồn tại của `index.html` trong `TEMPLATE_DIR` trước khi nạp.
+  - Cho phép tùy biến giao diện, chỉnh sửa CSS/JS di động ăn ngay lập tức mà không bị ghi đè bởi chuỗi Base85 nhúng cũ trong RAM và không cần biên dịch lại EXE.
+- **Biên dịch và đóng gói hoàn chỉnh `2.1.63.zip`**:
+  - Tịnh tiến phiên bản lên **2.1.63** (`RELEASE_VERSION.txt`, `version_info_2_1_63.txt`, `CCTV_2.1.63.spec`, `CCTV_2.1.63.launcher.cmd`, `Chay_CCTV.cmd`, `package_2.1.63.ps1`).
+  - Biên dịch PyInstaller onedir thành công tạo `CCTV_2.1.63.exe` (SHA-256: `38E6348A0206DDE859693083730EF94215A93D7C8EE694B3022A688BAEBC9AD1`).
+  - Đóng gói đầy đủ `release/2.1.63.zip` (SHA-256: `944E63B59DD8EE7EECB8DDCA6E95DF2B4B93D4EC54AA6DCDA86570EAF648A51D`).
+  - Phát hành GitHub Release `v2.1.63` và tải lên asset `2.1.63.zip`.
+

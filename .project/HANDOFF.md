@@ -10,9 +10,15 @@ Cập nhật: 2026-09-23 +07
 5. Mỗi task hoàn tất phải có commit riêng đúng scope; không gom thay đổi cũ ngoài task.
 
 ## Trạng thái bàn giao
-- Phiên bản phát triển và đóng gói hiện tại: **2.1.62** (RELEASE_VERSION.txt = 2.1.62, release/2.1.62.zip, CCTV_2.1.62.exe, launcher).
-  + Gói zip phát hành đầy đủ chuẩn: `release/2.1.62.zip` (218 MB, SHA-256: `1898ADD4E41BC7FBFD9989DD80C8191749FB71D1396553FAD2C5673FF5E4DD65`), bao gồm toàn bộ runtime Python trong `_internal\`, module `qrcode`, NetSDK, Cloudflared, HTML sidecars, `updater.cmd`, `Chay_CCTV.cmd` và launcher shims.
-  + File thực thi onedir: `CCTV_2.1.62.exe` (SHA-256: `828BB4AA6987EB153DD2968CB6C4A4F427CB6FD9D22913BB61EDAD7EC96DB500`).
+- Phiên bản phát triển và đóng gói hiện tại: **2.1.63** (RELEASE_VERSION.txt = 2.1.63, release/2.1.63.zip, CCTV_2.1.63.exe, launcher).
+  + Gói zip phát hành đầy đủ chuẩn: `release/2.1.63.zip` (218 MB, SHA-256: `944E63B59DD8EE7EECB8DDCA6E95DF2B4B93D4EC54AA6DCDA86570EAF648A51D`), bao gồm toàn bộ runtime Python trong `_internal\`, module `qrcode`, NetSDK, Cloudflared, HTML sidecars, `updater.cmd`, `Chay_CCTV.cmd` và launcher shims, loại bỏ hoàn toàn `1.py` bên ngoài.
+  + File thực thi onedir: `CCTV_2.1.63.exe` (SHA-256: `38E6348A0206DDE859693083730EF94215A93D7C8EE694B3022A688BAEBC9AD1`).
+- Tính năng phiên bản 2.1.63:
+  + Tối ưu kiến trúc đóng gói và nạp giao diện:
+    * Đóng gói 100% backend Python vào trong `CCTV_2.1.63.exe` và `_internal/`.
+    * Loại bỏ hoàn toàn file `1.py` khỏi thư mục bên ngoài của bản phát hành để bảo vệ mã nguồn, token và tránh rủi ro xung đột/sửa nhầm.
+    * Sửa hàm `_render_replay_template()` trong `1.py`: Luôn ưu tiên nạp trực tiếp file `index.html` bên ngoài nếu có, giúp mọi cập nhật giao diện/HTML ăn ngay lập tức mà không bị ghi đè bởi chuỗi Base85 nhúng cũ trong RAM.
+    * Giữ nguyên các file giao diện HTML bên ngoài (`index.html`, `admin.html`, `home.html`, v.v.) để dễ dàng chỉnh sửa giao diện.
 - Tính năng phiên bản 2.1.62:
   + Khắc phục triệt để lỗi tự động cập nhật (Auto-Update):
     * Bổ sung hàm `_stop_all_recordings()` trong `1.py` để dừng mềm và thu hồi toàn bộ tiến trình FFmpeg trước khi kích hoạt updater, giải phóng hoàn toàn file lock trên `ffmpeg.exe`.

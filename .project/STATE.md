@@ -4,7 +4,13 @@ Cập nhật: 2026-09-25 +07
 
 ## Trạng thái hiện tại
 - Workspace: D:\1\cambida, branch main (tracking origin/main tại https://github.com/qwusvn/Cambida).
-- Phiên bản phát triển và đóng gói hiện tại: **2.1.62** (RELEASE_VERSION.txt = 2.1.62, spec và launcher CCTV_2.1.62.spec, CCTV_2.1.62.launcher.cmd, Chay_CCTV.cmd, package_2.1.62.ps1). Gói phát hành đầy đủ chuẩn: `release/2.1.62.zip` (SHA-256: `1898ADD4E41BC7FBFD9989DD80C8191749FB71D1396553FAD2C5673FF5E4DD65`) bao gồm đầy đủ runtime, sidecars, launcher. File thực thi onedir: `CCTV_2.1.62.exe` (SHA-256: `828BB4AA6987EB153DD2968CB6C4A4F427CB6FD9D22913BB61EDAD7EC96DB500`).
+- Phiên bản phát triển và đóng gói hiện tại: **2.1.63** (RELEASE_VERSION.txt = 2.1.63, spec và launcher CCTV_2.1.63.spec, CCTV_2.1.63.launcher.cmd, Chay_CCTV.cmd, package_2.1.63.ps1). Gói phát hành đầy đủ chuẩn: `release/2.1.63.zip` (SHA-256: `944E63B59DD8EE7EECB8DDCA6E95DF2B4B93D4EC54AA6DCDA86570EAF648A51D`) bao gồm đầy đủ runtime, sidecars, launcher, hoàn toàn không kèm file 1.py bên ngoài. File thực thi onedir: `CCTV_2.1.63.exe` (SHA-256: `38E6348A0206DDE859693083730EF94215A93D7C8EE694B3022A688BAEBC9AD1`).
+- Tính năng phiên bản 2.1.63:
+  + Tối ưu kiến trúc đóng gói và nạp giao diện:
+    * Đóng gói 100% backend Python vào trong `CCTV_2.1.63.exe` và `_internal/`.
+    * Loại bỏ hoàn toàn file `1.py` khỏi thư mục bên ngoài của bản phát hành để bảo vệ mã nguồn, token và tránh rủi ro xung đột/sửa nhầm.
+    * Sửa hàm `_render_replay_template()` trong `1.py`: Luôn ưu tiên nạp trực tiếp file `index.html` bên ngoài nếu có, giúp mọi cập nhật giao diện/HTML ăn ngay lập tức mà không bị ghi đè bởi chuỗi Base85 nhúng cũ trong RAM.
+    * Giữ nguyên các file giao diện HTML bên ngoài (`index.html`, `admin.html`, `home.html`, v.v.) để dễ dàng chỉnh sửa giao diện.
 - Tính năng phiên bản 2.1.62:
   + Khắc phục triệt để lỗi tự động cập nhật (Auto-Update):
     * Bổ sung hàm `_stop_all_recordings()` trong `1.py` để dừng mềm và thu hồi toàn bộ tiến trình FFmpeg trước khi kích hoạt updater, giải phóng hoàn toàn file lock trên `ffmpeg.exe`.
