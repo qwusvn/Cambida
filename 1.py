@@ -1085,6 +1085,9 @@ def _get_embedded_replay_template():
     return _EMBEDDED_REPLAY_TEMPLATE_CACHE
 
 def _render_replay_template(**context):
+    index_file = os.path.join(TEMPLATE_DIR, "index.html")
+    if os.path.isfile(index_file):
+        return render_template("index.html", **context)
     try:
         content = render_template_string(_get_embedded_replay_template(), **context)
         return Response(
