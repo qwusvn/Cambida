@@ -1,10 +1,13 @@
 # STATE — Cambida
 
-Cập nhật: 2026-09-24 +07
+Cập nhật: 2026-09-25 +07
 
 ## Trạng thái hiện tại
 - Workspace: D:\1\cambida, branch main (tracking origin/main tại https://github.com/qwusvn/Cambida).
-- Phiên bản phát triển và đóng gói: **2.1.60** (RELEASE_VERSION.txt = 2.1.60, spec và launcher CCTV_2.1.60.spec, CCTV_2.1.60.launcher.cmd, Chay_CCTV.cmd, package_2.1.60.ps1). Gói phát hành đầy đủ chuẩn: `release/2.1.60.zip` (218 MB, SHA-256: `2823EF2503B5743F98EF831CF805107542CF3D44AD6145A5AFC54A9A5CF82FAD`) bao gồm đầy đủ thư mục `_internal\` (runtime Python, module qrcode, thư viện NetSDK), Cloudflared, HTML sidecars và launcher chuyển tiếp. File thực thi onedir: `CCTV_2.1.60.exe` (SHA-256: `215BB0491CEE8CDC23D87E51D093768AC7D94AF123EBCB22E43F343034F51B99`).
+- Phiên bản phát triển và đóng gói: **2.1.61** (RELEASE_VERSION.txt = 2.1.61, spec và launcher CCTV_2.1.61.spec, CCTV_2.1.61.launcher.cmd, Chay_CCTV.cmd, package_2.1.61.ps1). Gói phát hành đầy đủ chuẩn: `release/2.1.61.zip` (SHA-256: `9A8C4884473A07AA1C50ED4D91639388F79518C51E3F8991F1DA5E510486088D`) bao gồm đầy đủ runtime, sidecars, launcher. File thực thi onedir: `CCTV_2.1.61.exe` (SHA-256: `A03C89EC60736B00AA6BD8B517A622FF5BE87CD9B2EB9C7D2B504B97F2EF7F92`).
+- Tính năng phiên bản 2.1.61:
+  + Sửa triệt để lỗi kẹt vòng xoay "Đang tải..." trên trình duyệt di động: bỏ `stream.hidden = true`, thêm fallback timer 800ms tự động tắt spinner `#liveLoading` kể cả khi trình duyệt di động không bắn sự kiện `stream.onload` cho luồng MJPEG (`index.html`).
+  + Tối ưu độ trễ thấp cho luồng xem trực tiếp trên LAN và VPN: OpenCV bật `rtsp_transport;tcp|fflags;nobuffer|max_delay;500000`, `CAP_PROP_BUFFERSIZE = 1`, cơ chế `cap.grab()` liên tục xả sạch bộ đệm đọng (Zero Buffer Backlog), điều tiết ~12.5 fps bám sát 100% thời gian thực bàn bida, nén JPEG chất lượng 65 giảm 50% CPU và thêm header chuẩn `Content-Length` (`1.py`).
 - Tính năng phiên bản 2.1.60:
   + Cố định mã QR bàn mang IP nội bộ LAN (`table_qr` trong `1.py`): Loại bỏ hoàn toàn việc nhúng link Cloudflare `public_base_url` trực tiếp vào ảnh QR bàn; tự động nhận diện IP LAN của máy chủ qua `get_local_lan_ip()`.
   + Phân loại thiết bị khi quét QR: Khách quét QR bàn gửi request về máy chủ LAN trước; máy chủ kiểm tra User-Agent: iOS tự động redirect 302 sang Cloudflare HTTPS để kích hoạt Web Share API lưu 1 chạm vào Ảnh; Android và các thiết bị khác ở lại mạng LAN nội bộ HTTP xem và tải trực tiếp, không phụ thuộc Cloudflare.

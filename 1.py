@@ -4198,30 +4198,53 @@ def gen_netsdk_frames(camera, stream=None, context=None):
 
 def gen_frames(rtsp_url):
     cap = None
+    last_send_time = 0.0
+    min_interval = 0.08  # ~12.5 fps max for live preview (smooth, low CPU, zero backlog)
     while True:
         try:
             if cap is None:
-                cap = cv2.VideoCapture(rtsp_url)
+                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
+                    "rtsp_transport;tcp|fflags;nobuffer|max_delay;500000"
+                )
+                cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
                 if not cap.isOpened():
                     raise ValueError("Không thể mở stream")
-            success, frame = cap.read()
-            if not success:
-                cap.release()
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                last_send_time = 0.0
+
+            # Grab continuously to drain OpenCV RTSP buffer in real-time
+            if not cap.grab():
+                if cap:
+                    cap.release()
                 cap = None
-                time.sleep(5)
+                time.sleep(2)
                 continue
-            _, buffer = cv2.imencode(
-                ".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80]
+
+            now = time.monotonic()
+            if now - last_send_time < min_interval:
+                continue
+
+            ret, frame = cap.retrieve()
+            if not ret or frame is None:
+                continue
+
+            last_send_time = now
+            ok, buffer = cv2.imencode(
+                ".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 65]
             )
+            if not ok:
+                continue
+
+            data = buffer.tobytes()
             yield (
-                b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"
-                + buffer.tobytes()
+                b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                + str(len(data)).encode("ascii")
+                + b"\r\n\r\n"
+                + data
                 + b"\r\n"
             )
-            time.sleep(0.04)
         except GeneratorExit:
-            # Trình duyệt đã đóng ô camera; giải phóng RTSP ngay, không tiếp tục
-            # yield/sleep vì sẽ làm generator báo lỗi và giữ kết nối không cần thiết.
+            # Trình duyệt đã đóng ô camera; giải phóng RTSP ngay
             if cap:
                 cap.release()
             return
@@ -4229,7 +4252,7 @@ def gen_frames(rtsp_url):
             if cap:
                 cap.release()
             cap = None
-            time.sleep(5)
+            time.sleep(2)
 
 
 _TUNNEL_ONLINE = True
@@ -4446,13 +4469,17 @@ def camera_snapshot(cam_id):
         return "Camera không tồn tại", 404
     cap = None
     try:
-        cap = cv2.VideoCapture(rtsp_url)
+        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
+            "rtsp_transport;tcp|fflags;nobuffer|max_delay;500000"
+        )
+        cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
         if not cap.isOpened():
             return "Không thể mở camera", 503
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         ok, frame = cap.read()
         if not ok:
             return "Không nhận được hình ảnh", 503
-        ok, encoded = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 78])
+        ok, encoded = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
         if not ok:
             return "Không mã hóa được hình ảnh", 503
         response = Response(encoded.tobytes(), mimetype="image/jpeg")

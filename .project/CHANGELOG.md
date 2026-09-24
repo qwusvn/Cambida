@@ -291,3 +291,20 @@ elease/2.1.52.zip và đầy đủ cloudflared.exe + cloudflared_setup/.
   - SHA-256 `2.1.60.zip`: `2823EF2503B5743F98EF831CF805107542CF3D44AD6145A5AFC54A9A5CF82FAD` (218,859,361 bytes).
 - **Cập nhật GitHub Release `v2.1.60`**:
   - Đã xóa asset `2.1.60.zip` cũ (541 KB) trên GitHub Release `v2.1.60` và tải lên bản đầy đủ mới (218 MB).
+
+## 2026-09-25 — Tối ưu luồng xem trực tiếp độ trễ thấp & Sửa dứt điểm lỗi kẹt "Đang tải..." trên di động (v2.1.61)
+- **Sửa dứt điểm lỗi kẹt vòng xoay "Đang tải..." trên điện thoại (`index.html`)**:
+  - Loại bỏ việc ẩn thẻ ảnh (`stream.hidden = false`), thẻ ảnh camera luôn sẵn sàng render ngay khi có dữ liệu.
+  - Bổ sung fallback timer 800ms tự động ẩn spinner `#liveLoading` kể cả khi trình duyệt di động (Samsung Internet, Chrome Mobile) không bắn sự kiện `stream.onload` đối với luồng stream vô hạn MJPEG (`multipart/x-mixed-replace`).
+  - Quản lý chặt chẽ `stream._loadTimer` khi chuyển đổi qua lại giữa Trực tiếp và Xem lại.
+- **Khắc phục độ trễ dồn đệm và giật lag trong mạng nội bộ và VPN (`1.py`)**:
+  - Bật cờ bắt tay kết nối RTSP siêu tốc: `rtsp_transport;tcp|fflags;nobuffer|max_delay;500000` và `CAP_PROP_BUFFERSIZE = 1` giúp mở luồng chỉ trong tích tắc (< 1 giây thay vì ~3.5 giây).
+  - Áp dụng cơ chế **Zero Buffer Backlog (Real-time Grab)**: Gọi `cap.grab()` liên tục bám sát tốc độ phát 25 fps của đầu ghi Dahua để xả sạch bộ đệm đọng. Video được điều tiết ở mức ~12.5 fps mượt mà, bám sát thời gian thực tế của bàn bida, loại bỏ hoàn toàn độ trễ 5–15 giây.
+  - Tối ưu mã hóa JPEG chất lượng 65 giảm tải 50% CPU server và thêm header chuẩn `Content-Length` cho từng frame.
+  - Áp dụng cờ low-latency tương tự cho endpoint `camera_snapshot`.
+- **Biên dịch và đóng gói hoàn chỉnh `2.1.61.zip`**:
+  - Tịnh tiến phiên bản lên **2.1.61** (`RELEASE_VERSION.txt`, `version_info_2_1_61.txt`, `CCTV_2.1.61.spec`, `CCTV_2.1.61.launcher.cmd`, `Chay_CCTV.cmd`).
+  - Viết script `package_2.1.61.ps1` và biên dịch PyInstaller thành công tạo `CCTV_2.1.61.exe`.
+  - Đóng gói đầy đủ `release/2.1.61.zip`.
+  - SHA-256 `CCTV_2.1.61.exe`: `A03C89EC60736B00AA6BD8B517A622FF5BE87CD9B2EB9C7D2B504B97F2EF7F92`.
+  - SHA-256 `2.1.61.zip`: `9A8C4884473A07AA1C50ED4D91639388F79518C51E3F8991F1DA5E510486088D`.

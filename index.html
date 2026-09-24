@@ -2490,14 +2490,18 @@
     screenEl.classList.toggle("is-live",isLive);
     if(isLive){
       activeScreen=screen;nextPlayerRequest(video);stopPlayback(video,screen);video.pause();resetVideoTransform(frame);jumpTimelineToNow(screen);
+      if(stream._loadTimer){clearTimeout(stream._loadTimer);stream._loadTimer=null;}
       if(loading)loading.hidden=false;
-      stream.hidden=true;
+      stream.hidden=false;
+      stream._loadTimer=setTimeout(()=>{if(loading)loading.hidden=true;stream._loadTimer=null;},800);
       stream.onload=()=>{
+        if(stream._loadTimer){clearTimeout(stream._loadTimer);stream._loadTimer=null;}
         if(loading)loading.hidden=true;
         stream.hidden=false;
         if(stream.naturalWidth&&stream.naturalHeight){frame.style.aspectRatio=`${stream.naturalWidth}/${stream.naturalHeight}`;}
       };
       stream.onerror=()=>{
+        if(stream._loadTimer){clearTimeout(stream._loadTimer);stream._loadTimer=null;}
         if(loading)loading.hidden=true;
         stream.hidden=true;
         const error=$(cut?"cutError":"watchError");
@@ -2511,6 +2515,7 @@
       updateModeBadge(true);
       updateLiveTimestampTicker();
     }else{
+      if(stream._loadTimer){clearTimeout(stream._loadTimer);stream._loadTimer=null;}
       nextPlayerRequest(video);
       if(frame)frame.style.aspectRatio="";
       if(loading)loading.hidden=true;
