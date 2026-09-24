@@ -3566,7 +3566,10 @@ def check_github_update(repo=GITHUB_REPO, token=None):
             for asset in assets:
                 name = asset.get("name", "")
                 if name.lower().endswith(".zip"):
-                    download_url = asset.get("browser_download_url")
+                    if actual_token:
+                        download_url = asset.get("url") or asset.get("browser_download_url")
+                    else:
+                        download_url = asset.get("browser_download_url")
                     asset_name = name
                     break
             if not download_url:
@@ -3605,6 +3608,7 @@ def apply_github_update(download_url, new_version, token=None):
     headers = {"User-Agent": f"Cambida-CCTV/{APP_VERSION}"}
     if actual_token:
         headers["Authorization"] = f"Bearer {actual_token}"
+        headers["Accept"] = "application/octet-stream"
 
     logger.info("[AutoUpdate] Bắt đầu tải bản cập nhật v%s từ %s...", new_version, download_url)
     resp = requests.get(download_url, headers=headers, stream=True, timeout=180)
