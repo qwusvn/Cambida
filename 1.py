@@ -3062,6 +3062,29 @@ def _stop_process(cam_id):
         logger.warning(f"[Cam {cam_id}] Không thể dừng FFmpeg: {e}")
 
 
+def _stop_all_recordings():
+    """Dừng tất cả các tiến trình FFmpeg đang ghi hình camera để giải phóng file lock."""
+    with CAMERA_LOCK:
+        procs = [p for p in CAM_PROCESSES.values() if p and p.poll() is None]
+    for proc in procs:
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+    deadline = time.time() + 3.0
+    for proc in procs:
+        remain = max(0.1, deadline - time.time())
+        try:
+            proc.wait(timeout=remain)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+    with CAMERA_LOCK:
+        CAM_PROCESSES.clear()
+
+
 def _run_recording_attempt(cam_id, rtsp_url, temp_filepath, stop_event):
     """Run one real recording attempt; candidate fallback is not a preflight."""
     cmd = [
@@ -3643,6 +3666,18 @@ def apply_github_update(download_url, new_version, token=None):
         logger.error("[AutoUpdate] Không tìm thấy updater.cmd tại %s", updater_cmd)
         return False
 
+    # Dừng các tiến trình ghi hình camera và giải phóng mutex trước khi chạy updater
+    logger.info("[AutoUpdate] Đang dừng tất cả tiến trình ghi hình camera...")
+    try:
+        _stop_all_recordings()
+    except Exception as exc:
+        logger.warning("[AutoUpdate] Lỗi khi dừng ghi hình: %s", exc)
+
+    try:
+        _release_single_instance()
+    except Exception:
+        pass
+
     current_pid = os.getpid()
     logger.info("[AutoUpdate] Kích hoạt updater.cmd (PID: %s)...", current_pid)
     flags = subprocess.CREATE_NEW_PROCESS_GROUP
@@ -3655,10 +3690,6 @@ def apply_github_update(download_url, new_version, token=None):
         close_fds=True,
     )
 
-    try:
-        stop_recording_loop()
-    except Exception:
-        pass
     time.sleep(1)
     os._exit(0)
 
