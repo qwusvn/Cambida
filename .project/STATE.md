@@ -4,7 +4,11 @@ Cập nhật: 2026-09-24 +07
 
 ## Trạng thái hiện tại
 - Workspace: `D:\1\cambida`, branch `main` (tracking `origin/main` tại `https://github.com/qwusvn/Cambida`).
-- Phiên bản phát triển và đóng gói: **2.1.5** (`RELEASE_VERSION.txt` = `2.1.5`, spec và launcher `CCTV_2.1.5.spec`, `CCTV_2.1.5.launcher.cmd`, `package_2.1.5.ps1`). Gói release onedir: `D:\1\cambida\release\2.1.5\CCTV_2.1.5.exe` (SHA-256: `B4C575B47C987B2D1218E6231383884D2F4B4EF6547C5249D4221E37FD37C19F`), kèm gói nén cập nhật `release\2.1.5.zip` (SHA-256: `55E25E7D64FB1985AA38BE2F1BEB0A90555C01FB71006470B282133A04A271ED`) và bản sao lưu tại `staging\2.1.5`.
+- Phiên bản phát triển và đóng gói: **2.1.51** (`RELEASE_VERSION.txt` = `2.1.51`, spec và launcher `CCTV_2.1.51.spec`, `CCTV_2.1.51.launcher.cmd`, `package_2.1.51.ps1`). Gói release onedir: `D:\1\cambida\release\2.1.51\CCTV_2.1.51.exe` (SHA-256: `09BC1712A71C29E231691181EF7C06CB14C352E4DEE07F64344080143E70A562`), kèm gói nén cập nhật `release\2.1.51.zip` (SHA-256: `3F877312E3F11848AB0592AF9427F07555927E24941205E9DA3C8CD58E76B7FD`) và bản sao lưu tại `staging\2.1.51`. Đã tích hợp sẵn file nhị phân `cloudflared.exe` và thư mục công cụ cài đặt tunnel `cloudflared_setup/`.
+- Tính năng phiên bản 2.1.51:
+  + Sửa lỗi cú pháp JavaScript (SyntaxError) trong `index.html` và template nhúng trong `1.py` (loại bỏ dấu `}` thừa), khôi phục hoạt động của date picker, timeline ruler và marker thời gian.
+  + Tích hợp đầy đủ `cloudflared.exe` và thư mục `cloudflared_setup/` vào gói phát hành độc lập.
+  + Đã khởi động lại dịch vụ máy chủ trên cổng 8004.
 - **Quy tắc phiên bản theo commit**: Kể từ bản 2.1.5, mỗi commit tiếp theo sẽ tự động tịnh tiến phiên bản mới (2.1.6, 2.1.7...).
 - Tính năng phiên bản 2.1.5:
   + Tích hợp gói module camera độc lập `camera_modules/` (Dahua/Imou NetSDK, Hikvision/Ezviz, ONVIF, RTSP, Table Access, Discovery, Policy).

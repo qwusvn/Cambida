@@ -534,3 +534,12 @@ elease\2.1.0\index.html synchronized with source.
   + Tự động chuyển hướng QR sang HTTPS và fallback HTTP LAN.
 - An toàn cấu hình (Zero Config Pollution): Không chứa `config.json`, `analytics.db`, `logs`, `cctv_videos`, `nvr_cache`.
 - **Quy tắc phiên bản theo commit**: Kể từ bản 2.1.5 này, mỗi commit tiếp theo sẽ tự động tịnh tiến phiên bản mới (2.1.6, 2.1.7...).
+
+## 2026-09-24 handoff — Sửa lỗi cú pháp xem lại, tích hợp Cloudflared & Đóng gói 2.1.51
+- Đã khắc phục lỗi cú pháp thừa dấu `}` trong hàm xử lý `iosSaveShareBtn` ở `index.html` và template nhúng trong `1.py`.
+- Khôi phục hoạt động cho trình duyệt Cốc Cốc: ngày tự động gán hôm nay, thước đo timeline hiển thị đầy đủ vạch chia và vệt video xanh, kim giờ hoạt động chính xác.
+- Kiểm thử hồi quy JavaScript: 26/26 tests PASS (`tests/replay_timeline_ui.test.js`).
+- Tích hợp trọn gói `cloudflared.exe` và thư mục `cloudflared_setup/` vào bản phát hành.
+- Đóng gói hoàn tất vào `D:\1\cambida\release\2.1.51` và file nén `release\2.1.51.zip` (SHA-256: `3F877312E3F11848AB0592AF9427F07555927E24941205E9DA3C8CD58E76B7FD`).
+- SHA-256 EXE: `09BC1712A71C29E231691181EF7C06CB14C352E4DEE07F64344080143E70A562`.
+- Server 8004 đã được khởi động lại với mã mới (PID 16052).

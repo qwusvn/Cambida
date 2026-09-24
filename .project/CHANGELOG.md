@@ -220,3 +220,12 @@
   - Biên dịch PyInstaller onedir và đóng gói sạch sẽ (Zero Config Pollution) vào thư mục `release/2.1.5` và `staging/2.1.5`.
   - Tạo tệp nén `release/2.1.5.zip` (và lưu bản sao `release/2.1.5/2.1.5.zip`).
 - **Quy tắc phiên bản**: Kể từ bản 2.1.5 này, mỗi commit tiếp theo sẽ tự động tịnh tiến phiên bản mới (2.1.6, 2.1.7...).
+
+## 2026-09-24 — Sửa lỗi cú pháp xem lại, tích hợp Cloudflared & Đóng gói 2.1.51
+- Sửa lỗi cú pháp JavaScript (thừa 1 dấu đóng ngoặc `}` trong khối click của nút `iosSaveShareBtn`) trong `index.html`.
+- Cập nhật lại template nhúng Base85 và SHA-256 mới trong `1.py`.
+- Khắc phục triệt để lỗi trang xem lại bị ngắt JS dẫn tới ngày hiển thị `--/--/----`, giờ `--:--:--` và thước đo timeline trắng trơn trên Cốc Cốc.
+- Kiểm thử hồi quy giao diện Node.js `tests/replay_timeline_ui.test.js`: **26/26 PASS**.
+- Tích hợp `cloudflared.exe` và bộ công cụ cài đặt tunnel `cloudflared_setup/` vào gói phát hành.
+- Đóng gói hoàn tất bản **2.1.51** vào `release/2.1.51` và `staging/2.1.51` kèm file nén `release/2.1.51.zip`.
+- Khởi động lại dịch vụ máy chủ `python 1.py` trên cổng `8004` (PID 16052).
