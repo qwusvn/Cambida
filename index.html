@@ -1224,7 +1224,6 @@
   <div class="title-section" id="mainTitleSection">
     <h1 id="headerTitle" class="main-title">{{ camera_name }}</h1>
     <div class="main-subtitle" id="headerSubtitle">{{ site.name }}</div>
-    <a id="lanSwitchLink" href="#" style="display:none; font-size:12px; color:var(--accent,#ffa500); margin-top:4px; text-decoration:underline; font-weight:500;">⚡ Mạng chậm? Chuyển sang mạng nội bộ (LAN)</a>
   </div>
 
   <!-- Screen 1 & Screen 2: Replay & Live Screen -->
@@ -1323,7 +1322,6 @@
       <div class="cut-title-center">
         <h1 class="main-title">Cắt video</h1>
         <div class="main-subtitle">{{ site.name }}</div>
-        <a id="cutLanSwitchLink" href="#" style="display:none; font-size:12px; color:var(--accent,#ffa500); margin-top:4px; text-decoration:underline; font-weight:500;">⚡ Mạng chậm? Chuyển sang mạng nội bộ (LAN)</a>
       </div>
       <button class="pill-back-replay" id="cutHeaderReplayBtn" type="button" aria-label="Quay lại">
         <span class="dot-blue"></span><span>Xem lại</span>
@@ -1529,19 +1527,6 @@
   function isIOSDevice(){
     if (typeof navigator === "undefined") return false;
     return /iPad|iPhone|iPod/.test(navigator.userAgent || "") || (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1);
-  }
-
-  function getLanFallbackUrl(){
-    try {
-      const p = new URLSearchParams(window.location.search).get("lan");
-      if(p){
-        try{ localStorage.setItem("cambida_lan_url", p); }catch(e){}
-        return p + window.location.pathname;
-      }
-      const cached = localStorage.getItem("cambida_lan_url");
-      if(cached) return cached + window.location.pathname;
-    }catch(e){}
-    return null;
   }
 
   function canUseIOSFileShare(){
@@ -2535,9 +2520,7 @@
     };
     mergeEventSource.onerror=()=>{
       mergeEventSource?.close();mergeEventSource=null;
-      const lanUrl = getLanFallbackUrl();
-      const lanBtnHtml = lanUrl ? `<br><a href="${lanUrl}" style="color:var(--accent,#ffa500);text-decoration:underline;display:inline-block;margin-top:6px;font-weight:600;">⚡ Chuyển sang mạng nội bộ (LAN) để thử lại</a>` : "";
-      $("cutError").innerHTML="Mất kết nối khi cắt video. Đường truyền ngoài có thể bị gián đoạn." + lanBtnHtml;
+      $("cutError").textContent="Mất kết nối khi cắt video. Hãy kiểm tra lại kết quả hoặc thử lại.";
       $("cutError").hidden=false;
       resetMergeButton();
     };
@@ -2549,14 +2532,6 @@
     wireDatePicker("filterDate");wireDatePicker("cutFilterDate");wireDatePicker("liveFilterDate");
     updateRuler("ruler");updateRuler("cutRuler");
     replayTitle=$("headerTitle").textContent.trim();
-
-    const lanUrl = getLanFallbackUrl();
-    if(lanUrl && location.protocol === "https:"){
-      const lanLink = $("lanSwitchLink");
-      if(lanLink){ lanLink.href = lanUrl; lanLink.style.display = "inline-block"; }
-      const cutLanLink = $("cutLanSwitchLink");
-      if(cutLanLink){ cutLanLink.href = lanUrl; cutLanLink.style.display = "inline-block"; }
-    }
 
     wirePlayer("videoPlayer","pauseButton","pauseIcon","playerTime","playerFrame","fullscreenButton","replay");
     wirePlayer("cutPlayer","cutPauseButton","cutPauseIcon","cutPlayerTime","cutPlayerFrame","cutFullscreenButton","cut");
