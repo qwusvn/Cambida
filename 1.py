@@ -12,6 +12,7 @@ import glob
 import hashlib
 import hmac
 import json
+import ipaddress
 import logging
 import math
 import os
@@ -4237,6 +4238,27 @@ def api_ping():
     return jsonify({"status": "ok", "time": time.time()})
 
 
+def get_local_lan_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0.5)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        if ip and not ip.startswith("127."):
+            return ip
+    except Exception:
+        pass
+    try:
+        host_name = socket.gethostname()
+        ip = socket.gethostbyname(host_name)
+        if ip and not ip.startswith("127."):
+            return ip
+    except Exception:
+        pass
+    return "127.0.0.1"
+
+
 def get_public_base_url():
     try:
         if os.path.isfile(CONFIG_FILE):
@@ -5523,8 +5545,23 @@ def table_qr(table_id):
     )
     if not table or not table.get("camera_id"):
         return "Bàn không tồn tại hoặc chưa gán camera", 404
-    public_base = str(CONFIG.get("public_base_url") or request.url_root).rstrip("/")
-    target_url = f"{public_base}/replay/cam{int(table['camera_id'])}"
+    port = int(CONFIG.get("server_port") or 8004)
+    req_host = request.host.split(":")[0].strip().lower()
+    is_lan = False
+    try:
+        ip_obj = ipaddress.ip_address(req_host)
+        if ip_obj.is_private and not ip_obj.is_loopback:
+            is_lan = True
+    except ValueError:
+        pass
+
+    if is_lan:
+        lan_base = request.url_root.rstrip("/")
+    else:
+        lan_ip = get_local_lan_ip()
+        lan_base = f"http://{lan_ip}:{port}"
+
+    target_url = f"{lan_base}/replay/cam{int(table['camera_id'])}"
     image = qrcode.make(target_url, border=2)
     output = BytesIO()
     image.save(output, format="PNG")
