@@ -33,8 +33,25 @@ for /d %%D in ("%EXTRACT_DIR%\*") do (
 :: TUYỆT ĐỐI KHÔNG GHI ĐÈ: config.json, analytics.db, cctv_videos, logs, .git, .project
 robocopy "%COPY_SRC%" "%TARGET_DIR%" /E /R:3 /W:1 /XF config.json analytics.db *.log /XD cctv_videos logs .git .project >nul 2>&1
 
+:: 3.5. Dọn dẹp launcher và exe cũ để tránh xung đột phiên bản
+if exist "%TARGET_DIR%\RELEASE_VERSION.txt" (
+    set /p CUR_VER=<"%TARGET_DIR%\RELEASE_VERSION.txt"
+    set "CUR_VER=!CUR_VER: =!"
+    for %%F in ("%TARGET_DIR%\CCTV_*.launcher.cmd") do (
+        if /i not "%%~nxF"=="CCTV_!CUR_VER!.launcher.cmd" (
+            del /f /q "%%F" >nul 2>&1
+        )
+    )
+    for %%F in ("%TARGET_DIR%\CCTV_*.exe") do (
+        if /i not "%%~nxF"=="CCTV_!CUR_VER!.exe" (
+            del /f /q "%%F" >nul 2>&1
+        )
+    )
+)
+
 :: 4. Khởi động lại ứng dụng
 cd /d "%TARGET_DIR%"
+set "LAUNCHED=0"
 if exist "%TARGET_DIR%\Chay_CCTV.cmd" (
     start "" "%TARGET_DIR%\Chay_CCTV.cmd"
     set "LAUNCHED=1"

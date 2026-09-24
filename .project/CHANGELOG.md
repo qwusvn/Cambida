@@ -277,3 +277,17 @@ elease/2.1.52.zip và đầy đủ cloudflared.exe + cloudflared_setup/.
   - Biên dịch PyInstaller tạo `CCTV_2.1.60.exe`, tạo launcher `CCTV_2.1.60.launcher.cmd`, `Chay_CCTV.cmd`.
   - Đóng gói file zip cập nhật `release/2.1.60.zip`.
   - Đẩy commit lên GitHub `qwusvn/Cambida`, tạo GitHub Release `v2.1.60` và đính kèm `2.1.60.zip` phục vụ auto update.
+
+## 2026-09-25 — Đóng gói trọn vẹn bản phát hành đầy đủ v2.1.60 & Khắc phục lỗi Auto Update máy khách
+- **Khắc phục lỗi crash máy khách khi cập nhật**:
+  - Gói cập nhật cũ 541 KB thiếu thư mục `_internal\` chứa toàn bộ runtime Python và thư viện mới `qrcode`, khiến file mồi PyInstaller (`CCTV_2.1.60.exe`) bị crash khi khởi động do không tìm thấy module `qrcode`.
+  - Tối ưu `updater.cmd`: tự động dọn dẹp các launcher và file exe cũ (`CCTV_*.launcher.cmd`, `CCTV_*.exe`), ưu tiên tuyệt đối chạy `Chay_CCTV.cmd`.
+  - Tạo shim chuyển tiếp `CCTV_2.1.53.launcher.cmd` gọi sang `Chay_CCTV.cmd` để đảm bảo ngay cả khi script updater cũ của bản 2.1.53 trên máy khách quét launcher theo thứ tự chữ cái, nó vẫn gọi đúng sang bản mới 2.1.60.
+- **Biên dịch và đóng gói hoàn chỉnh `2.1.60.zip` (218 MB)**:
+  - Viết script đóng gói chuẩn `package_2.1.60.ps1`.
+  - Chạy PyInstaller biên dịch lại `1.py` với đầy đủ các thay đổi mới (IP LAN QR, header octet-stream, version badge trên `/admin`).
+  - Đóng gói đầy đủ `_internal\`, `cloudflared.exe`, `cloudflared_setup\`, `ffmpeg.exe`, toàn bộ các file HTML sidecars, `updater.cmd`, `Chay_CCTV.cmd`, `RELEASE_VERSION.txt`.
+  - SHA-256 `CCTV_2.1.60.exe`: `215BB0491CEE8CDC23D87E51D093768AC7D94AF123EBCB22E43F343034F51B99`.
+  - SHA-256 `2.1.60.zip`: `2823EF2503B5743F98EF831CF805107542CF3D44AD6145A5AFC54A9A5CF82FAD` (218,859,361 bytes).
+- **Cập nhật GitHub Release `v2.1.60`**:
+  - Đã xóa asset `2.1.60.zip` cũ (541 KB) trên GitHub Release `v2.1.60` và tải lên bản đầy đủ mới (218 MB).
