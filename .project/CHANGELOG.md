@@ -209,3 +209,14 @@
 - Bổ sung logic redirect 302 trong `replay_cam` của `1.py`: Khi khách truy cập qua IP nội bộ (mã QR cũ tại bàn), máy chủ tự động chuyển hướng sang `public_base_url` (HTTPS).
 - Cấu hình `public_base_url` trong `config.json`.
 - Cho phép giữ nguyên 100% mã QR đã in trên các bàn bida; khách quét QR cũ tự động được chuyển sang HTTPS để mở khóa tính năng lưu 1 chạm vào Ảnh trên iPhone.
+
+## 2026-09-24 — Đóng gói phát hành 2.1.5 & Thiết lập quy tắc phiên bản theo commit
+- Đóng gói toàn diện phiên bản **2.1.5**:
+  - Tích hợp toàn bộ gói module camera mới `camera_modules/` (Dahua/Imou, Hikvision/Ezviz, ONVIF, RTSP, Table Access, Discovery, Policy).
+  - Tích hợp công tắc bảo vệ riêng tư (Privacy Switch) trên `home.html` và backend `1.py` (Bật = đỏ, Tắt = xám; khách bị chặn xem/cắt/tải khi tắt nhưng camera vẫn ghi hình ngầm 24/7).
+  - Tích hợp giao diện quản lý thêm camera đa hãng trong `admin.html` (quét LAN, kiểm tra kênh probe, chọn nhiều kênh).
+  - Giới hạn số bàn tối đa theo cú pháp Telegram pin `/N`.
+  - Nâng cấp `RELEASE_VERSION.txt` = `2.1.5`, tạo `version_info_2_1_5.txt` (2.1.5.0), `CCTV_2.1.5.spec`, `CCTV_2.1.5.launcher.cmd`, `package_2.1.5.ps1`.
+  - Biên dịch PyInstaller onedir và đóng gói sạch sẽ (Zero Config Pollution) vào thư mục `release/2.1.5` và `staging/2.1.5`.
+  - Tạo tệp nén `release/2.1.5.zip` (và lưu bản sao `release/2.1.5/2.1.5.zip`).
+- **Quy tắc phiên bản**: Kể từ bản 2.1.5 này, mỗi commit tiếp theo sẽ tự động tịnh tiến phiên bản mới (2.1.6, 2.1.7...).

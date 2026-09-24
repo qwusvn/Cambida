@@ -6,29 +6,719 @@
   <title>{{ site.name }}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    :root { --bg: {{ site.theme.background }}; --surface: {{ site.theme.surface }}; --primary: {{ site.theme.primary }}; --accent: {{ site.theme.accent }}; --text: {{ site.theme.text }}; }
-    body { min-height:100vh; margin:0; color:var(--text); background:radial-gradient(circle at 15% 0, var(--surface), var(--bg) 55%); }
-    .page { max-width:1050px; margin:auto; padding:48px 20px; }
-    .brand { color:var(--accent); font-weight:800; letter-spacing:.06em; }
-    .tagline { color:color-mix(in srgb, var(--text) 72%, transparent); }
-    .cam-btn { background:linear-gradient(135deg,var(--surface),var(--primary)); border:1px solid color-mix(in srgb,var(--accent) 72%,transparent); border-radius:18px; color:var(--text); text-decoration:none; display:flex; flex-direction:column; align-items:center; justify-content:center; height:145px; box-shadow:0 10px 25px rgba(0,0,0,.24); transition:transform .18s,box-shadow .18s; }
-    .cam-btn:hover { transform:translateY(-4px); color:var(--text); box-shadow:0 16px 30px rgba(0,0,0,.34); }
-    .admin-link { color:var(--accent); text-decoration:none; }
+    :root {
+      --bg: {{ site.theme.background }};
+      --surface: {{ site.theme.surface }};
+      --primary: {{ site.theme.primary }};
+      --accent: {{ site.theme.accent }};
+      --text: {{ site.theme.text }};
+    }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      color: var(--text);
+      background: radial-gradient(circle at 15% 0, var(--surface), var(--bg) 55%);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .page {
+      max-width: 1050px;
+      margin: auto;
+      padding: 48px 20px;
+    }
+    .brand {
+      color: var(--accent);
+      font-weight: 800;
+      letter-spacing: .06em;
+    }
+    .tagline {
+      color: color-mix(in srgb, var(--text) 72%, transparent);
+    }
+    .admin-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .admin-link:hover {
+      text-decoration: underline;
+      color: var(--accent);
+    }
+    .btn-mode-toggle {
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--accent);
+      text-decoration: none;
+      font: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: opacity .15s, color .15s;
+    }
+    .btn-mode-toggle:hover {
+      text-decoration: underline;
+      opacity: 0.85;
+    }
+    .btn-mode-toggle.active {
+      color: #ef4444;
+      font-weight: 700;
+    }
+
+    /* Cards */
+    .cam-btn {
+      position: relative;
+      background: linear-gradient(135deg, var(--surface), var(--primary));
+      border: 1px solid color-mix(in srgb, var(--accent) 72%, transparent);
+      border-radius: 18px;
+      color: var(--text);
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 145px;
+      box-shadow: 0 10px 25px rgba(0,0,0,.24);
+      transition: transform .18s, box-shadow .18s, background .2s, border-color .2s, opacity .2s;
+      user-select: none;
+    }
+    .cam-btn:hover {
+      transform: translateY(-4px);
+      color: var(--text);
+      box-shadow: 0 16px 30px rgba(0,0,0,.34);
+    }
+
+    /* Edit Mode styles */
+    body.edit-mode .cam-btn {
+      cursor: pointer;
+    }
+    /* Đỏ khi bật (guest được xem) */
+    body.edit-mode .cam-btn.table-enabled {
+      background: linear-gradient(135deg, #7f1d1d 0%, #b91c1c 50%, #dc2626 100%) !important;
+      border: 2px solid #ef4444 !important;
+      box-shadow: 0 10px 28px rgba(239, 68, 68, 0.4) !important;
+      color: #ffffff !important;
+      opacity: 1 !important;
+      filter: none !important;
+    }
+    body.edit-mode .cam-btn.table-enabled:hover {
+      box-shadow: 0 14px 34px rgba(239, 68, 68, 0.6) !important;
+      transform: translateY(-4px) scale(1.02);
+    }
+    /* Xám mờ khi tắt */
+    body.edit-mode .cam-btn.table-disabled {
+      background: #1e222a !important;
+      border: 2px dashed #4b5563 !important;
+      box-shadow: none !important;
+      color: #9ca3af !important;
+      opacity: 0.42 !important;
+      filter: grayscale(1) !important;
+    }
+    body.edit-mode .cam-btn.table-disabled:hover {
+      opacity: 0.7 !important;
+      transform: translateY(-2px);
+    }
+    body.edit-mode .cam-btn.table-loading {
+      pointer-events: none;
+      opacity: 0.6 !important;
+    }
+
+    .status-pill {
+      font-size: 0.73rem;
+      font-weight: 700;
+      letter-spacing: .03em;
+      padding: 3px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .table-enabled .status-pill {
+      background: #ffffff;
+      color: #b91c1c;
+    }
+    .table-disabled .status-pill {
+      background: #374151;
+      color: #e5e7eb;
+    }
+
+    /* Modal Backdrop & Popup */
+    .custom-modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 1050;
+    }
+    .custom-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 430px;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+      border-radius: 18px;
+      padding: 24px;
+      z-index: 1060;
+      box-shadow: 0 20px 45px rgba(0,0,0,0.6);
+    }
+    .form-control-custom {
+      background: rgba(0, 0, 0, 0.3) !important;
+      color: var(--text) !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      border-radius: 10px;
+      padding: 10px 14px;
+    }
+    .form-control-custom:focus {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent) !important;
+    }
+    .btn-submit-login {
+      background: var(--accent);
+      color: #000;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      padding: 11px;
+      transition: opacity .15s, transform .15s;
+    }
+    .btn-submit-login:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    @media (max-width: 576px) {
+      .page { padding: 24px 14px; }
+      .header-wrap { flex-direction: column; gap: 16px; align-items: stretch !important; }
+      .nav-links { justify-content: flex-start; gap: 12px; }
+      .cam-btn { height: 130px; }
+    }
   </style>
 </head>
 <body>
   <main class="page">
-    <div class="d-flex justify-content-between align-items-start mb-5">
-      <div><h1 class="brand mb-2">🎥 {{ site.name }}</h1><p class="tagline mb-0">{{ site.tagline }}</p></div>
-      <div class="d-flex gap-3"><a class="admin-link" href="/live">📺 Xem trực tiếp</a><a class="admin-link" href="/timeline">🕒 Timeline</a><a class="admin-link" href="/admin">⚙️ Quản trị</a></div>
+    <div class="d-flex justify-content-between align-items-start mb-5 header-wrap">
+      <div>
+        <h1 class="brand mb-2">🎥 {{ site.name }}</h1>
+        <p class="tagline mb-0">{{ site.tagline }}</p>
+      </div>
+      <div class="d-flex gap-3 align-items-center flex-wrap nav-links">
+        <a class="admin-link" href="/live">📺 Xem trực tiếp</a>
+        <button type="button" id="btnToggleMode" class="admin-link btn-mode-toggle" title="Bật/tắt chế độ chỉnh sửa quyền riêng tư bàn">🔘 Bật/tắt</button>
+        <a class="admin-link" href="/admin">⚙️ Quản trị</a>
+      </div>
     </div>
-    <div class="row g-4">
+
+    <!-- Alert / Toast lỗi hệ thống -->
+    <div id="globalAlert" class="alert alert-danger alert-dismissible fade show d-none mb-4" role="alert">
+      <span id="globalAlertMsg"></span>
+      <button type="button" class="btn-close btn-close-white" aria-label="Close" onclick="hideGlobalAlert()"></button>
+    </div>
+
+    <!-- Banner hiển thị khi đang trong chế độ chỉnh -->
+    <div id="editModeBanner" class="alert alert-warning py-2 px-3 mb-4 d-none align-items-center justify-content-between flex-wrap gap-2 rounded-3 shadow-sm" style="background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.35); color: #fef08a;">
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-warning text-dark fw-bold">CHẾ ĐỘ CHỈNH</span>
+        <span class="small">Chạm/nhấn vào từng bàn để chuyển đổi: <strong>Đỏ</strong> (Bật - khách xem được) / <strong>Xám mờ</strong> (Tắt - ẩn khách).</span>
+      </div>
+      <div class="d-flex gap-2 align-items-center">
+        <button type="button" id="btnRefreshTables" class="btn btn-outline-warning btn-sm py-1 px-2">🔄 Tải lại</button>
+        <button type="button" id="btnExitEditMode" class="btn btn-secondary btn-sm py-1 px-2">Thoát chỉnh</button>
+      </div>
+    </div>
+
+    <div class="row g-4" id="cameraGrid">
       {% for camera in cameras %}
-      <div class="col-6 col-md-4 col-lg-3">
-        <a href="/replay/cam{{ camera.id }}" class="cam-btn"><span style="font-size:2.6rem">📷</span><span class="fw-bold mt-2">{{ camera.name }}</span></a>
+      <div class="col-6 col-md-4 col-lg-3 card-col">
+        <a href="/replay/cam{{ camera.id }}" class="cam-btn" data-table-id="{{ camera.table_id }}">
+          <span style="font-size:2.6rem">📷</span>
+          <span class="fw-bold mt-2 text-center text-truncate w-100 px-2">{{ camera.name }}</span>
+          <span class="status-indicator mt-2 d-none"><span class="badge status-pill">--</span></span>
+        </a>
       </div>
       {% endfor %}
     </div>
   </main>
+
+  <!-- Popup Modal Đăng nhập Admin -->
+  <div id="loginModalContainer" class="d-none">
+    <div class="custom-modal-backdrop" id="modalBackdrop"></div>
+    <div class="custom-modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary border-opacity-25">
+        <h5 class="m-0 fw-bold" id="modalTitle">🔐 Đăng nhập Quản trị</h5>
+        <button type="button" class="btn-close btn-close-white" id="btnCloseLoginModal" aria-label="Close"></button>
+      </div>
+
+      <div id="loginAlert" class="alert alert-danger d-none py-2 px-3 mb-3 small" role="alert"></div>
+
+      <form id="adminLoginForm">
+        <div class="mb-3">
+          <label for="adminUsername" class="form-label small fw-semibold">Tên đăng nhập</label>
+          <input type="text" class="form-control form-control-custom" id="adminUsername" name="username" required autocomplete="username" placeholder="admin">
+        </div>
+        <div class="mb-3">
+          <label for="adminPassword" class="form-label small fw-semibold">Mật khẩu</label>
+          <input type="password" class="form-control form-control-custom" id="adminPassword" name="password" required autocomplete="current-password" placeholder="••••••••">
+        </div>
+        <div class="d-grid mt-4">
+          <button type="submit" id="btnLoginSubmit" class="btn btn-submit-login">Đăng nhập & Bật chỉnh sửa</button>
+        </div>
+      </form>
+
+      <div class="mt-4 pt-3 border-top border-secondary border-opacity-25 text-center">
+        <p class="text-secondary small mb-2">Hoặc đăng nhập trực tiếp qua trang quản trị:</p>
+        <div class="d-flex justify-content-center gap-2 flex-wrap">
+          <button type="button" id="btnPopupLogin" class="btn btn-sm btn-outline-info">Mở cửa sổ /admin/login</button>
+          <button type="button" id="btnCheckSessionAgain" class="btn btn-sm btn-outline-secondary">Kiểm tra lại phiên</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let isEditMode = false;
+    let tableStates = {}; // Lưu trạng thái thật từ backend: { [tableId]: boolean }
+
+    const btnToggleMode = document.getElementById('btnToggleMode');
+    const editModeBanner = document.getElementById('editModeBanner');
+    const btnExitEditMode = document.getElementById('btnExitEditMode');
+    const btnRefreshTables = document.getElementById('btnRefreshTables');
+    const loginModalContainer = document.getElementById('loginModalContainer');
+    const btnCloseLoginModal = document.getElementById('btnCloseLoginModal');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const adminLoginForm = document.getElementById('adminLoginForm');
+    const btnLoginSubmit = document.getElementById('btnLoginSubmit');
+    const loginAlert = document.getElementById('loginAlert');
+    const btnPopupLogin = document.getElementById('btnPopupLogin');
+    const btnCheckSessionAgain = document.getElementById('btnCheckSessionAgain');
+
+    function showGlobalAlert(message, type = 'danger') {
+      const el = document.getElementById('globalAlert');
+      const msgEl = document.getElementById('globalAlertMsg');
+      el.className = `alert alert-${type} alert-dismissible fade show mb-4`;
+      msgEl.textContent = message;
+      el.classList.remove('d-none');
+    }
+
+    function hideGlobalAlert() {
+      const el = document.getElementById('globalAlert');
+      el.classList.add('d-none');
+    }
+
+    function showLoginModal(errorMsg = '') {
+      if (errorMsg) {
+        loginAlert.textContent = errorMsg;
+        loginAlert.classList.remove('d-none');
+      } else {
+        loginAlert.textContent = '';
+        loginAlert.classList.add('d-none');
+      }
+      loginModalContainer.classList.remove('d-none');
+      setTimeout(() => {
+        const u = document.getElementById('adminUsername');
+        if (u) u.focus();
+      }, 50);
+    }
+
+    function hideLoginModal() {
+      loginModalContainer.classList.add('d-none');
+      loginAlert.textContent = '';
+      loginAlert.classList.add('d-none');
+    }
+
+    // Phân tích dữ liệu bàn từ backend trả về
+    function parseTablesData(data) {
+      const map = {};
+      if (!data) return map;
+
+      let list = null;
+      if (Array.isArray(data)) {
+        list = data;
+      } else if (Array.isArray(data.tables)) {
+        list = data.tables;
+      } else if (Array.isArray(data.data)) {
+        list = data.data;
+      } else if (typeof data.tables === 'object' && data.tables !== null) {
+        for (const [k, v] of Object.entries(data.tables)) {
+          if (typeof v === 'boolean') {
+            map[String(k)] = v;
+          } else if (v && typeof v.enabled === 'boolean') {
+            map[String(k)] = v.enabled;
+          } else if (v && typeof v.privacy === 'boolean') {
+            map[String(k)] = !v.privacy;
+          }
+        }
+        return map;
+      } else if (typeof data === 'object') {
+        for (const [k, v] of Object.entries(data)) {
+          if (typeof v === 'boolean') {
+            map[String(k)] = v;
+          } else if (v && typeof v.enabled === 'boolean') {
+            map[String(k)] = v.enabled;
+          }
+        }
+        if (Object.keys(map).length > 0) return map;
+      }
+
+      if (list) {
+        for (const item of list) {
+          if (item && item.id !== undefined) {
+            const id = String(item.id);
+            if (typeof item.enabled === 'boolean') {
+              map[id] = item.enabled;
+            } else if (typeof item.privacy === 'boolean') {
+              map[id] = !item.privacy;
+            } else if (typeof item.is_active === 'boolean') {
+              map[id] = item.is_active;
+            } else {
+              map[id] = true;
+            }
+          }
+        }
+      }
+      return map;
+    }
+
+    function getTableState(tableId) {
+      const s = String(tableId);
+      const num = s.replace(/^cam/i, '');
+      const pref = s.startsWith('cam') ? s : 'cam' + s;
+
+      if (tableStates[s] !== undefined) return tableStates[s];
+      if (tableStates[num] !== undefined) return tableStates[num];
+      if (tableStates[pref] !== undefined) return tableStates[pref];
+      return true; // Mặc định mở nếu backend chưa có cấu hình riêng
+    }
+
+    function applyTableStatesToUI() {
+      document.querySelectorAll('.cam-btn').forEach(btn => {
+        const tableId = btn.getAttribute('data-table-id');
+        const indicator = btn.querySelector('.status-indicator');
+        const badge = btn.querySelector('.status-pill');
+        if (!indicator || !badge) return;
+
+        indicator.classList.remove('d-none');
+        btn.classList.remove('table-enabled', 'table-disabled', 'table-loading');
+
+        const state = getTableState(tableId);
+        if (state === true) {
+          btn.classList.add('table-enabled');
+          badge.textContent = '🔴 BẬT (Khách xem)';
+        } else {
+          btn.classList.add('table-disabled');
+          badge.textContent = '⚪ TẮT (Ẩn khách)';
+        }
+      });
+    }
+
+    function enterEditMode(data) {
+      isEditMode = true;
+      document.body.classList.add('edit-mode');
+      btnToggleMode.classList.add('active');
+      btnToggleMode.innerHTML = '🛠️ Thoát chỉnh';
+      if (editModeBanner) editModeBanner.classList.remove('d-none');
+
+      tableStates = parseTablesData(data);
+      applyTableStatesToUI();
+    }
+
+    function exitEditMode() {
+      isEditMode = false;
+      document.body.classList.remove('edit-mode');
+      btnToggleMode.classList.remove('active');
+      btnToggleMode.innerHTML = '🔘 Bật/tắt';
+      if (editModeBanner) editModeBanner.classList.add('d-none');
+
+      document.querySelectorAll('.cam-btn').forEach(btn => {
+        btn.classList.remove('table-enabled', 'table-disabled', 'table-loading');
+        const indicator = btn.querySelector('.status-indicator');
+        if (indicator) indicator.classList.add('d-none');
+      });
+    }
+
+    async function checkSessionAndFetchTables(showError = true) {
+      try {
+        const res = await fetch('/api/admin/tables', {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          credentials: 'include'
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          return { authenticated: false };
+        }
+
+        if (!res.ok) {
+          const errMsg = `HTTP ${res.status} ${res.statusText || ''}`;
+          if (showError) {
+            showGlobalAlert(`Lỗi kết nối /api/admin/tables: ${errMsg}. Kiểm tra backend đang sửa.`, 'danger');
+          }
+          return { error: errMsg };
+        }
+
+        const data = await res.json();
+        return { authenticated: true, data };
+      } catch (err) {
+        if (showError) {
+          showGlobalAlert(`Không thể gọi /api/admin/tables: ${err.message}`, 'danger');
+        }
+        return { error: err.message };
+      }
+    }
+
+    async function handleToggleModeBtnClick() {
+      hideGlobalAlert();
+      if (isEditMode) {
+        exitEditMode();
+        return;
+      }
+
+      btnToggleMode.disabled = true;
+      const originalText = btnToggleMode.innerHTML;
+      btnToggleMode.innerHTML = '⏳ Đang kiểm tra...';
+
+      const result = await checkSessionAndFetchTables(true);
+
+      btnToggleMode.disabled = false;
+      btnToggleMode.innerHTML = originalText;
+
+      if (result.authenticated === true) {
+        enterEditMode(result.data);
+      } else if (result.authenticated === false) {
+        showLoginModal();
+      }
+    }
+
+    // Toggle trạng thái của 1 bàn khi click vào card trong edit mode
+    async function handleCardToggleClick(e, cardEl) {
+      if (!isEditMode) {
+        // Chế độ xem thông thường của khách: cho phép điều hướng /replay/camN
+        return;
+      }
+
+      // Đang ở chế độ chỉnh: chặn điều hướng
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (cardEl.classList.contains('table-loading')) return;
+
+      const tableId = cardEl.getAttribute('data-table-id');
+      const currentState = getTableState(tableId);
+      const nextState = !currentState;
+
+      cardEl.classList.add('table-loading');
+      const badge = cardEl.querySelector('.status-pill');
+      const prevBadgeText = badge ? badge.textContent : '';
+      if (badge) badge.textContent = '⏳ Đang lưu...';
+
+      try {
+        const res = await fetch(`/api/admin/tables/${encodeURIComponent(tableId)}/privacy`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({ enabled: nextState })
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          cardEl.classList.remove('table-loading');
+          if (badge) badge.textContent = prevBadgeText;
+          showGlobalAlert('Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.', 'warning');
+          exitEditMode();
+          showLoginModal('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+          return;
+        }
+
+        if (!res.ok) {
+          cardEl.classList.remove('table-loading');
+          if (badge) badge.textContent = prevBadgeText;
+
+          let detail = `HTTP ${res.status} ${res.statusText || ''}`;
+          try {
+            const errJson = await res.json();
+            if (errJson && errJson.error) detail = errJson.error;
+            else if (errJson && errJson.message) detail = errJson.message;
+          } catch (_) {}
+
+          showGlobalAlert(`Lỗi gọi API /api/admin/tables/${tableId}/privacy (${detail}). Trạng thái bàn không đổi!`, 'danger');
+          return;
+        }
+
+        // Backend xác nhận thành công
+        let confirmedState = nextState;
+        try {
+          const respData = await res.json();
+          if (respData && typeof respData.enabled === 'boolean') {
+            confirmedState = respData.enabled;
+          }
+        } catch (_) {}
+
+        const s = String(tableId);
+        tableStates[s] = confirmedState;
+        tableStates[s.replace(/^cam/i, '')] = confirmedState;
+        tableStates[s.startsWith('cam') ? s : 'cam' + s] = confirmedState;
+
+        cardEl.classList.remove('table-loading');
+        applyTableStatesToUI();
+      } catch (err) {
+        cardEl.classList.remove('table-loading');
+        if (badge) badge.textContent = prevBadgeText;
+        showGlobalAlert(`Lỗi mạng khi cập nhật bàn ${tableId}: ${err.message}`, 'danger');
+      }
+    }
+
+    // Xử lý gửi form đăng nhập
+    async function handleLoginSubmit(e) {
+      e.preventDefault();
+      const username = document.getElementById('adminUsername').value.trim();
+      const password = document.getElementById('adminPassword').value;
+
+      loginAlert.classList.add('d-none');
+      loginAlert.textContent = '';
+      btnLoginSubmit.disabled = true;
+      btnLoginSubmit.innerHTML = '⏳ Đang đăng nhập...';
+
+      try {
+        // Ưu tiên endpoint API /api/admin/session
+        const res = await fetch('/api/admin/session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({ username, password })
+        });
+
+        if (res.ok) {
+          hideLoginModal();
+          const checkRes = await checkSessionAndFetchTables(true);
+          if (checkRes.authenticated) {
+            enterEditMode(checkRes.data);
+          }
+          return;
+        }
+
+        if (res.status === 401 || res.status === 403) {
+          let msg = `Sai tên đăng nhập hoặc mật khẩu (HTTP ${res.status})`;
+          try {
+            const errData = await res.json();
+            if (errData && errData.error) msg = errData.error;
+          } catch (_) {}
+          loginAlert.textContent = msg;
+          loginAlert.classList.remove('d-none');
+          return;
+        }
+
+        // Nếu 404 hoặc 405 (API /api/admin/session chưa có trên backend), thử form post /admin/login
+        if (res.status === 404 || res.status === 405) {
+          const formBody = new URLSearchParams();
+          formBody.append('username', username);
+          formBody.append('password', password);
+
+          await fetch('/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            credentials: 'include',
+            body: formBody
+          });
+
+          const checkRes = await checkSessionAndFetchTables(false);
+          if (checkRes.authenticated) {
+            hideLoginModal();
+            enterEditMode(checkRes.data);
+            return;
+          }
+
+          loginAlert.textContent = `API /api/admin/session trả về 404 và POST /admin/login chưa xác thực thành công. Bạn vui lòng bấm nút "Mở cửa sổ /admin/login" bên dưới để đăng nhập trực tiếp.`;
+          loginAlert.classList.remove('d-none');
+          return;
+        }
+
+        loginAlert.textContent = `Lỗi máy chủ (${res.status} ${res.statusText || ''})`;
+        loginAlert.classList.remove('d-none');
+      } catch (err) {
+        loginAlert.textContent = `Lỗi kết nối: ${err.message}`;
+        loginAlert.classList.remove('d-none');
+      } finally {
+        btnLoginSubmit.disabled = false;
+        btnLoginSubmit.innerHTML = 'Đăng nhập & Bật chỉnh sửa';
+      }
+    }
+
+    // Sự kiện
+    btnToggleMode.addEventListener('click', handleToggleModeBtnClick);
+    btnExitEditMode.addEventListener('click', exitEditMode);
+
+    btnRefreshTables.addEventListener('click', async () => {
+      btnRefreshTables.disabled = true;
+      btnRefreshTables.innerHTML = '⏳ Đang tải...';
+      const result = await checkSessionAndFetchTables(true);
+      btnRefreshTables.disabled = false;
+      btnRefreshTables.innerHTML = '🔄 Tải lại';
+      if (result.authenticated) {
+        tableStates = parseTablesData(result.data);
+        applyTableStatesToUI();
+      } else if (result.authenticated === false) {
+        exitEditMode();
+        showLoginModal();
+      }
+    });
+
+    btnCloseLoginModal.addEventListener('click', hideLoginModal);
+    modalBackdrop.addEventListener('click', hideLoginModal);
+    adminLoginForm.addEventListener('submit', handleLoginSubmit);
+
+    // Mở popup browser login /admin/login
+    btnPopupLogin.addEventListener('click', () => {
+      const popup = window.open('/admin/login', 'adminLoginWindow', 'width=520,height=650,resizable=yes,scrollbars=yes');
+      const pollTimer = setInterval(async () => {
+        try {
+          if (!popup || popup.closed) {
+            clearInterval(pollTimer);
+            const check = await checkSessionAndFetchTables(false);
+            if (check.authenticated) {
+              hideLoginModal();
+              enterEditMode(check.data);
+            }
+            return;
+          }
+          const check = await checkSessionAndFetchTables(false);
+          if (check.authenticated) {
+            clearInterval(pollTimer);
+            try { popup.close(); } catch (_) {}
+            hideLoginModal();
+            enterEditMode(check.data);
+          }
+        } catch (_) {}
+      }, 2000);
+    });
+
+    btnCheckSessionAgain.addEventListener('click', async () => {
+      btnCheckSessionAgain.disabled = true;
+      btnCheckSessionAgain.innerHTML = '⏳ Đang kiểm tra...';
+      const check = await checkSessionAndFetchTables(false);
+      btnCheckSessionAgain.disabled = false;
+      btnCheckSessionAgain.innerHTML = 'Kiểm tra lại phiên';
+      if (check.authenticated) {
+        hideLoginModal();
+        enterEditMode(check.data);
+      } else {
+        loginAlert.textContent = 'Chưa phát hiện phiên đăng nhập quản trị thành công.';
+        loginAlert.classList.remove('d-none');
+      }
+    });
+
+    // Gắn sự kiện click cho các thẻ bàn
+    document.querySelectorAll('.cam-btn').forEach(card => {
+      card.addEventListener('click', (e) => handleCardToggleClick(e, card));
+    });
+  </script>
 </body>
 </html>

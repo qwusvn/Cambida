@@ -65,6 +65,28 @@ from PIL import Image, ImageDraw
 from dahua_37777 import Dahua37777Adapter, Dahua37777Error, netsdk_available
 
 try:
+    from camera_modules.policy import (
+        parse_verified_license_grant,
+        is_table_privacy_engaged,
+        get_table_visual_color,
+        reorder_tables_preserving_identity,
+    )
+except ImportError:
+    parse_verified_license_grant = None
+    is_table_privacy_engaged = None
+    get_table_visual_color = None
+    reorder_tables_preserving_identity = None
+
+try:
+    from camera_modules.discovery import (
+        discover_lan_cameras,
+        inspect_device_channels,
+    )
+except ImportError:
+    discover_lan_cameras = None
+    inspect_device_channels = None
+
+try:
     import qrcode
 except ImportError:
     qrcode = None
@@ -147,7 +169,16 @@ def _ensure_first_run_files():
 _ensure_first_run_files()
 
 
-_CAMERA_IDENTITY_KEYS = ("name", "id", "camera_id", "uuid")
+_CAMERA_IDENTITY_KEYS = (
+    "name",
+    "id",
+    "camera_id",
+    "uuid",
+    "enabled",
+    "privacy_off",
+    "table_id",
+    "sort_order",
+)
 _LOCAL_RTSP_ONLY_KEYS = frozenset(
     {
         "port",
@@ -662,6 +693,62 @@ TIMELINE_STATUS_VALUES = {
     "missing",
     "failed",
 }
+
+CUT_FILE_CAM_MAP = {}
+CUT_FILE_CAM_LOCK = threading.RLock()
+
+
+def extract_cam_id_from_filename(filename):
+    if not filename:
+        return None
+    basename = os.path.basename(unquote(str(filename)))
+    with CUT_FILE_CAM_LOCK:
+        if basename in CUT_FILE_CAM_MAP:
+            return CUT_FILE_CAM_MAP[basename]
+    m = re.match(r"^(?:(?:cut|nvr|merge|merged)_)?cam(\d+)_", basename, re.IGNORECASE)
+    if m:
+        try:
+            return int(m.group(1))
+        except (ValueError, TypeError):
+            pass
+    try:
+        if "parse_video_metadata" in globals():
+            meta = parse_video_metadata(basename)
+            if meta and meta.get("cam_id"):
+                return int(meta["cam_id"])
+    except Exception:
+        pass
+    return None
+
+
+def is_admin():
+    return session.get("admin_authenticated") is True
+
+
+def get_table_by_camera_id(cam_id):
+    tables = CONFIG.get("tables", [])
+    if isinstance(tables, list):
+        for t in tables:
+            if isinstance(t, dict) and t.get("camera_id") == cam_id:
+                return t
+    return None
+
+
+def is_camera_private(cam_id):
+    table = get_table_by_camera_id(cam_id)
+    if table:
+        if is_table_privacy_engaged is not None:
+            return is_table_privacy_engaged(table)
+        if table.get("enabled") is False or table.get("privacy_off") is True:
+            return True
+        return False
+    if 1 <= cam_id <= len(CAMERA_LIST):
+        cam = CAMERA_LIST[cam_id - 1]
+        if isinstance(cam, dict):
+            if is_table_privacy_engaged is not None:
+                return is_table_privacy_engaged(cam)
+            return cam.get("enabled") is False or cam.get("privacy_off") is True
+    return False
 
 logger = logging.getLogger("cctv_system")
 logger.setLevel(logging.INFO)
@@ -2090,6 +2177,15 @@ def validate_config(candidate):
             return f"Bàn {table.get('id')} có camera_id không hợp lệ."
         if camera_id and not 1 <= camera_id <= len(cameras):
             return f"Bàn {table.get('id')} tham chiếu camera không tồn tại."
+    total_table_count = len(tables) if tables else len(cameras)
+    lic = get_license_snapshot()
+    if lic.get("active") and lic.get("table_limit") is not None:
+        table_cap = int(lic["table_limit"])
+        if total_table_count > table_cap:
+            return (
+                f"Vượt quá giới hạn bản quyền ({table_cap} bàn). "
+                f"Cấu hình yêu cầu {total_table_count} bàn (bàn tắt vẫn tính)."
+            )
     return None
 
 
@@ -2606,6 +2702,8 @@ LICENSE_STATE = {
     "activated_at": None,
     "checked_at": 0.0,
     "reason": "Chưa kiểm tra bản quyền.",
+    "table_limit": None,
+    "has_table_cap": False,
 }
 
 
@@ -2777,18 +2875,25 @@ def refresh_license_state():
     license_key = get_machine_license_key()
     active = False
     reason = ""
+    table_limit = None
+    has_table_cap = False
     activated_at = get_license_activated_at(license_key)
     try:
         if not license_key or license_key == "UNKNOWN-DRIVE":
             reason = "Không đọc được mã ổ cứng."
         else:
             pinned_text = _telegram_pinned_text()
-            active = _pinned_message_has_key(pinned_text, license_key)
+            if parse_verified_license_grant is not None:
+                grant = parse_verified_license_grant(pinned_text, hardware_key=license_key)
+                active = grant.is_verified
+                table_limit = grant.table_limit
+                has_table_cap = grant.has_table_cap
+                reason = grant.reason
+            else:
+                active = _pinned_message_has_key(pinned_text, license_key)
+                reason = "Mã ổ cứng đã có trong tin ghim Telegram." if active else "Mã ổ cứng chưa có trong tin nhắn ghim Telegram."
             if active:
                 activated_at = record_license_activation(license_key)
-                reason = f"Mã ổ cứng đã có trong tin ghim Telegram (Kích hoạt: {activated_at})."
-            else:
-                reason = "Mã ổ cứng chưa có trong tin nhắn ghim Telegram."
     except Exception as exc:
         reason = f"Không xác minh được tin nhắn ghim Telegram: {exc}"
         logger.warning("[License] %s", reason)
@@ -2799,8 +2904,10 @@ def refresh_license_state():
             activated_at=activated_at,
             checked_at=time.time(),
             reason=reason,
+            table_limit=table_limit,
+            has_table_cap=has_table_cap,
         )
-    logger.info("[License] active=%s key=%s activated_at=%s reason=%s", active, license_key or "N/A", activated_at or "N/A", reason)
+    logger.info("[License] active=%s key=%s table_limit=%s activated_at=%s reason=%s", active, license_key or "N/A", table_limit, activated_at or "N/A", reason)
     return bool(active)
 
 
@@ -2865,7 +2972,9 @@ def api_license_status():
         "active": bool(state.get("active", False)),
         "license_key": key,
         "activated_at": state.get("activated_at"),
-        "reason": state.get("reason", "")
+        "reason": state.get("reason", ""),
+        "table_limit": state.get("table_limit"),
+        "has_table_cap": state.get("has_table_cap", False),
     })
 
 
@@ -3703,6 +3812,13 @@ def monitor_telegram_commands():
             time.sleep(5)
 
 
+def _cut_output_filename(source_filename):
+    """Keep the source camera identity on new cut files for guest-access checks."""
+    match = re.match(r"^(?:merge_|cut_)?cam([1-9][0-9]*)_", source_filename or "", re.IGNORECASE)
+    owner = f"cam{match.group(1)}_" if match else ""
+    return f"cut_{owner}{uuid.uuid4().hex[:8]}.mp4"
+
+
 def safe_video_filename(filename):
     """Allow only generated MP4 basenames before using them in a file path."""
     if not isinstance(filename, str) or not filename or len(filename) > 255:
@@ -4149,7 +4265,7 @@ def tunnel_health_loop():
 @app.route("/")
 def index():
     cameras = [
-        {"id": cam_id, "name": get_camera_name(cam_id)}
+        {"id": cam_id, "name": get_camera_name(cam_id), "table_id": next((str(t.get("id")) for t in CONFIG.get("tables", []) if isinstance(t, dict) and str(t.get("camera_id")) == str(cam_id) and t.get("id") is not None), "")}
         for cam_id in range(1, len(CAMERA_LIST) + 1)
     ]
     return render_template("home.html", site=get_site_config(), cameras=cameras)
@@ -4159,6 +4275,8 @@ def index():
 def replay_cam(cam_id):
     if not 1 <= cam_id <= len(CAMERA_LIST):
         return "Camera không tồn tại", 404
+    if not is_admin() and is_camera_private(cam_id):
+        return "Bàn này đang bật chế độ riêng tư hoặc tạm ngưng.", 403
     public_base = get_public_base_url()
     if public_base and is_tunnel_online():
         ua = request.headers.get("User-Agent", "")
@@ -4220,6 +4338,8 @@ def stream_cam(cam_id):
             return "Luồng không hợp lệ", 400
     if not 1 <= cam_id <= len(CAMERA_LIST):
         return "Camera not found", 404
+    if not is_admin() and is_camera_private(cam_id):
+        return "Bàn này đang bật chế độ riêng tư hoặc tạm ngưng.", 403
     camera = CAMERA_LIST[cam_id - 1]
     context = request.args.get("context") or request.args.get("view")
     if not context:
@@ -4253,6 +4373,8 @@ def camera_snapshot(cam_id):
             return "Invalid stream", 400
     if not 1 <= cam_id <= len(CAMERA_LIST):
         return "Camera not found", 404
+    if not is_admin() and is_camera_private(cam_id):
+        return "Bàn này đang bật chế độ riêng tư hoặc tạm ngưng.", 403
     camera = CAMERA_LIST[cam_id - 1]
     context = request.args.get("context") or request.args.get("view")
     if not context:
@@ -4306,6 +4428,8 @@ def list_videos_by_cam(cam_id):
     """Return completed MP4s for local or query NVR recordings based on source parameter."""
     if not 1 <= cam_id <= len(CAMERA_LIST):
         return jsonify([]), 404
+    if not is_admin() and is_camera_private(cam_id):
+        return jsonify([]), 403
     cam = CAMERA_LIST[cam_id - 1]
     has_nvr = camera_has_nvr(cam)
     records_locally = should_record_locally(cam)
@@ -4425,6 +4549,9 @@ def serve_video(filename):
     safe_path = safe_video_path(unquote(filename))
     if not safe_path or not os.path.isfile(safe_path):
         return "Video not found", 404
+    cam_id = extract_cam_id_from_filename(filename)
+    if cam_id is not None and not is_admin() and is_camera_private(cam_id):
+        return "Bàn này đang bật chế độ riêng tư hoặc tạm ngưng.", 403
     return send_from_directory(VIDEO_DIR, os.path.basename(safe_path), mimetype="video/mp4", conditional=True)
 
 
@@ -4433,6 +4560,9 @@ def download_video(filename):
     safe_path = safe_video_path(unquote(filename))
     if not safe_path or not os.path.isfile(safe_path):
         return "Video not found", 404
+    cam_id = extract_cam_id_from_filename(filename)
+    if cam_id is not None and not is_admin() and is_camera_private(cam_id):
+        return "Bàn này đang bật chế độ riêng tư hoặc tạm ngưng.", 403
     inline = request.args.get("inline") in {"1", "true", "yes"}
     return send_from_directory(
         VIDEO_DIR,
@@ -4449,6 +4579,8 @@ def serve_nvr_video(token):
     if not reference:
         return "Liên kết NVR đã hết hạn. Hãy tải lại timeline.", 404
     cam_id = reference.get("cam_id", 1)
+    if not is_admin() and is_camera_private(cam_id):
+        return "Bàn này đang bật chế độ riêng tư hoặc tạm ngưng.", 403
     nvr = get_camera_recorder_config(cam_id)
     vendor = str(reference.get("vendor") or nvr.get("vendor") or "hikvision").lower()
     if vendor == "dahua":
@@ -4472,6 +4604,10 @@ def serve_nvr_video(token):
 @app.route("/nvr/download/<token>")
 def download_nvr_video(token):
     reference = _get_nvr_reference(token)
+    if reference:
+        cam_id = reference.get("cam_id", 1)
+        if not is_admin() and is_camera_private(cam_id):
+            return "Bàn này đang bật chế độ riêng tư hoặc tạm ngưng.", 403
     try:
         path = _download_nvr_reference(token, at_value=request.args.get("at"))
     except FileNotFoundError as exc:
@@ -4589,6 +4725,9 @@ def admin_config():
                 cleaned[key] = int(cleaned[key])
         if "disk_limit_gb" in cleaned:
             cleaned["disk_limit_gb"] = float(cleaned["disk_limit_gb"])
+        license_error = _table_add_license_error(cleaned)
+        if license_error:
+            return jsonify({"ok": False, "error": license_error}), 403
         save_config(cleaned)
         CONFIG = cleaned
         CAMERA_LIST = CONFIG.get("cameras", [])
@@ -4630,6 +4769,9 @@ def restore_config_backup():
         return jsonify({"ok": False, "error": error}), 400
     try:
         cleaned = clean_config_for_saving(candidate)
+        license_error = _table_add_license_error(cleaned)
+        if license_error:
+            return jsonify({"ok": False, "error": license_error}), 403
         save_config(cleaned)
         global CONFIG, CAMERA_LIST
         CONFIG = cleaned
@@ -4676,6 +4818,475 @@ def api_status():
             "server_port": CONFIG.get("server_port", 8000),
         }
     )
+
+
+@app.route("/api/tables", methods=["GET"])
+def api_public_tables():
+    """Public safe endpoint returning table status and visual colors without secrets."""
+    tables = []
+    configured_tables = CONFIG.get("tables", [])
+    if not isinstance(configured_tables, list):
+        configured_tables = []
+    source = configured_tables if configured_tables else [
+        {"id": f"ban-{i:02d}", "name": get_camera_name(i), "camera_id": i}
+        for i in range(1, len(CAMERA_LIST) + 1)
+    ]
+    for idx, t in enumerate(source, start=1):
+        if not isinstance(t, dict):
+            continue
+        is_priv = t.get("enabled") is False or t.get("privacy_off") is True
+        color = get_table_visual_color(t) if get_table_visual_color else ("red" if is_priv else "grey")
+        tables.append({
+            "id": str(t.get("id") or f"ban-{idx:02d}"),
+            "name": str(t.get("name") or f"Bàn {idx}"),
+            "camera_id": int(t.get("camera_id", idx)),
+            "enabled": bool(t.get("enabled", True)),
+            "privacy_off": bool(t.get("privacy_off", False)),
+            "color": color,
+        })
+    return jsonify({"ok": True, "tables": tables})
+
+
+# The table-access module owns the admin table list route. This legacy
+# function is no longer exposed as a second Flask endpoint.
+@admin_required
+def admin_get_tables():
+    tables = []
+    configured_tables = CONFIG.get("tables", [])
+    if not isinstance(configured_tables, list):
+        configured_tables = []
+    if not configured_tables and CAMERA_LIST:
+        for i, cam in enumerate(CAMERA_LIST, start=1):
+            is_priv = cam.get("enabled") is False or cam.get("privacy_off") is True
+            color = get_table_visual_color(cam) if get_table_visual_color else ("red" if is_priv else "grey")
+            tables.append({
+                "id": f"ban-{i:02d}",
+                "name": cam.get("name") or f"Bàn {i}",
+                "camera_id": i,
+                "enabled": bool(cam.get("enabled", True)),
+                "privacy_off": bool(cam.get("privacy_off", False)),
+                "sort_order": i,
+                "color": color,
+            })
+    else:
+        for idx, t in enumerate(configured_tables, start=1):
+            if not isinstance(t, dict):
+                continue
+            is_priv = t.get("enabled") is False or t.get("privacy_off") is True
+            color = get_table_visual_color(t) if get_table_visual_color else ("red" if is_priv else "grey")
+            tables.append({
+                "id": str(t.get("id") or f"ban-{idx:02d}"),
+                "name": str(t.get("name") or f"Bàn {idx}"),
+                "camera_id": int(t.get("camera_id", idx)),
+                "enabled": bool(t.get("enabled", True)),
+                "privacy_off": bool(t.get("privacy_off", False)),
+                "sort_order": int(t.get("sort_order", idx)),
+                "color": color,
+            })
+    return jsonify({"ok": True, "tables": tables})
+
+
+@app.route("/api/admin/tables/toggle", methods=["POST"])
+@admin_required
+def admin_toggle_table():
+    global CONFIG
+    data = request.get_json(silent=True) or {}
+    table_id = str(data.get("table_id") or data.get("id") or "").strip()
+    if not table_id:
+        return jsonify({"ok": False, "error": "Thiếu table_id"}), 400
+
+    tables = CONFIG.get("tables", [])
+    if not isinstance(tables, list):
+        tables = []
+        CONFIG["tables"] = tables
+
+    target_table = None
+    for t in tables:
+        if isinstance(t, dict) and str(t.get("id")) == table_id:
+            target_table = t
+            break
+
+    if not target_table:
+        return jsonify({"ok": False, "error": f"Không tìm thấy bàn: {table_id}"}), 404
+
+    if "privacy_off" in data:
+        target_table["privacy_off"] = bool(data["privacy_off"])
+    elif data.get("action") == "toggle_privacy":
+        target_table["privacy_off"] = not bool(target_table.get("privacy_off", False))
+
+    if "enabled" in data:
+        target_table["enabled"] = bool(data["enabled"])
+    elif data.get("action") == "toggle_enabled":
+        target_table["enabled"] = not bool(target_table.get("enabled", True))
+
+    try:
+        cleaned = clean_config_for_saving(CONFIG)
+        save_config(cleaned)
+        CONFIG = cleaned
+        is_priv = target_table.get("enabled") is False or target_table.get("privacy_off") is True
+        color = get_table_visual_color(target_table) if get_table_visual_color else ("red" if is_priv else "grey")
+        return jsonify({
+            "ok": True,
+            "message": "Đã cập nhật trạng thái bàn.",
+            "table": {
+                "id": target_table["id"],
+                "name": target_table.get("name"),
+                "camera_id": target_table.get("camera_id"),
+                "enabled": target_table.get("enabled", True),
+                "privacy_off": target_table.get("privacy_off", False),
+                "color": color,
+            },
+        })
+    except Exception as exc:
+        logger.exception("Không thể lưu cấu hình sau khi đổi trạng thái bàn")
+        return jsonify({"ok": False, "error": f"Lỗi lưu cấu hình: {exc}"}), 500
+
+
+# The table-access module provides the unique, identity-preserving reorder API.
+@admin_required
+def admin_reorder_tables():
+    global CONFIG
+    data = request.get_json(silent=True) or {}
+    order = data.get("table_ids") or data.get("order")
+    if not isinstance(order, list) or not order:
+        return jsonify({"ok": False, "error": "Thiếu danh sách thứ tự table_ids"}), 400
+
+    tables = CONFIG.get("tables", [])
+    if not isinstance(tables, list) or not tables:
+        return jsonify({"ok": False, "error": "Danh sách bàn rỗng"}), 400
+
+    if reorder_tables_preserving_identity is not None:
+        reordered = reorder_tables_preserving_identity(tables, order)
+    else:
+        table_map = {str(t.get("id")): t for t in tables if isinstance(t, dict) and t.get("id")}
+        reordered = []
+        for idx, tid in enumerate(order, start=1):
+            if str(tid) in table_map:
+                t_obj = dict(table_map.pop(str(tid)))
+                t_obj["sort_order"] = idx
+                reordered.append(t_obj)
+        for t_rem in table_map.values():
+            reordered.append(t_rem)
+
+    CONFIG["tables"] = reordered
+    try:
+        cleaned = clean_config_for_saving(CONFIG)
+        save_config(cleaned)
+        CONFIG = cleaned
+        return jsonify({
+            "ok": True,
+            "message": "Đã lưu thứ tự bàn.",
+            "tables": [
+                {
+                    "id": t.get("id"),
+                    "name": t.get("name"),
+                    "camera_id": t.get("camera_id"),
+                    "enabled": t.get("enabled", True),
+                    "privacy_off": t.get("privacy_off", False),
+                    "sort_order": t.get("sort_order"),
+                    "color": get_table_visual_color(t) if get_table_visual_color else ("red" if (t.get("enabled") is False or t.get("privacy_off") is True) else "grey"),
+                }
+                for t in reordered
+            ],
+        })
+    except Exception as exc:
+        logger.exception("Không thể lưu cấu hình sau khi đổi thứ tự bàn")
+        return jsonify({"ok": False, "error": f"Lỗi lưu cấu hình: {exc}"}), 500
+
+
+# Deprecated implementation retained for compatibility only. The module below
+# owns the public route and its verified channel-inventory response.
+@admin_required
+def admin_camera_probe():
+    data = request.get_json(silent=True) or {}
+    clean_vendor = str(data.get("vendor") or "dahua").strip().lower()
+    host = str(data.get("host") or data.get("ip") or "").strip()
+    if not host:
+        return jsonify({"ok": False, "error": "Thiếu IP/Host thiết bị"}), 400
+    user = str(data.get("username") or data.get("user") or "admin").strip()
+    pwd = str(data.get("password") or data.get("pass") or "").strip()
+    raw_port = data.get("port")
+
+    if raw_port:
+        try:
+            port = int(raw_port)
+        except (ValueError, TypeError):
+            return jsonify({"ok": False, "error": "Port không hợp lệ"}), 400
+    else:
+        if clean_vendor in {"hikvision", "ezviz", "hik"}:
+            port = 8000
+        elif clean_vendor in {"dahua", "imou"}:
+            port = 37777
+        elif clean_vendor == "kbvision":
+            port = 8888
+        elif clean_vendor == "onvif":
+            port = 80
+        else:
+            port = 554
+
+    if clean_vendor in {"hikvision", "ezviz", "hik"}:
+        try:
+            from camera_modules.hikvision import probe_hikvision_device
+            res = probe_hikvision_device(host, user, pwd, port=port, vendor=clean_vendor)
+            return jsonify(res.to_dict())
+        except Exception as exc:
+            return jsonify({"ok": False, "vendor": clean_vendor, "message": str(exc), "channels": []}), 200
+    elif clean_vendor in {"dahua", "imou"}:
+        try:
+            from camera_modules.dahua import probe_dahua_device
+            res = probe_dahua_device(host, user, pwd, port=port, timeout_sec=5.0)
+            return jsonify(res.to_dict())
+        except Exception as exc:
+            return jsonify({"ok": False, "vendor": clean_vendor, "message": str(exc), "discovered_channels": []}), 200
+    elif clean_vendor == "kbvision":
+        try:
+            from camera_modules.dahua import probe_kbvision_device
+            res = probe_kbvision_device(host, user, pwd, port=port, timeout_sec=5.0)
+            return jsonify(res.to_dict())
+        except Exception as exc:
+            return jsonify({"ok": False, "vendor": clean_vendor, "message": str(exc), "discovered_channels": []}), 200
+    elif clean_vendor == "onvif":
+        try:
+            from camera_modules.onvif import ONVIFAdapter
+            import dataclasses
+            ad = ONVIFAdapter(host=host, port=port, username=user, password=pwd, timeout=3.0)
+            res = ad.probe(require_media=False, timeout=3.0)
+            out = dataclasses.asdict(res) if dataclasses.is_dataclass(res) else (res.to_dict() if hasattr(res, "to_dict") else dict(res))
+            return jsonify(out)
+        except Exception as exc:
+            return jsonify({"ok": False, "vendor": clean_vendor, "message": str(exc), "channels": 0}), 200
+    else:
+        try:
+            from camera_modules.rtsp import RTSPAdapter
+            import dataclasses
+            ad = RTSPAdapter(host=host, port=port, username=user, password=pwd, vendor=clean_vendor, timeout=3.0)
+            res = ad.probe(require_media=False, timeout=3.0)
+            out = dataclasses.asdict(res) if dataclasses.is_dataclass(res) else (res.to_dict() if hasattr(res, "to_dict") else dict(res))
+            return jsonify(out)
+        except Exception as exc:
+            return jsonify({"ok": False, "vendor": clean_vendor, "message": str(exc), "channels": 0}), 200
+
+
+# Discovery is exposed only by the authenticated camera module. Retain this
+# older implementation without registering a competing Flask route.
+@admin_required
+def admin_camera_discover():
+    timeout = 2.5
+    protocols = None
+    subnet = None
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        if "timeout" in data:
+            try:
+                timeout = max(0.5, min(10.0, float(data["timeout"])))
+            except (ValueError, TypeError):
+                pass
+        protocols = data.get("protocols")
+        subnet = data.get("subnet")
+    else:
+        req_timeout = request.args.get("timeout")
+        if req_timeout:
+            try:
+                timeout = max(0.5, min(10.0, float(req_timeout)))
+            except (ValueError, TypeError):
+                pass
+        subnet = request.args.get("subnet")
+
+    try:
+        from camera_modules.discovery import discover_lan_cameras
+        devices = discover_lan_cameras(timeout_sec=timeout, protocols=protocols, subnet=subnet)
+        return jsonify({
+            "ok": True,
+            "count": len(devices),
+            "devices": [d.to_dict() if hasattr(d, "to_dict") else dict(d) for d in devices],
+        })
+    except Exception as exc:
+        logger.warning("[Discovery] Lỗi dò tìm camera LAN: %s", exc)
+        return jsonify({"ok": False, "error": f"Lỗi dò tìm camera: {exc}", "unsupported": False}), 500
+
+
+@app.route("/api/admin/camera/bulk-add", methods=["GET", "POST"])
+@admin_required
+def admin_camera_bulk_add():
+    global CONFIG, CAMERA_LIST
+    # The legacy bulk-add path accepted arbitrary channel IDs and could create
+    # camera entries without a successful vendor probe or usable stream mapping.
+    # Keep it explicitly unavailable until the modular add flow verifies both.
+    return jsonify({
+        "ok": False,
+        "unsupported": True,
+        "error": "Chưa hỗ trợ thêm camera hàng loạt qua API cũ; cần xác minh kênh và luồng SDK trước khi lưu.",
+    }), 501
+
+    data = request.get_json(silent=True) or {}
+    device_data = data.get("device") or data
+    channels = data.get("channels") or data.get("channel_ids")
+    if not isinstance(channels, list) or not channels:
+        if "channel" in data:
+            channels = [data["channel"]]
+        else:
+            return jsonify({"ok": False, "error": "Thiếu danh sách kênh (channel_ids hoặc channels)"}), 400
+
+    vendor = str(device_data.get("vendor") or "dahua").strip().lower()
+    host = str(device_data.get("host") or device_data.get("ip") or "").strip()
+    if not host:
+        return jsonify({"ok": False, "error": "Thiếu IP/Host thiết bị"}), 400
+    user = str(device_data.get("username") or device_data.get("user") or "admin").strip()
+    pwd = str(device_data.get("password") or device_data.get("pass") or "").strip()
+
+    raw_port = device_data.get("port")
+    if raw_port:
+        try:
+            port = int(raw_port)
+        except (ValueError, TypeError):
+            port = 37777 if vendor in {"dahua", "imou"} else (8000 if vendor in {"hikvision", "ezviz"} else 554)
+    else:
+        port = 37777 if vendor in {"dahua", "imou"} else (8000 if vendor in {"hikvision", "ezviz"} else 554)
+
+    current_tables = CONFIG.get("tables", [])
+    if not isinstance(current_tables, list):
+        current_tables = []
+    current_count = len(current_tables)
+    add_count = len(channels)
+
+    lic = get_license_snapshot()
+    if lic.get("active") and lic.get("table_limit") is not None:
+        table_limit = lic["table_limit"]
+        if current_count + add_count > table_limit:
+            return jsonify({
+                "ok": False,
+                "error": f"Từ chối thêm hàng loạt: Vượt quá giới hạn bản quyền ({table_limit} bàn). "
+                         f"Hiện có: {current_count} bàn (bàn tắt vẫn tính), yêu cầu thêm: {add_count} bàn.",
+                "table_limit": table_limit,
+                "current_count": current_count,
+            }), 400
+
+    if vendor not in {"dahua", "imou", "hikvision", "ezviz", "kbvision", "onvif", "rtsp"}:
+        return jsonify({
+            "ok": False,
+            "error": f"Hãng camera '{vendor}' chưa được hỗ trợ thêm hàng loạt.",
+            "unsupported": True,
+        }), 400
+
+    current_cameras = list(CONFIG.get("cameras", []))
+    new_cameras = []
+    new_tables = []
+
+    existing_camera_ids = {
+        int(c.get("camera_id", idx)) for idx, c in enumerate(current_cameras, start=1) if isinstance(c, dict)
+    }
+    existing_table_ids = {
+        str(t.get("id")) for t in current_tables if isinstance(t, dict) and t.get("id")
+    }
+
+    start_cam_num = max(existing_camera_ids, default=0) + 1
+
+    for ch_idx, ch in enumerate(channels):
+        try:
+            channel_id = int(ch)
+        except (ValueError, TypeError):
+            continue
+
+        cam_num = start_cam_num + ch_idx
+        table_id = f"ban-{cam_num:02d}"
+        suffix = 1
+        while table_id in existing_table_ids:
+            table_id = f"ban-{cam_num:02d}_{suffix}"
+            suffix += 1
+        existing_table_ids.add(table_id)
+
+        table_name = f"Bàn {cam_num}"
+
+        if vendor in {"dahua", "imou"}:
+            cam_entry = {
+                "name": table_name,
+                "playback_source": "local",
+                "view_stream": "auto",
+                "ip": host,
+                "user": user,
+                "pass": pwd,
+                "local_transport": "netsdk",
+                "netsdk_port": port,
+                "netsdk_channel": channel_id,
+            }
+        elif vendor in {"hikvision", "ezviz"}:
+            cam_entry = {
+                "name": table_name,
+                "playback_source": "local",
+                "view_stream": "auto",
+                "ip": host,
+                "user": user,
+                "pass": pwd,
+                "local_transport": "rtsp",
+                "port": int(device_data.get("rtsp_port") or 554),
+                "vendor": "hikvision",
+                "channel": channel_id,
+            }
+        elif vendor == "kbvision":
+            transport = "netsdk" if port == 37777 else "rtsp"
+            cam_entry = {
+                "name": table_name,
+                "playback_source": "local",
+                "view_stream": "auto",
+                "ip": host,
+                "user": user,
+                "pass": pwd,
+                "local_transport": transport,
+                "port": port if transport == "rtsp" else 554,
+                "netsdk_port": port if transport == "netsdk" else 37777,
+                "netsdk_channel": channel_id,
+                "channel": channel_id,
+                "vendor": "kbvision",
+            }
+        else:
+            cam_entry = {
+                "name": table_name,
+                "playback_source": "local",
+                "view_stream": "auto",
+                "ip": host,
+                "user": user,
+                "pass": pwd,
+                "local_transport": "rtsp",
+                "port": port,
+                "channel": channel_id,
+            }
+
+        tbl_entry = {
+            "id": table_id,
+            "name": table_name,
+            "camera_id": cam_num,
+            "enabled": True,
+            "privacy_off": False,
+            "sort_order": len(current_tables) + len(new_tables) + 1,
+        }
+
+        new_cameras.append(cam_entry)
+        new_tables.append(tbl_entry)
+
+    if not new_cameras:
+        return jsonify({"ok": False, "error": "Không có kênh hợp lệ để thêm"}), 400
+
+    current_cameras.extend(new_cameras)
+    current_tables.extend(new_tables)
+
+    CONFIG["cameras"] = current_cameras
+    CONFIG["tables"] = current_tables
+    CAMERA_LIST = current_cameras
+
+    try:
+        cleaned = clean_config_for_saving(CONFIG)
+        save_config(cleaned)
+        CONFIG = cleaned
+        CAMERA_LIST = CONFIG.get("cameras", [])
+        return jsonify({
+            "ok": True,
+            "message": f"Đã thêm thành công {len(new_tables)} bàn mới vào hệ thống.",
+            "added_count": len(new_tables),
+            "tables": new_tables,
+        })
+    except Exception as exc:
+        logger.exception("Không thể lưu cấu hình sau bulk-add")
+        return jsonify({"ok": False, "error": f"Lỗi lưu cấu hình: {exc}"}), 500
 
 
 @app.route("/api/admin/test-camera", methods=["POST"])
@@ -4915,7 +5526,10 @@ def cut_video():
     input_path = os.path.join(VIDEO_DIR, filename)
     if not os.path.isfile(input_path):
         return jsonify({"error": "File không tồn tại"}), 404
-    output_filename = f"cut_{uuid.uuid4().hex[:8]}.mp4"
+    cam_id = extract_cam_id_from_filename(filename)
+    if cam_id is not None and not is_admin() and is_camera_private(cam_id):
+        return jsonify({"error": "Bàn này đang bật chế độ riêng tư hoặc tạm ngưng."}), 403
+    output_filename = _cut_output_filename(filename)
     output_path = os.path.join(VIDEO_DIR, output_filename)
     safe_start = max(0.0, start)
     safe_duration = max(0.001, duration)
@@ -4998,12 +5612,15 @@ def cut_progress():
         return "Thiếu tham số", 400
     if not safe_video_filename(filename):
         return "Tên file không hợp lệ", 400
+    cam_id = extract_cam_id_from_filename(filename)
+    if cam_id is not None and not is_admin() and is_camera_private(cam_id):
+        return "Bàn này đang bật chế độ riêng tư hoặc tạm ngưng.", 403
 
     input_path = os.path.join(VIDEO_DIR, filename)
     if not os.path.isfile(input_path):
         return "File không tồn tại", 404
 
-    output_filename = f"cut_{uuid.uuid4().hex[:8]}.mp4"
+    output_filename = _cut_output_filename(filename)
     output_path = os.path.join(VIDEO_DIR, output_filename)
     safe_start = max(0.0, start)
     safe_duration = max(0.001, duration)
@@ -5360,6 +5977,11 @@ def timeline_api_from_db():
         return jsonify({"ok": False, "error": str(exc)}), 400
     try:
         payload = get_timeline_data(window_start, window_end)
+        if not is_admin():
+            blocked_cams = {c for c in range(1, len(CAMERA_LIST) + 1) if is_camera_private(c)}
+            if blocked_cams:
+                payload["segments"] = [s for s in payload.get("segments", []) if int(s.get("cam_id", 0)) not in blocked_cams]
+                payload["events"] = [e for e in payload.get("events", []) if int(e.get("cam_id", 0)) not in blocked_cams]
     except (RuntimeError, requests.RequestException) as exc:
         logger.warning("NVR timeline error: %s", exc)
         return jsonify({"ok": False, "error": str(exc)}), 502
@@ -5640,6 +6262,12 @@ def merge_video():
     if not cam_id or not start_str or not end_str:
         return Response(
             "data: error:Thiếu thông tin\n\n", mimetype="text/event-stream"
+        )
+    if not is_admin() and is_camera_private(cam_id):
+        return Response(
+            "data: error:Bàn này đang bật chế độ riêng tư hoặc tạm ngưng.\n\n",
+            mimetype="text/event-stream",
+            status=403,
         )
     try:
         req_start = datetime.fromisoformat(start_str)
@@ -6005,6 +6633,52 @@ def setup_tray():
             pystray.MenuItem("Thoát", on_quit),
         ),
     ).run()
+
+
+# Install server-side table privacy guards after all legacy media routes exist.
+# The module receives callbacks; it does not alter recording workers or camera IDs.
+def _update_table_access_config(updated):
+    global CONFIG
+    CONFIG = updated
+
+
+def _verified_table_license_grant():
+    from camera_modules.policy import verify_license_grant
+    return verify_license_grant(
+        _telegram_pinned_text(), hardware_key=get_machine_license_key()
+    )
+
+
+def _table_add_license_error(candidate):
+    """Reject new tables exceeding the Telegram-pinned, hardware-bound grant."""
+    def capacity(config):
+        cameras = config.get("cameras", [])
+        tables = config.get("tables", [])
+        return max(len(cameras) if isinstance(cameras, list) else 0,
+                   len(tables) if isinstance(tables, list) else 0)
+
+    if capacity(candidate) <= capacity(CONFIG):
+        return None
+    try:
+        grant = _verified_table_license_grant()
+    except Exception:
+        return "Không thể xác thực hạn mức bàn từ tin ghim Telegram."
+    if not grant.is_verified:
+        return "Giấy phép máy chủ chưa được xác thực trên Telegram."
+    if grant.table_limit is not None and capacity(candidate) > grant.table_limit:
+        return "Số bàn vượt quá hạn mức cấp phép của thiết bị."
+    return None
+
+
+from camera_modules.table_access import install_table_access
+
+install_table_access(
+    app,
+    get_config=lambda: CONFIG,
+    set_config=_update_table_access_config,
+    save_config=save_config,
+    get_nvr_reference=_get_nvr_reference,
+)
 
 
 if __name__ == "__main__":

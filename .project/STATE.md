@@ -1,10 +1,17 @@
 # STATE — Cambida
 
-Cập nhật: 2026-09-23 +07
+Cập nhật: 2026-09-24 +07
 
 ## Trạng thái hiện tại
 - Workspace: `D:\1\cambida`, branch `main` (tracking `origin/main` tại `https://github.com/qwusvn/Cambida`).
-- Phiên bản phát triển và đóng gói: **2.1.4** (`RELEASE_VERSION.txt` = `2.1.4`, spec và launcher `CCTV_2.1.4.spec`, `CCTV_2.1.4.launcher.cmd`, `package_2.1.4.ps1`). Gói staging onedir: `D:\1\cambida\staging\2.1.4\CCTV_2.1.4.exe` (SHA-256: `69DD9AC31329B01614BA49BD8E66CAD79FDA39BE4BBB5B7C096CBA95DB21DDF4`), kèm gói nén cập nhật `staging\2.1.4\2.1.4.rar` (SHA-256: `97EF1E5A9E8B50072212EAFE7118C985627682DFF757C217A18733F226D69D10`).
+- Phiên bản phát triển và đóng gói: **2.1.5** (`RELEASE_VERSION.txt` = `2.1.5`, spec và launcher `CCTV_2.1.5.spec`, `CCTV_2.1.5.launcher.cmd`, `package_2.1.5.ps1`). Gói release onedir: `D:\1\cambida\release\2.1.5\CCTV_2.1.5.exe` (SHA-256: `B4C575B47C987B2D1218E6231383884D2F4B4EF6547C5249D4221E37FD37C19F`), kèm gói nén cập nhật `release\2.1.5.zip` (SHA-256: `55E25E7D64FB1985AA38BE2F1BEB0A90555C01FB71006470B282133A04A271ED`) và bản sao lưu tại `staging\2.1.5`.
+- **Quy tắc phiên bản theo commit**: Kể từ bản 2.1.5, mỗi commit tiếp theo sẽ tự động tịnh tiến phiên bản mới (2.1.6, 2.1.7...).
+- Tính năng phiên bản 2.1.5:
+  + Tích hợp gói module camera độc lập `camera_modules/` (Dahua/Imou NetSDK, Hikvision/Ezviz, ONVIF, RTSP, Table Access, Discovery, Policy).
+  + Công tắc riêng tư (Privacy Switch) trên trang chủ (`home.html`): Bật = Đỏ, Tắt = Xám; khi tắt, khách bị chặn xem trực tiếp, xem lại, cắt và tải video nhưng camera vẫn ghi hình ngầm liên tục 24/7.
+  + Giao diện thêm camera đa hãng trong trang quản trị (`admin.html`): Dò quét mạng LAN, kiểm tra kênh (probe), chọn thêm nhiều kênh cùng lúc (multi-channel).
+  + Giới hạn số bàn tối đa theo mã Telegram pin `/N`.
+  + Tích hợp cơ chế tự động chuyển hướng QR sang HTTPS và fallback về HTTP LAN khi HTTPS offline.
 - Tính năng phiên bản 2.1.4:
   + Trình phát xem trước video trên màn hình Hoàn thành (`#doneScreen`): Tích hợp trực tiếp video player cho cả điện thoại và máy tính, cho phép xem lại clip ngay sau khi cắt.
   + Cơ chế lưu video vào Thư viện ảnh (Photos) iPhone:

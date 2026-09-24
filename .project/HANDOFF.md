@@ -520,3 +520,17 @@ elease\2.1.0\index.html synchronized with source.
 ## 2026-09-24 handoff — QR nội bộ tự chuyển hướng sang HTTPS
 - Khách dùng mã QR cũ dán trên bàn vẫn hoạt động: máy chủ nhận request từ mạng nội bộ và trả về 302 redirect sang HTTPS.
 - Khi đổi tên miền cố định trong tương lai, chỉ cần cập nhật trường `public_base_url` trong `config.json`.
+
+## 2026-09-24 handoff — Đóng gói phát hành 2.1.5 & Quy tắc phiên bản theo commit
+- Đóng gói toàn diện phiên bản **2.1.5** vào thư mục: `D:\1\cambida\release\2.1.5` (onedir format) và `staging\2.1.5`.
+- Tệp nén đính kèm: `release\2.1.5.zip` (và lưu bản sao `release\2.1.5\2.1.5.zip`).
+- File thực thi: `CCTV_2.1.5.exe` (SHA-256: `B4C575B47C987B2D1218E6231383884D2F4B4EF6547C5249D4221E37FD37C19F`).
+- SHA-256 file zip: `55E25E7D64FB1985AA38BE2F1BEB0A90555C01FB71006470B282133A04A271ED`.
+- Tính năng bao gồm:
+  + Module hóa camera (`camera_modules/`).
+  + Công tắc riêng tư bàn (Privacy Switch) trên trang chủ `home.html` và backend `1.py` (Bật = Đỏ, Tắt = Xám).
+  + Giao diện thêm camera đa hãng trong trang quản trị `admin.html` (quét LAN, kiểm tra kênh probe, chọn nhiều kênh).
+  + Giới hạn số bàn tối đa theo mã Telegram pin `/N`.
+  + Tự động chuyển hướng QR sang HTTPS và fallback HTTP LAN.
+- An toàn cấu hình (Zero Config Pollution): Không chứa `config.json`, `analytics.db`, `logs`, `cctv_videos`, `nvr_cache`.
+- **Quy tắc phiên bản theo commit**: Kể từ bản 2.1.5 này, mỗi commit tiếp theo sẽ tự động tịnh tiến phiên bản mới (2.1.6, 2.1.7...).

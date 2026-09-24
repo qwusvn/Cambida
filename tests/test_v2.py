@@ -59,7 +59,8 @@ class CCTV20Tests(unittest.TestCase):
         indexed = APP.upsert_video_index(path, validate=False, known_duration=300)
         self.assertEqual(indexed["format"], "segment")
         with APP.app.test_client() as client:
-            response = client.get("/list/cam1")
+            # Explicit date is required: the endpoint defaults to the last 24 hours.
+            response = client.get("/list/cam1?date=2026-08-03")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()[0]["format"], "segment")
 
