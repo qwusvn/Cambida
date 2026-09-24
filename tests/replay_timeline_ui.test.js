@@ -162,7 +162,7 @@ test('preset playback rate buttons (0.5X, 1X, 2X, 4X) sit with section headers a
   assert.ok(html.includes('Thu phóng'));
   assert.ok(html.includes('id="timelineZoomOut"'));
   assert.ok(html.includes('id="cutTimelineZoomOut"'));
-  assert.ok(Math.abs(context.DEFAULT_TIMELINE_ZOOM - 24) < 0.1);
+  assert.ok(Math.abs(context.DEFAULT_TIMELINE_ZOOM - 16) < 0.1);
 });
 
 test('live mode keeps timeline visible and jumps it to the current day/time', () => {
@@ -602,41 +602,38 @@ test('doneScreen integrates video preview player and dual action buttons for iOS
   assert.equal(doneVideo.src, '');
 });
 
-test('instant cut screen transition and dual-stage progress bar on doneScreen', () => {
+test('doneScreen integrates clean layout with 50/50 dual-stage button progress', () => {
   const { context, elements } = loadReplayScript();
 
-  // 1. showDone("cutting")
-  context.showDone("cutting");
+  // 1. showDone("preparing")
+  context.showDone("preparing");
   assert.equal(elements.get('doneScreen').hidden, false);
   assert.equal(elements.get('cutScreen').hidden, true);
   assert.equal(elements.get('replayScreen').hidden, true);
-  assert.equal(elements.get('doneProcessingIcon').style.display, '');
-  assert.equal(elements.get('doneSuccessIcon').style.display, 'none');
-  assert.equal(elements.get('doneProgressWrap').style.display, 'block');
-  assert.equal(elements.get('doneVideoWrap').style.display, 'none');
-  assert.equal(elements.get('doneActions').style.display, 'none');
-  assert.ok(elements.get('doneTitle').textContent.includes('Đang xử lý'));
-
-  // 2. showDone("downloading")
-  context.showDone("downloading");
-  assert.equal(elements.get('doneProgressWrap').style.display, 'block');
-  assert.equal(elements.get('doneVideoWrap').style.display, 'none');
-  assert.ok(elements.get('doneTitle').textContent.includes('Đang nạp video'));
-  assert.equal(elements.get('doneProgressDetail').textContent, 'Giai đoạn 2/2: Nạp vào máy');
-
-  // 3. showDone("ready")
-  context.showDone("ready");
-  assert.equal(elements.get('doneProcessingIcon').style.display, 'none');
-  assert.equal(elements.get('doneSuccessIcon').style.display, '');
-  assert.equal(elements.get('doneProgressWrap').style.display, 'none');
   assert.equal(elements.get('doneVideoWrap').style.display, 'block');
   assert.equal(elements.get('doneActions').style.display, 'flex');
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.ok(html.includes('Đã cắt video thành công'));
 
-  // 4. showDone("error", "Lỗi test")
+  // 2. Stage 1: cutting on PC (e.g. 25% total = 50% of PC cutting)
+  context.setShareButtonProgress(25);
+  assert.equal(elements.get('iosSaveShareBtn').disabled, true);
+  assert.equal(elements.get('iosSaveShareFill').style.width, '25%');
+  assert.equal(elements.get('iosSaveShareText').textContent, 'Đang chuẩn bị video... 25%');
+
+  // 3. Stage 2: downloading into phone (e.g. 75% total = 50% of stream)
+  context.setShareButtonProgress(75);
+  assert.equal(elements.get('iosSaveShareBtn').disabled, true);
+  assert.equal(elements.get('iosSaveShareFill').style.width, '75%');
+  assert.equal(elements.get('iosSaveShareText').textContent, 'Đang chuẩn bị video... 75%');
+
+  // 4. Ready state: 100% complete
+  context.setShareButtonReady();
+  assert.equal(elements.get('iosSaveShareBtn').disabled, false);
+  assert.equal(elements.get('iosSaveShareText').textContent, 'Lưu và chia sẻ');
+
+  // 5. showDone("error", "Lỗi test")
   context.showDone("error", "Lỗi test cắt video");
-  assert.equal(elements.get('doneProgressWrap').style.display, 'none');
-  assert.equal(elements.get('doneVideoWrap').style.display, 'none');
-  assert.equal(elements.get('doneActions').style.display, 'flex');
   assert.equal(elements.get('doneError').style.display, 'block');
   assert.equal(elements.get('doneError').textContent, 'Lỗi test cắt video');
 });

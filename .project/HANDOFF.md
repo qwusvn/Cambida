@@ -10,20 +10,14 @@ Cập nhật: 2026-09-23 +07
 5. Mỗi task hoàn tất phải có commit riêng đúng scope; không gom thay đổi cũ ngoài task.
 
 ## Trạng thái bàn giao
-- Phiên bản phát triển và đóng gói hiện tại: **2.1.52** tại
-elease/2.1.52 và staging/2.1.52 kèm
-elease/2.1.52.zip.
-  + File thực thi:
-elease/2.1.52/CCTV_2.1.52.exe (SHA-256: EC56056A60CEB8AE08BCF567C0F5092BBBB3F9A3F99108D0BF34B1C3413D0527).
-  + Gói zip:
-elease/2.1.52.zip (SHA-256: F9B25D203195A9C06BDF764492DA6DAEAC97F69257F33E96548B402876250920).
-  + Đã tích hợp đầy đủ file nhị phân cloudflared.exe và thư mục cloudflared_setup/.
-- Tính năng phiên bản 2.1.52:
-  + Chuyển tức thì sang màn hình Hoàn thành (#doneScreen) khi bấm nút 'Cắt và tải về'.
-  + Thanh tiến trình 2 giai đoạn (Giai đoạn 1/2 cắt server SSE, Giai đoạn 2/2 nạp video qua ReadableStream vào RAM kèm đếm MB và phát tức thì qua Blob URL).
-  + Cử chỉ vuốt 2 ngón tay chụm/tách (pinch-to-zoom) để phóng to/thu nhỏ timeline từ 1x đến 96x.
+- Phiên bản phát triển hiện tại: **2.1.53** (RELEASE_VERSION.txt = 2.1.53).
+- Tính năng phiên bản 2.1.53:
+  + Giao diện `#doneScreen` gọn gàng: loại bỏ popup/loading to chiếm màn hình, giữ nguyên layout xem trước video sạch đẹp.
+  + Tiến trình 50/50 tích hợp trong nút: 0%-50% cắt trên máy qua SSE, 50%-100% nạp vào điện thoại qua stream fetch. Nút hoàn tất chuyển sang "Lưu và chia sẻ".
+  + Khắc phục triệt để lỗi vô tình mở video khi zoom timeline: triệt tiêu tranh chấp capture/nổi bọt giữa `timelineHit` và `timelineCard`, hủy drag khi phát hiện từ 2 điểm chạm và áp dụng cooldown khóa seek 350ms sau khi nhấc ngón tay.
+  + Cấu hình zoom mặc định: Xem lại 3 giờ gần nhất (`zoom = 16`), Cắt video 1 giờ quanh kim (`zoom = 48`).
   + Kiểm thử: 28/28 Node.js tests PASS.
-  + Máy chủ đang chạy cổng 8004.
+  + Đồng bộ Base85 và SHA-256 mới trong `1.py`.
 - Gói phát hành sạch sẽ (Zero Config Pollution): Hoàn toàn không kèm file `config.json`, không kèm db/logs/cache/media; tệp hạt giống an toàn `_internal\config.release.json` đã xóa sạch camera (`cameras: []`), để trống tên cửa hàng và khẩu hiệu (`site.name: ""`, `site.tagline: ""`).
 - Giao diện Responsive & Tối ưu theo thiết bị (Desktop / iOS / Android):
   + Trình phát xem trước video trên màn hình Hoàn thành (`#doneScreen`): Tích hợp trực tiếp video player cho cả điện thoại và máy tính, cho phép xem lại clip ngay sau khi cắt.

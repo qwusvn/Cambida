@@ -1482,39 +1482,27 @@
     <div class="done-panel">
       <!-- Success Icon -->
       <div id="doneSuccessIcon" class="done-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg></div>
-      <!-- Processing Icon -->
-      <div id="doneProcessingIcon" class="done-icon done-icon-processing" style="display:none">
-        <svg class="spin-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-      </div>
 
       <h2 id="doneTitle">Đã cắt video thành công</h2>
       <p id="doneSubtitle">Xem trước video clip hoặc lưu về máy bên dưới.</p>
-
-      <!-- Progress bar container (Hiện ngay khi bấm Cắt) -->
-      <div id="doneProgressWrap" class="done-progress-wrap" style="display:none">
-        <div class="done-progress-bar">
-          <div id="doneProgressFill" class="done-progress-fill" style="width:0%"></div>
-        </div>
-        <div class="done-progress-meta">
-          <span id="doneProgressStatus">Đang xử lý... 0%</span>
-          <span id="doneProgressDetail" class="done-progress-detail"></span>
-        </div>
-      </div>
 
       <!-- Error box on done screen -->
       <div id="doneError" class="alert alert-error" style="display:none;margin-bottom:16px;"></div>
 
       <!-- Video Player Preview (cho cả Điện thoại & Máy tính) -->
       <div id="doneVideoWrap" class="done-video-wrap">
-        <video id="doneVideoPreview" class="done-video-player" playsinline controls preload="metadata"></video>
+        <video id="doneVideoPreview" class="done-video-player" playsinline webkit-playsinline controls preload="metadata"></video>
       </div>
 
       <!-- Actions -->
       <div id="doneActions" class="actions">
         <!-- Nút Web Share API (khi có HTTPS / hỗ trợ) -->
         <button id="iosSaveShareBtn" class="action primary cut-primary" type="button" style="display:none">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-          <span id="iosSaveShareText">Lưu và chia sẻ</span>
+          <div id="iosSaveShareFill" class="merge-button-fill"></div>
+          <div class="action-content">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+            <span id="iosSaveShareText">Lưu và chia sẻ</span>
+          </div>
         </button>
 
         <!-- Nút tải file về máy (cho Máy tính hoặc Android) -->
@@ -1609,6 +1597,29 @@
       && window.isSecureContext !== false;
   }
 
+  function setShareButtonProgress(totalPct){
+    const btn = $("iosSaveShareBtn"), fill = $("iosSaveShareFill"), txt = $("iosSaveShareText");
+    const p = Math.max(0, Math.min(100, Math.round(totalPct)));
+    if(btn){
+      btn.style.display = "inline-flex";
+      btn.disabled = true;
+      btn.classList.add("is-processing");
+    }
+    if(fill) fill.style.width = `${p}%`;
+    if(txt) txt.textContent = `Đang chuẩn bị video... ${p}%`;
+  }
+
+  function setShareButtonReady(){
+    const btn = $("iosSaveShareBtn"), fill = $("iosSaveShareFill"), txt = $("iosSaveShareText");
+    if(btn){
+      btn.style.display = "inline-flex";
+      btn.disabled = false;
+      btn.classList.remove("is-processing");
+    }
+    if(fill) fill.style.width = "0%";
+    if(txt) txt.textContent = "Lưu và chia sẻ";
+  }
+
   function resetIOSSharePreparation(){
     iosSharePrepareToken += 1;
     if(iosShareController){
@@ -1616,9 +1627,10 @@
       iosShareController = null;
     }
     iosShareFile = null;
-    const btn = $("iosSaveShareBtn"), txt = $("iosSaveShareText");
-    if(btn){btn.disabled = false;btn.style.display = "none";}
-    if(txt)txt.textContent = "Lưu và chia sẻ";
+    const btn = $("iosSaveShareBtn"), fill = $("iosSaveShareFill"), txt = $("iosSaveShareText");
+    if(btn){btn.disabled = false; btn.classList.remove("is-processing"); btn.style.display = "none";}
+    if(fill) fill.style.width = "0%";
+    if(txt) txt.textContent = "Lưu và chia sẻ";
   }
 
   async function prepareIOSShareFile(){
@@ -1627,10 +1639,7 @@
     const token = ++iosSharePrepareToken;
     const controller = typeof AbortController === "function" ? new AbortController() : null;
     iosShareController = controller;
-    const btn = $("iosSaveShareBtn"), txt = $("iosSaveShareText");
-    const progFill = $("doneProgressFill"), progStatus = $("doneProgressStatus"), progDetail = $("doneProgressDetail");
-    if(btn){btn.style.display = "inline-flex";btn.disabled = true;}
-    if(txt)txt.textContent = "Đang chuẩn bị video...";
+    setShareButtonProgress(50);
     try{
       const resp = await fetch(lastMergedInlineUrl, controller ? {signal:controller.signal} : undefined);
       if(!resp.ok) throw new Error("Không tải được video để chia sẻ.");
@@ -1642,23 +1651,21 @@
         const reader = resp.body.getReader();
         let received = 0;
         const chunks = [];
-        const totalMb = (contentLength / 1048576).toFixed(1);
         while(true){
           const {done, value} = await reader.read();
           if(done) break;
           chunks.push(value);
           received += value.length;
-          const pct = Math.min(100, Math.round((received / contentLength) * 100));
-          const recMb = (received / 1048576).toFixed(1);
-          if(progFill) progFill.style.width = `${pct}%`;
-          if(progStatus) progStatus.textContent = `Đang nạp video về điện thoại... ${pct}%`;
-          if(progDetail) progDetail.textContent = `${recMb} MB / ${totalMb} MB`;
-          if(txt) txt.textContent = `Đang tải... ${pct}%`;
+          const streamPct = Math.min(100, Math.round((received / contentLength) * 100));
+          const combined = Math.min(100, Math.round(50 + streamPct * 0.5));
+          setShareButtonProgress(combined);
         }
         blob = new Blob(chunks, {type: resp.headers.get("content-type") || "video/mp4"});
       } else {
+        setShareButtonProgress(80);
         blob = await resp.blob();
       }
+      setShareButtonProgress(100);
 
       if(token !== iosSharePrepareToken) return false;
       const file = new File([blob], lastMergedFilename, {type:blob.type || "video/mp4", lastModified:Date.now()});
@@ -1676,8 +1683,7 @@
         }
       }
 
-      if(btn)btn.disabled = false;
-      if(txt)txt.textContent = "Lưu và chia sẻ";
+      setShareButtonReady();
       return true;
     }catch(err){
       if(err && err.name === "AbortError") return false;
@@ -1685,7 +1691,11 @@
       if(token === iosSharePrepareToken){
         iosShareFile = null;
         iosShareController = null;
-        if(btn)btn.style.display = "none";
+        const btn = $("iosSaveShareBtn");
+        if(btn){
+          btn.classList.remove("is-processing");
+          btn.style.display = "none";
+        }
         const doneVideo = $("doneVideoPreview");
         if(doneVideo){
           doneVideo.src = lastMergedInlineUrl;
@@ -1695,10 +1705,10 @@
       return false;
     }
   }
-  var DEFAULT_TIMELINE_ZOOM = 48 / 2; // 24 = 48h / 2h, displaying 2 hours visible in the viewport
+  var DEFAULT_TIMELINE_ZOOM = 48 / 3; // 16 = 48h / 3h, displaying 3 hours visible in the viewport
   var timelineStates = {
-    replay: {trackId:"timelineTrack", viewportId:"timelineViewport", hitId:"timelineHit", markerId:"timelineMarker", bubbleId:"timeBubble", zoomInId:"timelineZoomIn", zoomOutId:"timelineZoomOut", zoom:DEFAULT_TIMELINE_ZOOM, offset:0, progress:.75},
-    cut: {trackId:"cutTimelineTrack", viewportId:"cutTimelineViewport", hitId:"cutTimelineHit", markerId:"cutTimelineMarker", bubbleId:"cutTimeBubble", zoomInId:"cutTimelineZoomIn", zoomOutId:"cutTimelineZoomOut", zoom:DEFAULT_TIMELINE_ZOOM, offset:0, progress:.75}
+    replay: {trackId:"timelineTrack", viewportId:"timelineViewport", hitId:"timelineHit", markerId:"timelineMarker", bubbleId:"timeBubble", zoomInId:"timelineZoomIn", zoomOutId:"timelineZoomOut", zoom: 48 / 3, offset:0, progress:.75},
+    cut: {trackId:"cutTimelineTrack", viewportId:"cutTimelineViewport", hitId:"cutTimelineHit", markerId:"cutTimelineMarker", bubbleId:"cutTimeBubble", zoomInId:"cutTimelineZoomIn", zoomOutId:"cutTimelineZoomOut", zoom: 48 / 1, offset:0, progress:.75}
   };
   const playbackStates = new WeakMap();
   const playerRequestSerials = new WeakMap();
@@ -2203,17 +2213,25 @@
     const context=cut?"cut":"replay",hit=$(hitId),card=$(cut?"cutTimelineCard":"timelineCard");
     const activePointers = new Map();
     let pinchGesture = null;
+    let wasPinching = false;
+    let pinchCooldownTimer = null;
 
     const endDrag=ev=>{
       activePointers.delete(ev.pointerId);
       if(activePointers.size < 2){
         pinchGesture = null;
       }
+      if(activePointers.size === 0 && wasPinching){
+        if(pinchCooldownTimer) clearTimeout(pinchCooldownTimer);
+        pinchCooldownTimer = setTimeout(()=>{ wasPinching = false; }, 350);
+      }
       if(timelineDrag?.pointerId!==ev.pointerId)return;
       const drag=timelineDrag;
-      try{if(hit?.hasPointerCapture?.(ev.pointerId))hit.releasePointerCapture(ev.pointerId);}catch(_){ }
       try{if(card?.hasPointerCapture?.(ev.pointerId))card.releasePointerCapture(ev.pointerId);}catch(_){ }
       timelineDrag=null;
+
+      if(wasPinching) return;
+
       if(drag?.mode==="seek"&&Number.isFinite(drag.pendingProgress)){
         let p=drag.pendingProgress;
         if(context==="cut"&&clipStartAt&&clipEndAt){
@@ -2242,13 +2260,12 @@
       }
       if(ev.target.closest("button, input, select, a, .date-control, .live-switch-pill, .circle-btn"))return;
       ev.preventDefault();
-      try{
-        if(hit&&ev.target===hit)hit.setPointerCapture(ev.pointerId);
-        else if(card)card.setPointerCapture(ev.pointerId);
-      }catch(_){ }
+
       activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-      if(activePointers.size === 2){
+      if(activePointers.size >= 2){
         timelineDrag = null;
+        wasPinching = true;
+        if(pinchCooldownTimer){ clearTimeout(pinchCooldownTimer); pinchCooldownTimer = null; }
         const [p1, p2] = [...activePointers.values()];
         const dist = Math.max(10, Math.hypot(p1.x - p2.x, p1.y - p2.y));
         pinchGesture = {
@@ -2257,7 +2274,15 @@
         };
         return;
       }
-      if(activePointers.size > 2) return;
+      if(wasPinching){
+        timelineDrag = null;
+        return;
+      }
+
+      try{
+        if(card) card.setPointerCapture(ev.pointerId);
+      }catch(_){ }
+
       if(cut&&currentVideo&&clipStartAt&&clipEndAt){
         const progress=getTimelineProgressAt(context,ev.clientX),targetDate=getTimelineDateAtProgress(progress),startRect=$("cutHandleStart")?.getBoundingClientRect?.()||{},endRect=$("cutHandleEnd")?.getBoundingClientRect?.()||{},selectionRect=$("cutSelection")?.getBoundingClientRect?.()||{},filmstripRect=$("cutFilmstrip")?.getBoundingClientRect?.()||{};
         const isRulerArea=Number.isFinite(filmstripRect.bottom)&&Number.isFinite(ev.clientY)&&ev.clientY>filmstripRect.bottom;
@@ -2280,6 +2305,8 @@
         activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
       }
       if(pinchGesture && activePointers.size >= 2){
+        wasPinching = true;
+        timelineDrag = null;
         const [p1, p2] = [...activePointers.values()];
         const dist = Math.max(10, Math.hypot(p1.x - p2.x, p1.y - p2.y));
         const ratio = dist / pinchGesture.startDist;
@@ -2291,6 +2318,7 @@
         ev.preventDefault();
         return;
       }
+      if(wasPinching) return;
       if(timelineDrag?.pointerId!==ev.pointerId)return;
       if(timelineDrag.mode==="seek"){
         const viewport=$(timelineStates[context].viewportId),width=Math.max(1,viewport?.getBoundingClientRect().width||1),trackWidth=width*timelineStates[context].zoom,delta=(ev.clientX-timelineDrag.startX)/trackWidth,rawProgress=timelineDrag.startProgress-delta;
@@ -2317,11 +2345,26 @@
       hit.addEventListener("lostpointercapture",endDrag);
     }
     if(card&&card!==hit){
-      card.addEventListener("pointerdown",onStart);
-      card.addEventListener("pointermove",onMove);
-      card.addEventListener("pointerup",endDrag);
-      card.addEventListener("pointercancel",endDrag);
-      card.addEventListener("lostpointercapture",endDrag);
+      card.addEventListener("pointerdown",ev=>{
+        if(ev.target===hit||hit?.contains?.(ev.target))return;
+        onStart(ev);
+      });
+      card.addEventListener("pointermove",ev=>{
+        if(ev.target===hit||hit?.contains?.(ev.target))return;
+        onMove(ev);
+      });
+      card.addEventListener("pointerup",ev=>{
+        if(ev.target===hit||hit?.contains?.(ev.target))return;
+        endDrag(ev);
+      });
+      card.addEventListener("pointercancel",ev=>{
+        if(ev.target===hit||hit?.contains?.(ev.target))return;
+        endDrag(ev);
+      });
+      card.addEventListener("lostpointercapture",ev=>{
+        if(ev.target===hit||hit?.contains?.(ev.target))return;
+        endDrag(ev);
+      });
     }
     hit.addEventListener("keydown",ev=>{
       if(!visibleVideos.length)return;
@@ -2564,6 +2607,7 @@
     $("videoPlayer").pause();
     loadPlayer($("cutPlayer"),currentVideo,targetDate);
     configureClipRange(targetDate);
+    timelineStates.cut.zoom = 48 / 1;
     requestAnimationFrame(()=>{
       renderTimelineCoverage("cutFilmstrip");
       updateRuler("cutRuler");
@@ -2587,76 +2631,27 @@
     updateModeBadge(false);
     activeScreen="done";
 
-    const successIcon=$("doneSuccessIcon");
-    const procIcon=$("doneProcessingIcon");
-    const title=$("doneTitle");
-    const subtitle=$("doneSubtitle");
-    const progWrap=$("doneProgressWrap");
-    const progFill=$("doneProgressFill");
-    const progStatus=$("doneProgressStatus");
-    const progDetail=$("doneProgressDetail");
     const errBox=$("doneError");
     const videoWrap=$("doneVideoWrap");
     const actions=$("doneActions");
     const guideBox=$("iosSaveGuide");
     const isIOS=isIOSDevice();
     const canShare=canUseIOSFileShare();
+    const shareBtn=$("iosSaveShareBtn");
+    const dlBtn=$("mergedDownloadBtn");
 
-    if(state==="cutting"){
-      if(successIcon) successIcon.style.display="none";
-      if(procIcon) procIcon.style.display="";
-      if(title) title.textContent="Đang xử lý cắt video...";
-      if(subtitle) subtitle.textContent="Hệ thống đang trích xuất và nối video trên máy tính...";
-      if(progWrap) progWrap.style.display="block";
-      if(progFill) progFill.style.width="3%";
-      if(progStatus) progStatus.textContent="Đang chuẩn bị video... 3%";
-      if(progDetail) progDetail.textContent="Giai đoạn 1/2: Cắt trên máy tính";
-      if(errBox) errBox.style.display="none";
-      if(videoWrap) videoWrap.style.display="none";
-      if(actions) actions.style.display="none";
-      if(guideBox) guideBox.style.display="none";
-    } else if(state==="downloading"){
-      if(successIcon) successIcon.style.display="none";
-      if(procIcon) procIcon.style.display="";
-      if(title) title.textContent="Đang nạp video về điện thoại...";
-      if(subtitle) subtitle.textContent="Đang tải video vào bộ nhớ để xem trước và lưu vào Thư viện Ảnh...";
-      if(progWrap) progWrap.style.display="block";
-      if(progFill) progFill.style.width="0%";
-      if(progStatus) progStatus.textContent="Đang nạp video về điện thoại... 0%";
-      if(progDetail) progDetail.textContent="Giai đoạn 2/2: Nạp vào máy";
-      if(errBox) errBox.style.display="none";
-      if(videoWrap) videoWrap.style.display="none";
-      if(actions) actions.style.display="none";
-      if(guideBox) guideBox.style.display="none";
-    } else if(state==="error"){
-      if(successIcon) successIcon.style.display="none";
-      if(procIcon) procIcon.style.display="none";
-      if(title) title.textContent="Không thể cắt video";
-      if(subtitle) subtitle.textContent="Đã xảy ra sự cố trong quá trình cắt video.";
-      if(progWrap) progWrap.style.display="none";
+    if(state==="error"){
       if(errBox){
         errBox.textContent=errorMsg||"Đã xảy ra lỗi không xác định.";
         errBox.style.display="block";
       }
-      if(videoWrap) videoWrap.style.display="none";
-      if(actions) actions.style.display="flex";
-      const shareBtn=$("iosSaveShareBtn");
       if(shareBtn) shareBtn.style.display="none";
-      const dlBtn=$("mergedDownloadBtn");
       if(dlBtn) dlBtn.style.display="none";
       if(guideBox) guideBox.style.display="none";
     } else {
-      // ready
-      if(successIcon) successIcon.style.display="";
-      if(procIcon) procIcon.style.display="none";
-      if(title) title.textContent="Đã cắt video thành công";
-      if(subtitle) subtitle.textContent="Xem trước video clip hoặc lưu về máy bên dưới.";
-      if(progWrap) progWrap.style.display="none";
       if(errBox) errBox.style.display="none";
       if(videoWrap) videoWrap.style.display="block";
       if(actions) actions.style.display="flex";
-      const dlBtn=$("mergedDownloadBtn");
-      const shareBtn=$("iosSaveShareBtn");
       if(isIOS && canShare){
         if(guideBox) guideBox.style.display="block";
         if(shareBtn) shareBtn.style.display="inline-flex";
@@ -2693,9 +2688,6 @@
     if(text)text.textContent=label||`Đang xử lý... ${v}%`;
     const oldFill=$("mergeProgressFill");if(oldFill)oldFill.style.width=`${v}%`;
     const oldLbl=$("mergeProgressLabel");if(oldLbl)oldLbl.textContent=label||`${v}%`;
-    const doneFill=$("doneProgressFill"), doneStat=$("doneProgressStatus");
-    if(doneFill) doneFill.style.width=`${v}%`;
-    if(doneStat) doneStat.textContent=label||`Đang xử lý... ${v}%`;
   }
 
   function mergeVideo(){
@@ -2712,16 +2704,25 @@
       return;
     }
     if(mergeEventSource)mergeEventSource.close();
-    showDone("cutting");
+
+    showDone("preparing");
+    const isIOS=isIOSDevice();
+    const canShare=canUseIOSFileShare();
+    if(isIOS && canShare){
+      setShareButtonProgress(0);
+    } else {
+      const dlBtn=$("mergedDownloadBtn");
+      if(dlBtn){
+        const txt=dlBtn.querySelector("span");
+        if(txt) txt.textContent="Đang chuẩn bị video... 0%";
+      }
+    }
 
     const url=`/merge?cam_id=${encodeURIComponent(CAMERA_ID)}&start=${encodeURIComponent(formatLocalSecond(bounds.start))}&end=${encodeURIComponent(formatLocalSecond(bounds.end))}&source=${encodeURIComponent(getSelectedSource())}`;
     mergeEventSource=new EventSource(url);
     mergeEventSource.onmessage=(event)=>{
       const data=String(event.data||"");
       if(data.startsWith("notice:")){
-        const notice=data.slice(7);
-        const stat=$("doneProgressStatus");
-        if(stat) stat.textContent=notice;
         return;
       }
       if(data.startsWith("error:")){
@@ -2739,32 +2740,48 @@
         lastMergedDownloadUrl=`/download/${encodeURIComponent(file)}`;
         lastMergedInlineUrl=`/video/${encodeURIComponent(file)}`;
 
-        const isIOS=isIOSDevice();
-        const canShare=canUseIOSFileShare();
+        const doneVideo=$("doneVideoPreview");
+        if(doneVideo){
+          doneVideo.src=lastMergedInlineUrl;
+          doneVideo.load();
+        }
+
+        const dlBtn=$("mergedDownloadBtn");
+        if(dlBtn){
+          if(isIOS && canShare){
+            dlBtn.style.display="none";
+          } else {
+            dlBtn.style.display="inline-flex";
+            setAnchor(dlBtn, lastMergedDownloadUrl, file);
+            const txt=dlBtn.querySelector("span");
+            if(txt) txt.textContent="Tải về máy";
+          }
+        }
 
         if(isIOS && canShare){
-          showDone("downloading");
-          prepareIOSShareFile().then(()=>{
-            showDone("ready");
+          setShareButtonProgress(50);
+          prepareIOSShareFile().then(ok=>{
+            setShareButtonReady();
           }).catch(()=>{
-            showDone("ready");
+            setShareButtonReady();
           });
         } else {
-          const doneVideo=$("doneVideoPreview");
-          if(doneVideo){
-            doneVideo.src=lastMergedInlineUrl;
-            doneVideo.load();
-          }
           showDone("ready");
         }
         return;
       }
       const p=parseInt(data,10);
       if(Number.isFinite(p)){
-        const fill=$("doneProgressFill"), stat=$("doneProgressStatus"), det=$("doneProgressDetail");
-        if(fill) fill.style.width=`${p}%`;
-        if(stat) stat.textContent=`Đang cắt trên máy tính... ${p}%`;
-        if(det) det.textContent="Giai đoạn 1/2: Cắt trên máy tính";
+        const combined = Math.min(50, Math.round(p * 0.5));
+        if(isIOS && canShare){
+          setShareButtonProgress(combined);
+        } else {
+          const dlBtn=$("mergedDownloadBtn");
+          if(dlBtn){
+            const txt=dlBtn.querySelector("span");
+            if(txt) txt.textContent=`Đang cắt video... ${p}%`;
+          }
+        }
       }
     };
     mergeEventSource.onerror=()=>{

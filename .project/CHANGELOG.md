@@ -240,3 +240,21 @@
 elease/2.1.52 và staging/2.1.52 kèm tệp nén
 elease/2.1.52.zip và đầy đủ cloudflared.exe + cloudflared_setup/.
 - Khởi động lại dịch vụ máy chủ python 1.py trên cổng 8004.
+
+## 2026-09-24 — Giao diện nút tích hợp tiến trình 50/50, zoom mặc định 3h/1h & Khắc phục lỗi vô tình mở video khi zoom timeline
+- **Giao diện `#doneScreen` gọn gàng**: Loại bỏ hoàn toàn các khung loading to tướng, spinner chiếm màn hình; giữ nguyên layout chuẩn (video preview và nút bên dưới).
+- **Tích hợp tiến trình 50/50 trực tiếp vào nút "Lưu và chia sẻ"**:
+  + Trạng thái 1: "Đang chuẩn bị video... X%" (nút tạm khóa, thanh dải màu nền `.merge-button-fill` chạy từ 0% đến 100% chia đôi):
+    * 0% - 50%: Tiến trình cắt ghép video trên máy tính qua SSE.
+    * 50% - 100%: Tiến trình nạp video vào bộ nhớ thiết bị qua fetch stream (ReadableStream).
+  + Trạng thái 2: "Lưu và chia sẻ" (khi đạt 100%): Nút mở khóa, màu gradient tím/xanh nổi bật, sẵn sàng bấm mở bảng chia sẻ iOS (Save Video to Photos).
+- **Khắc phục triệt để lỗi vô tình mở/phát video khi zoom timeline**:
+  + Loại bỏ tranh chấp pointer capture và sự kiện nổi bọt trùng lặp giữa `#timelineHit` và `#timelineCard`.
+  + Khi phát hiện từ 2 điểm chạm (pinch-to-zoom): hủy ngay trạng thái seek (`timelineDrag = null`).
+  + Đặt cờ cử chỉ (`wasPinching`) kèm thời gian chờ (cooldown 350ms) sau khi nhấc ngón tay, triệt tiêu toàn bộ sự kiện chạm nhầm, ngăn chặn tuyệt đối việc tự động seek hay phát/mở video ngoài ý muốn.
+- **Cấu hình zoom mặc định**:
+  + Timeline Xem lại (`replay`): Mặc định hiển thị 3 giờ gần nhất quanh kim (`zoom = 16`, tương ứng 48h / 3h).
+  + Timeline Cắt video (`cut`): Mặc định hiển thị 1 giờ tính từ vị trí cái kim (`zoom = 48`, tương ứng 48h / 1h).
+- **Kiểm thử hồi quy**: Cập nhật bộ test UI `tests/replay_timeline_ui.test.js`: 28/28 PASS.
+- Đồng bộ lại chuỗi Base85 và SHA-256 mới của `index.html` vào `1.py`.
+- Tịnh tiến phiên bản lên **2.1.53**.
