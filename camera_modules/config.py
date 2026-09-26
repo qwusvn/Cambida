@@ -254,6 +254,7 @@ class CameraConfig:
     # Mode & Stream selection
     playback_source: str = "local"  # "local" or "nvr"
     view_stream: str = "auto"       # "auto", "main", or "sub"
+    aspect_ratio: str = "auto"      # "auto", "4:3", or "16:9"
     local_transport: str = "rtsp"   # "rtsp" or "netsdk"
 
     # Local RTSP / Direct connection settings
@@ -309,6 +310,7 @@ class CameraConfig:
 
         result["playback_source"] = self.playback_source
         result["view_stream"] = self.view_stream
+        result["aspect_ratio"] = self.aspect_ratio
 
         if self.playback_source == "nvr":
             vendor = VendorType.normalize(self.vendor)
@@ -384,6 +386,10 @@ class CameraConfig:
             legacy_netsdk = str(cam.get("netsdk_stream") or "").strip().lower()
             view_stream = legacy_netsdk if legacy_netsdk in {"main", "sub"} else "auto"
 
+        aspect_ratio = str(cam.get("aspect_ratio") or "auto").strip().lower()
+        if aspect_ratio not in {"auto", "4:3", "16:9"}:
+            aspect_ratio = "auto"
+
         nested_nvr = cam.get("nvr") if isinstance(cam.get("nvr"), dict) else {}
 
         if source == "nvr":
@@ -412,6 +418,7 @@ class CameraConfig:
                 channel_id=max(1, channel),
                 playback_source="nvr",
                 view_stream=view_stream,
+                aspect_ratio=aspect_ratio,
                 host=host,
                 http_port=http_port,
                 rtsp_port=rtsp_port,
@@ -451,6 +458,7 @@ class CameraConfig:
                 channel_id=netsdk_channel,
                 playback_source="local",
                 view_stream=view_stream,
+                aspect_ratio=aspect_ratio,
                 local_transport="netsdk",
                 ip=ip,
                 user=user,
@@ -477,6 +485,7 @@ class CameraConfig:
             channel_id=max(1, ch_idx),
             playback_source="local",
             view_stream=view_stream,
+            aspect_ratio=aspect_ratio,
             local_transport="rtsp",
             ip=ip,
             port=port,

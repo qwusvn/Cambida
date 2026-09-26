@@ -175,3 +175,26 @@ test('admin camera normalizes and renders view_stream (auto/main/sub)', () => {
   assert.match(markup, /value="main"/);
   assert.match(markup, /value="sub"/);
 });
+
+test('admin camera normalizes and renders aspect_ratio (auto/16:9/4:3)', () => {
+  const { context, elements } = loadAdminScript();
+  const cDefault = context.normalizeCamera({ name: 'Cam Default', ip: '1.2.3.4' }, 0);
+  assert.equal(cDefault.aspect_ratio, 'auto');
+
+  const c169 = context.normalizeCamera({ name: 'Cam 16:9', ip: '1.2.3.4', aspect_ratio: '16:9' }, 1);
+  assert.equal(c169.aspect_ratio, '16:9');
+
+  const c43 = context.normalizeCamera({ name: 'Cam 4:3', ip: '1.2.3.4', aspect_ratio: '4:3' }, 2);
+  assert.equal(c43.aspect_ratio, '4:3');
+
+  const cInvalid = context.normalizeCamera({ name: 'Cam Bad', ip: '1.2.3.4', aspect_ratio: 'invalid' }, 3);
+  assert.equal(cInvalid.aspect_ratio, 'auto');
+
+  context.setForm({ cameras: [c169, c43], tables: [] });
+  const markup = elements.get('cameraList').innerHTML;
+  assert.match(markup, /class="form-select cam-aspect-ratio"/);
+  assert.match(markup, /Tỉ lệ khung hình/);
+  assert.match(markup, /<option value="auto"/);
+  assert.match(markup, /<option value="16:9"/);
+  assert.match(markup, /<option value="4:3"/);
+});

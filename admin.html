@@ -189,6 +189,9 @@
     normalized.view_stream = ['auto', 'main', 'sub'].includes(String(normalized.view_stream || '').toLowerCase())
       ? String(normalized.view_stream).toLowerCase()
       : (String(normalized.netsdk_stream || '').toLowerCase() === 'sub' ? 'sub' : (String(normalized.netsdk_stream || '').toLowerCase() === 'main' ? 'main' : 'auto'));
+    normalized.aspect_ratio = ['auto', '4:3', '16:9'].includes(String(normalized.aspect_ratio || '').toLowerCase())
+      ? String(normalized.aspect_ratio).toLowerCase()
+      : 'auto';
     const legacyIp = normalized.ip || normalized.host || '';
     const legacyNvrHost = normalized.host || normalized.ip || '';
     const legacyNvrVendor = String(normalized.vendor || normalized.nvr_vendor || 'hikvision').toLowerCase() === 'dahua' ? 'dahua' : 'hikvision';
@@ -286,9 +289,10 @@
           <div class="d-flex gap-2"><button class="btn btn-outline-primary btn-sm test-camera" data-index="${index}" type="button">${testBtnText}</button><button class="btn btn-outline-danger btn-sm remove-camera" data-index="${index}" type="button">Xóa kênh</button></div>
         </div>
         <div class="row g-2">
-          <div class="col-md-4"><label class="form-label small">Tên / bàn</label><input class="form-control cam-name" data-index="${index}" value="${esc(cam.name || `Bàn ${index + 1}`)}"></div>
-          <div class="col-md-4"><label class="form-label small">Nguồn kênh</label><select class="form-select cam-playback-source" data-index="${index}"><option value="local" ${playback==='local'?'selected':''}>Local (Camera độc lập)</option><option value="nvr" ${playback==='nvr'?'selected':''}>Local + NVR dự phòng</option></select></div>
-          <div class="col-md-4"><label class="form-label small">Luồng xem trực tiếp</label><select class="form-select cam-view-stream" data-index="${index}"><option value="auto" ${(cam.view_stream||'auto')==='auto'?'selected':''}>Tự động (Auto)</option><option value="main" ${(cam.view_stream||'')==='main'?'selected':''}>Luồng chính (Main)</option><option value="sub" ${(cam.view_stream||'')==='sub'?'selected':''}>Luồng phụ (Sub)</option></select></div>
+          <div class="col-md-3"><label class="form-label small">Tên / bàn</label><input class="form-control cam-name" data-index="${index}" value="${esc(cam.name || `Bàn ${index + 1}`)}"></div>
+          <div class="col-md-3"><label class="form-label small">Nguồn kênh</label><select class="form-select cam-playback-source" data-index="${index}"><option value="local" ${playback==='local'?'selected':''}>Local (Camera độc lập)</option><option value="nvr" ${playback==='nvr'?'selected':''}>Local + NVR dự phòng</option></select></div>
+          <div class="col-md-3"><label class="form-label small">Luồng xem trực tiếp</label><select class="form-select cam-view-stream" data-index="${index}"><option value="auto" ${(cam.view_stream||'auto')==='auto'?'selected':''}>Tự động (Auto)</option><option value="main" ${(cam.view_stream||'')==='main'?'selected':''}>Luồng chính (Main)</option><option value="sub" ${(cam.view_stream||'')==='sub'?'selected':''}>Luồng phụ (Sub)</option></select></div>
+          <div class="col-md-3"><label class="form-label small">Tỉ lệ khung hình</label><select class="form-select cam-aspect-ratio" data-index="${index}"><option value="auto" ${(cam.aspect_ratio||'auto')==='auto'?'selected':''}>Tự động (Auto)</option><option value="16:9" ${(cam.aspect_ratio||'')==='16:9'?'selected':''}>16:9 (Màn rộng)</option><option value="4:3" ${(cam.aspect_ratio||'')==='4:3'?'selected':''}>4:3 (Tiêu chuẩn)</option></select></div>
           ${isNvr ? nvrFields : localFields}
         </div>
         ${advanced}
@@ -314,6 +318,7 @@
     set('.cam-name','name');
     set('.cam-playback-source','playback_source');
     set('.cam-view-stream','view_stream');
+    set('.cam-aspect-ratio','aspect_ratio');
     set('.cam-ip','ip');
     set('.cam-user','user');
     set('.cam-pass','pass');
@@ -636,7 +641,8 @@
         pass: password,
         netsdk_port: port || 37777,
         netsdk_channel: chId,
-        view_stream: 'auto'
+        view_stream: 'auto',
+        aspect_ratio: 'auto'
       }, cameraDrafts.length);
 
       cameraDrafts.push(newEntry);
@@ -663,9 +669,9 @@
     const number = cameraDrafts.length + 1;
     let camera;
     if (source === 'nvr') {
-      camera = {name:`Bàn ${number}`,playback_source:'nvr',vendor:'hikvision',host:'',http_port:80,rtsp_port:554,user:'admin',pass:'',nvr_channel:number,stream:'main',backup_local:false,view_stream:'auto'};
+      camera = {name:`Bàn ${number}`,playback_source:'nvr',vendor:'hikvision',host:'',http_port:80,rtsp_port:554,user:'admin',pass:'',nvr_channel:number,stream:'main',backup_local:false,view_stream:'auto',aspect_ratio:'auto'};
     } else {
-      camera = {name:`Bàn ${number}`,playback_source:'local',ip:'',user:'admin',pass:'',local_transport:'rtsp',port:554,record_path:'h264/ch1/main/av_stream',preview_path:'h264/ch1/sub/av_stream',view_stream:'auto'};
+      camera = {name:`Bàn ${number}`,playback_source:'local',ip:'',user:'admin',pass:'',local_transport:'rtsp',port:554,record_path:'h264/ch1/main/av_stream',preview_path:'h264/ch1/sub/av_stream',view_stream:'auto',aspect_ratio:'auto'};
     }
     cameraDrafts.push(camera);
     renderCameras();

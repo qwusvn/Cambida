@@ -254,6 +254,10 @@ def _normalise_camera_entry(camera, index):
         else:
             view_stream = "auto"
     result["view_stream"] = view_stream
+    aspect_ratio = str(camera.get("aspect_ratio") or "auto").strip().lower()
+    if aspect_ratio not in {"auto", "4:3", "16:9"}:
+        aspect_ratio = "auto"
+    result["aspect_ratio"] = aspect_ratio
     nested_nvr = camera.get("nvr") if isinstance(camera.get("nvr"), dict) else {}
 
     if source == "nvr":
@@ -4405,6 +4409,7 @@ def replay_cam(cam_id):
         camera_mode=mode,
         has_nvr=has_nvr,
         camera_view_stream=cam.get("view_stream", "auto"),
+        camera_aspect_ratio=cam.get("aspect_ratio", "auto"),
         backup_local=bool(cam.get("backup_local", True)),
         site=get_site_config(),
         max_merge_minutes=MAX_MERGE_MINUTES,

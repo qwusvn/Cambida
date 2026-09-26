@@ -64,7 +64,7 @@ function makeElement(id = '') {
   };
 }
 
-function loadReplayScript(cameraMode = 'nvr') {
+function loadReplayScript(cameraMode = 'nvr', cameraAspectRatio = 'auto') {
   const html = fs.readFileSync('index.html', 'utf8');
   const start = html.indexOf('<script>') + '<script>'.length;
   const end = html.lastIndexOf('</script>');
@@ -85,10 +85,17 @@ function loadReplayScript(cameraMode = 'nvr') {
   };
   const window = { addEventListener() {}, scrollTo() {} };
   let timer = null;
+  const storage = new Map();
+  const localStorage = {
+    getItem: key => storage.get(key) || null,
+    setItem: (key, val) => storage.set(key, String(val)),
+    removeItem: key => storage.delete(key),
+  };
   const context = {
     console,
     document,
     window,
+    localStorage,
     fetch: async () => ({ ok: true, json: async () => [] }),
     EventSource: class EventSource {},
     requestAnimationFrame: () => 0,
@@ -105,6 +112,7 @@ function loadReplayScript(cameraMode = 'nvr') {
     .replaceAll("{{ 'true' if has_nvr else 'false' }}", 'false')
     .replaceAll('{{ camera_mode }}', cameraMode)
     .replaceAll('{{ cam_id }}', '1')
+    .replaceAll("{{ camera_aspect_ratio or 'auto' }}", cameraAspectRatio)
     .replaceAll('{{ max_merge_minutes|int }}', '60');
   new vm.Script(source, { filename: 'index.html' }).runInContext(context);
   return { context, elements, getTimer: () => timer };
@@ -664,5 +672,39 @@ test('wireTimeline supports multi-touch pinch-to-zoom gesture', () => {
   // Release touches
   card.dispatch('pointerup', { pointerId: 10 });
   card.dispatch('pointerup', { pointerId: 11 });
+});
+
+test('live player pre-applies and remembers aspect ratio (auto/16:9/4:3 and localStorage)', () => {
+  // 1. Fixed 16:9 config
+  const s169 = loadReplayScript('local', '16:9');
+  const frame169 = s169.context.document.getElementById('playerFrame');
+  s169.context.setScreenLive('replay', true);
+  assert.equal(frame169.style.aspectRatio, '16/9');
+
+  // 2. Fixed 4:3 config
+  const s43 = loadReplayScript('local', '4:3');
+  const frame43 = s43.context.document.getElementById('playerFrame');
+  s43.context.setScreenLive('replay', true);
+  assert.equal(frame43.style.aspectRatio, '4/3');
+
+  // 3. Auto config with no previous cache -> defaults to 16/9
+  const sAuto = loadReplayScript('local', 'auto');
+  const frameAuto = sAuto.context.document.getElementById('playerFrame');
+  const streamAuto = sAuto.context.document.getElementById('liveStream');
+  sAuto.context.setScreenLive('replay', true);
+  assert.equal(frameAuto.style.aspectRatio, '16/9');
+
+  // Stream loads a 4:3 camera image (640x480)
+  streamAuto.naturalWidth = 640;
+  streamAuto.naturalHeight = 480;
+  streamAuto.onload();
+  assert.equal(frameAuto.style.aspectRatio, '640/480');
+  assert.equal(sAuto.context.localStorage.getItem('cambida_live_aspect_cam_1'), '640/480');
+
+  // Next time entering live -> pre-applies remembered ratio instantly
+  sAuto.context.setScreenLive('replay', false);
+  assert.equal(frameAuto.style.aspectRatio, ''); // resets for replay
+  sAuto.context.setScreenLive('replay', true);
+  assert.equal(frameAuto.style.aspectRatio, '640/480'); // remembered!
 });
 

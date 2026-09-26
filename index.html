@@ -1188,7 +1188,7 @@
     .screen:not(.is-live) .player-badge-live { display: none; }
 
     .screen.is-live .player-badge-live { display: inline-flex; }
-    .screen.is-live .player { aspect-ratio: 4/3; }
+    .screen.is-live .player { aspect-ratio: 16/9; }
     .screen.is-live .live-stream { display: block; }
     .screen.is-live .player video { display: none; }
     .live-stream[hidden] { display: none; }
@@ -1279,7 +1279,7 @@
 
   <!-- Screen 1 & Screen 2: Replay & Live Screen -->
   <section id="replayScreen" class="screen screen-replay">
-    <div class="player" id="playerFrame">
+    <div class="player" id="playerFrame" {% if camera_aspect_ratio == '4:3' %}style="aspect-ratio: 4/3;"{% elif camera_aspect_ratio == '16:9' %}style="aspect-ratio: 16/9;"{% endif %}>
       <video id="videoPlayer" playsinline preload="metadata" poster="/snapshot/cam{{ cam_id }}?view=single"></video>
       <img id="liveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
       <div id="liveLoading" class="live-loading" hidden><div class="live-spinner"></div><span class="live-loading-text">Đang tải...</span></div>
@@ -1379,7 +1379,7 @@
       </button>
     </div>
 
-    <div class="player" id="cutPlayerFrame">
+    <div class="player" id="cutPlayerFrame" {% if camera_aspect_ratio == '4:3' %}style="aspect-ratio: 4/3;"{% elif camera_aspect_ratio == '16:9' %}style="aspect-ratio: 16/9;"{% endif %}>
       <video id="cutPlayer" playsinline preload="metadata" poster="/snapshot/cam{{ cam_id }}?view=single"></video>
       <img id="cutLiveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
       <div id="cutLiveLoading" class="live-loading" hidden><div class="live-spinner"></div><span class="live-loading-text">Đang tải...</span></div>
@@ -1570,6 +1570,16 @@
   const CAMERA_MODE = "{{ camera_mode }}";
   const HAS_NVR = {{ 'true' if has_nvr else 'false' }};
   const CAMERA_ID = "{{ cam_id }}";
+  const CAMERA_ASPECT_RATIO = "{{ camera_aspect_ratio or 'auto' }}";
+  function getEffectiveLiveAspectRatio(){
+    if(CAMERA_ASPECT_RATIO === "16:9") return "16/9";
+    if(CAMERA_ASPECT_RATIO === "4:3") return "4/3";
+    try {
+      const saved = localStorage.getItem("cambida_live_aspect_cam_" + CAMERA_ID);
+      if(saved) return saved;
+    } catch (_) {}
+    return "16/9";
+  }
   const MAX_MERGE_MINUTES = Number({{ max_merge_minutes|int }});
   const MAX_MERGE_SECONDS = Math.max(60, MAX_MERGE_MINUTES * 60);
   const DEFAULT_CLIP_MINUTES = 30;
@@ -2490,15 +2500,24 @@
     screenEl.classList.toggle("is-live",isLive);
     if(isLive){
       activeScreen=screen;nextPlayerRequest(video);stopPlayback(video,screen);video.pause();resetVideoTransform(frame);jumpTimelineToNow(screen);
+      if(frame)frame.style.aspectRatio=getEffectiveLiveAspectRatio();
       if(stream._loadTimer){clearTimeout(stream._loadTimer);stream._loadTimer=null;}
       if(loading)loading.hidden=false;
-      stream.hidden=false;
+      stream.hidden=true;
       stream._loadTimer=setTimeout(()=>{if(loading)loading.hidden=true;stream._loadTimer=null;},800);
       stream.onload=()=>{
         if(stream._loadTimer){clearTimeout(stream._loadTimer);stream._loadTimer=null;}
         if(loading)loading.hidden=true;
         stream.hidden=false;
-        if(stream.naturalWidth&&stream.naturalHeight){frame.style.aspectRatio=`${stream.naturalWidth}/${stream.naturalHeight}`;}
+        if(CAMERA_ASPECT_RATIO === "16:9"){
+          if(frame)frame.style.aspectRatio="16/9";
+        }else if(CAMERA_ASPECT_RATIO === "4:3"){
+          if(frame)frame.style.aspectRatio="4/3";
+        }else if(stream.naturalWidth&&stream.naturalHeight){
+          const ratio=`${stream.naturalWidth}/${stream.naturalHeight}`;
+          if(frame)frame.style.aspectRatio=ratio;
+          try{localStorage.setItem("cambida_live_aspect_cam_" + CAMERA_ID, ratio);}catch(_){}
+        }
       };
       stream.onerror=()=>{
         if(stream._loadTimer){clearTimeout(stream._loadTimer);stream._loadTimer=null;}

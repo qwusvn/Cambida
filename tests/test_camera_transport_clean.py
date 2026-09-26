@@ -245,6 +245,23 @@ class CameraTransportCleanTests(unittest.TestCase):
         self.assertEqual(replay.status_code, 200)
         self.assertIn('const CAMERA_MODE = "nvr";', replay.get_data(as_text=True))
 
+    def test_camera_aspect_ratio_normalization_and_replay_render(self):
+        c1 = APP._normalise_camera_entry({"name": "Cam 1", "aspect_ratio": "16:9", "playback_source": "local", "ip": "1.2.3.4", "user": "a", "pass": "b"}, 1)
+        self.assertEqual(c1["aspect_ratio"], "16:9")
+
+        c2 = APP._normalise_camera_entry({"name": "Cam 2", "aspect_ratio": "4:3", "playback_source": "local", "ip": "1.2.3.4", "user": "a", "pass": "b"}, 2)
+        self.assertEqual(c2["aspect_ratio"], "4:3")
+
+        c3 = APP._normalise_camera_entry({"name": "Cam 3", "aspect_ratio": "other", "playback_source": "local", "ip": "1.2.3.4", "user": "a", "pass": "b"}, 3)
+        self.assertEqual(c3["aspect_ratio"], "auto")
+
+        APP.CAMERA_LIST = [c2]
+        replay = self.client.get("/replay/cam1")
+        self.assertEqual(replay.status_code, 200)
+        html = replay.get_data(as_text=True)
+        self.assertIn('const CAMERA_ASPECT_RATIO = "4:3";', html)
+        self.assertIn('style="aspect-ratio: 4/3;"', html)
+
 
 if __name__ == "__main__":
     unittest.main()
