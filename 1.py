@@ -3589,7 +3589,14 @@ def check_github_update(repo=GITHUB_REPO, token=None):
             assets = data.get("assets", [])
             download_url = None
             asset_name = None
-            for asset in assets:
+            # Delta assets are valid only for their exact base release. Legacy
+            # source ZIPs must never be installed as executable releases.
+            has_native_manifest = os.path.isfile(os.path.join(BASE_DIR, "release_manifest.json"))
+            patch_name = f"{new_version}-from-{APP_VERSION}.patch.zip"
+            eligible = [asset for asset in assets if asset.get("name") == f"{new_version}.zip"]
+            if has_native_manifest:
+                eligible = [asset for asset in assets if asset.get("name") == patch_name] + eligible
+            for asset in eligible:
                 name = asset.get("name", "")
                 if name.lower().endswith(".zip"):
                     if actual_token:
@@ -3599,8 +3606,7 @@ def check_github_update(repo=GITHUB_REPO, token=None):
                     asset_name = name
                     break
             if not download_url:
-                download_url = data.get("zipball_url")
-                asset_name = f"{new_version}.zip"
+                return {"has_update": False, "reason": "Chưa có gói nhị phân tương thích cho phiên bản này."}
 
             return {
                 "has_update": True,
@@ -3619,14 +3625,14 @@ def check_github_update(repo=GITHUB_REPO, token=None):
 
 def apply_github_update(download_url, new_version, token=None):
     """Download zip update, extract, launch updater.cmd, and exit gracefully."""
-    import zipfile
-    temp_dir = os.path.join(tempfile.gettempdir(), "cambida_update")
-    os.makedirs(temp_dir, exist_ok=True)
-    zip_path = os.path.join(temp_dir, f"update_{new_version}.zip")
-    extract_dir = os.path.join(temp_dir, f"extracted_{new_version}")
-
-    if os.path.exists(extract_dir):
-        shutil.rmtree(extract_dir, ignore_errors=True)
+    from native_update import prepare_archive
+    if not re.fullmatch(r"\d+\.\d+\.\d+", new_version):
+        raise ValueError("Phiên bản cập nhật không hợp lệ")
+    update_root = os.path.join(BASE_DIR, ".updates")
+    os.makedirs(update_root, exist_ok=True)
+    temp_dir = tempfile.mkdtemp(prefix="update-", dir=update_root)
+    zip_path = os.path.join(temp_dir, "release.zip")
+    extract_dir = os.path.join(temp_dir, "payload")
     os.makedirs(extract_dir, exist_ok=True)
 
     gh_conf = CONFIG.get("github_update", {}) if isinstance(CONFIG, dict) else {}
@@ -3646,11 +3652,7 @@ def apply_github_update(download_url, new_version, token=None):
                 f.write(chunk)
 
     logger.info("[AutoUpdate] Đang giải nén và kiểm tra file cập nhật...")
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        bad_file = zf.testzip()
-        if bad_file:
-            raise RuntimeError(f"File zip bị hỏng: {bad_file}")
-        zf.extractall(extract_dir)
+    prepare_archive(zip_path, extract_dir, BASE_DIR, new_version)
 
     # Ghi nhận marker để khi app mới khởi động sẽ gửi Telegram báo thành công
     marker_file = os.path.join(BASE_DIR, ".pending_update_notification")
@@ -3664,7 +3666,11 @@ def apply_github_update(download_url, new_version, token=None):
     except Exception as exc:
         logger.warning("[AutoUpdate] Không thể tạo file marker thông báo: %s", exc)
 
-    updater_cmd = os.path.join(BASE_DIR, "updater.cmd")
+    # Run the validated updater from the payload for full upgrades; for a delta
+    # without updater changes, use the already installed updater.
+    updater_cmd = os.path.join(extract_dir, "updater.cmd")
+    if not os.path.isfile(updater_cmd) or not os.path.isfile(os.path.join(extract_dir, "native_updater.ps1")):
+        updater_cmd = os.path.join(BASE_DIR, "updater.cmd")
     if not os.path.isfile(updater_cmd):
         logger.error("[AutoUpdate] Không tìm thấy updater.cmd tại %s", updater_cmd)
         return False
@@ -3714,7 +3720,7 @@ def check_and_notify_pending_update():
             f"🔹 **Phiên bản mới:** v{new_v}\n"
             f"🔹 **Phiên bản trước:** v{prev_v}\n"
             f"⏱ **Thời gian:** {updated_at}\n"
-            f"✅ Tất cả camera và hệ thống đang hoạt động bình thường."
+            f"✅ Ứng dụng đã khởi động phiên bản mới."
         )
         send_telegram_alert(msg)
         logger.info("[AutoUpdate] Đã gửi thông báo Telegram cập nhật thành công lên v%s", new_v)
@@ -6800,7 +6806,8 @@ install_table_access(
 )
 
 
-if __name__ == "__main__":
+def main():
+    """Start source mode or the separately compiled release application."""
     if not acquire_single_instance():
         sys.exit()
     init_db()
@@ -6880,3 +6887,7 @@ if __name__ == "__main__":
             server_thread.join()
     else:
         server_thread.join()
+
+
+if __name__ == "__main__":
+    main()

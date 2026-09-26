@@ -170,3 +170,12 @@
 ## 2026-09-23 — 1.py owns replay template delivery
 - For one-file source deployment, the replay/cut template is embedded in `1.py` and treated as the primary template for `/replay/cam<int:cam_id>`.
 - External `index.html` remains a fallback for recoverability, not the primary source of replay UI at runtime.
+
+## 2026-09-26 — Cambida 2.2.0 native modules (cambida-native-220)
+- User authorized native module packaging, version 2.2.0 and bundled cloudflared; latest instruction explicitly preserves their intervening edits.
+- Kept current HTML, services/routes and tunnel setup edits. Snapshot and SHA-256 inventory: staging/native-build/resume-20260926/.
+- Source development remains python 1.py. Release uses stable Cambida.exe with 20 external Cython .pyd modules, runtime/SDK and HTML sidecars.
+- Build uses per-module source hashes and cached host/runtime; future exact-base delta ZIPs use release_manifest.json and update.json, without restoring the retired Drive protocol.
+- Native updater verifies payload hashes, waits for its owning application, preserves operational data and backs up changed files. It never mass-kills services. Runtime/ABI changes require full releases.
+- Build artifacts and cache remain on D:. Tests and device/runtime acceptance NOT RUN (not requested); build success is not runtime acceptance.
+- No live camera configuration, process, tunnel or service was changed. No GitHub publication or Telegram notification performed.

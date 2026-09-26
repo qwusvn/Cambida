@@ -341,3 +341,18 @@ elease/2.1.52.zip và đầy đủ cloudflared.exe + cloudflared_setup/.
   - Đóng gói đầy đủ `release/2.1.63.zip` (SHA-256: `944E63B59DD8EE7EECB8DDCA6E95DF2B4B93D4EC54AA6DCDA86570EAF648A51D`).
   - Phát hành GitHub Release `v2.1.63` và tải lên asset `2.1.63.zip`.
 
+
+## 2026-09-26 — Cambida 2.2.0 native modules (cambida-native-220)
+- User authorized native module packaging, version 2.2.0 and bundled cloudflared; latest instruction explicitly preserves their intervening edits.
+- Kept current HTML, services/routes and tunnel setup edits. Snapshot and SHA-256 inventory: staging/native-build/resume-20260926/.
+- Source development remains python 1.py. Release uses stable Cambida.exe with 20 external Cython .pyd modules, runtime/SDK and HTML sidecars.
+- Build uses per-module source hashes and cached host/runtime; future exact-base delta ZIPs use release_manifest.json and update.json, without restoring the retired Drive protocol.
+- Native updater verifies payload hashes, waits for its owning application, preserves operational data and backs up changed files. It never mass-kills services. Runtime/ABI changes require full releases.
+- Build artifacts and cache remain on D:. Tests and device/runtime acceptance NOT RUN (not requested); build success is not runtime acceptance.
+- No live camera configuration, process, tunnel or service was changed. No GitHub publication or Telegram notification performed.
+- Packaging completed: release/2.2.0/ and release/2.2.0.zip (199687479 bytes).
+- ZIP SHA-256: 286C0F18C57C46A08ACC11AD3D9B060126EEB0B6479B41AB3189137B74049342.
+- Artifact inspection: 241/241 manifest files match; 20 native application modules; cloudflared matches the existing binary; all 7 HTML sidecars match current source byte-for-byte.
+- Preserved all 17 files in the resume snapshot without modification. User HTML changes remain unstaged; only native packaging changes are included in the task commit.
+- Build exit 0. Cached native modules were reused on the final packaging run. Executable launch, application behavior and delta application NOT TESTED.
+- Evidence: staging/native-build/release-verification.json and build-final.log.
