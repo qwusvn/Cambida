@@ -313,13 +313,15 @@ test('timeline ruler renders continuous 48-hour seamless markers with midnight t
   const { context, elements } = loadReplayScript();
   context.updateRuler('ruler');
   const children = elements.get('ruler').children;
-  assert.equal(children.length, 49);
-  assert.equal(children[0].textContent, '00:00');
-  assert.equal(children[23].textContent, '23:00');
-  assert.equal(children[24].textContent, '24:0000:00');
-  assert.equal(children[25].textContent, '01:00');
-  assert.equal(children[26].textContent, '02:00');
-  assert.equal(children[48].textContent, '24:00');
+  const majors = children.filter(c => c.className === 'ruler-major' || c.classList?.contains?.('ruler-major'));
+  assert.equal(majors.length, 49);
+  assert.equal(majors[0].textContent, '00:00');
+  assert.equal(majors[23].textContent, '23:00');
+  assert.equal(majors[24].textContent, '24:0000:00');
+  assert.equal(majors[25].textContent, '01:00');
+  assert.equal(majors[26].textContent, '02:00');
+  assert.equal(majors[48].textContent, '24:00');
+  assert.equal(children.length, 2881);
 });
 
 test('previous-day navigation keeps replay and cut on date-correct absolute times', () => {
@@ -551,7 +553,8 @@ test('getMaxClipEndTime clamps clip range to current time when today is selected
   // If focus is set to now, clipEndAt does not exceed maxEndMs
   context.configureClipRange(new Date(Date.now() + 100000));
   const endMs = vm.runInContext('clipEndAt.getTime()', context);
-  assert.ok(endMs <= maxEndMs);
+  const currentMaxEndMs = context.getMaxClipEndTime(day);
+  assert.ok(endMs <= currentMaxEndMs);
 });
 
 test('wireTimeline supports card-level scrubbing and pointer events', () => {

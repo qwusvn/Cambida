@@ -2,25 +2,380 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Đăng nhập quản trị · {{ site.name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Đăng nhập quản trị · {{ site.name or 'CLB Bida' }}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script>
+    // Anti-FOUC Theme Init Script
+    (function() {
+      try {
+        const hour = new Date().getHours();
+        const autoTheme = (hour >= 6 && hour < 18) ? 'light' : 'dark';
+        const saved = localStorage.getItem('adminTheme') || localStorage.getItem('cambida_admin_theme') || 'auto';
+        const activeTheme = (saved === 'auto') ? autoTheme : saved;
+        if (activeTheme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch (_) {}
+    })();
+  </script>
   <style>
-    :root { --bg: {{ site.theme.background }}; --surface: {{ site.theme.surface }}; --primary: {{ site.theme.primary }}; --accent: {{ site.theme.accent }}; --text: {{ site.theme.text }}; }
-    body { min-height:100vh; display:grid; place-items:center; padding:20px; color:var(--text); background:radial-gradient(circle at top, var(--surface), var(--bg) 60%); }
-    .login { width:min(100%,390px); background:rgba(0,0,0,.2); border:1px solid rgba(255,255,255,.16); border-radius:18px; padding:28px; box-shadow:0 18px 45px rgba(0,0,0,.28); }
-    .form-control { background:rgba(0,0,0,.2); color:var(--text); border-color:rgba(255,255,255,.25); } .form-control:focus { background:rgba(0,0,0,.3); color:var(--text); border-color:var(--accent); }
-    .btn-brand { width:100%; background:var(--primary); color:#fff; border:0; } .btn-brand:hover { background:var(--accent); color:#111; }
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(17, 24, 39, 0.85);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --input-bg: rgba(15, 23, 42, 0.85);
+      --input-border: rgba(255, 255, 255, 0.15);
+      --primary: #0ea5e9;
+      --primary-hover: #0284c7;
+      --accent: #f59e0b;
+      --shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.65);
+    }
+
+    /* Light Theme Variables */
+    :root:not(.dark), body.light-mode {
+      --bg: radial-gradient(circle at 50% 0%, #ffffff 0%, #f1f5f9 45%, #e2e8f0 100%);
+      --card-bg: rgba(255, 255, 255, 0.92);
+      --card-border: rgba(0, 0, 0, 0.08);
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --input-bg: #ffffff;
+      --input-border: #cbd5e1;
+      --primary: #0284c7;
+      --primary-hover: #0369a1;
+      --accent: #d97706;
+      --shadow: 0 20px 50px -10px rgba(15, 23, 42, 0.15);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px 16px;
+      color: var(--text);
+      background: var(--bg);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+      overflow-x: hidden;
+      transition: background .25s ease, color .25s ease;
+    }
+
+    /* Ambient Glow */
+    body::before {
+      content: "";
+      position: absolute;
+      width: 550px;
+      height: 400px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, color-mix(in srgb, var(--primary) 22%, transparent) 0%, transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Floating Theme Toggle (Top Right) */
+    .theme-switch-wrap {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10;
+    }
+    .theme-toggle-btn {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      transition: all .18s ease;
+    }
+    .theme-toggle-btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--primary);
+    }
+    #themeBtnIcon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    /* Login Card */
+    .login-card {
+      width: min(100%, 420px);
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 36px 30px;
+      box-shadow: var(--shadow);
+      position: relative;
+      z-index: 1;
+      transition: all .25s ease;
+    }
+
+    /* Card Header */
+    .login-brand-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--primary) 0%, #4338ca 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      margin: 0 auto 16px;
+      box-shadow: 0 6px 20px color-mix(in srgb, var(--primary) 35%, transparent);
+    }
+    .login-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      text-align: center;
+      margin-bottom: 4px;
+      letter-spacing: .02em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .login-subtitle {
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    /* Form Inputs */
+    .form-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .form-control-custom {
+      background: var(--input-bg);
+      color: var(--text);
+      border: 1px solid var(--input-border);
+      border-radius: 12px;
+      padding: 11px 14px;
+      font-size: 0.92rem;
+      transition: all .18s ease;
+    }
+    .form-control-custom:focus {
+      background: var(--input-bg);
+      color: var(--text);
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+    }
+    .form-control-custom::placeholder {
+      color: var(--text-muted);
+      opacity: 0.65;
+    }
+
+    /* Submit Button */
+    .btn-submit-pro {
+      width: 100%;
+      background: var(--primary);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.95rem;
+      border: none;
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 8px;
+      box-shadow: 0 4px 15px color-mix(in srgb, var(--primary) 35%, transparent);
+      transition: all .18s ease;
+      cursor: pointer;
+    }
+    .btn-submit-pro:hover {
+      background: var(--primary-hover);
+      color: #ffffff;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 22px color-mix(in srgb, var(--primary) 45%, transparent);
+    }
+    .btn-submit-pro:active {
+      transform: translateY(0);
+    }
+
+    /* Bottom Navigation */
+    .login-footer {
+      text-align: center;
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid var(--card-border);
+    }
+    .back-home-link {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: color .15s ease;
+    }
+    .back-home-link svg {
+      transition: transform .18s ease;
+    }
+    .back-home-link:hover {
+      color: var(--primary);
+    }
+    .back-home-link:hover svg {
+      transform: translateX(-3px);
+    }
   </style>
 </head>
-<body>
-  <form class="login" method="post">
-    <h1 class="h4 text-center mb-2">⚙️ Quản trị</h1>
-    <p class="text-center opacity-75 mb-4">{{ site.name }}</p>
-    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
-    <div class="mb-3"><label class="form-label" for="username">Tên đăng nhập</label><input class="form-control" id="username" name="username" autocomplete="username" required autofocus></div>
-    <div class="mb-4"><label class="form-label" for="password">Mật khẩu</label><input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required></div>
-    <button class="btn btn-brand" type="submit">Đăng nhập</button>
-  </form>
+<body class="dark">
+
+  <!-- Floating Theme Switcher Button -->
+  <div class="theme-switch-wrap">
+    <button type="button" id="btnToggleTheme" class="theme-toggle-btn" title="Chuyển chế độ giao diện: Sáng / Tối / Tự động theo giờ">
+      <span id="themeBtnIcon" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </span>
+      <span id="themeBtnText">Tự động</span>
+    </button>
+  </div>
+
+  <!-- Center Login Card -->
+  <main class="login-card">
+    <div class="login-brand-icon">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <path d="m9 12 2 2 4-4"/>
+      </svg>
+    </div>
+    <h1 class="login-title">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      <span>Quản trị Hệ thống</span>
+    </h1>
+    <p class="login-subtitle">{{ site.name or 'CLB Bida' }} · Đăng nhập để cấu hình</p>
+
+    {% if error %}
+    <div class="alert alert-danger py-2.5 px-3 mb-4 d-flex align-items-center justify-content-center gap-2 small rounded-3" role="alert">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <div><strong>Lỗi:</strong> {{ error }}</div>
+    </div>
+    {% endif %}
+
+    <form method="post" action="/admin/login">
+      <div class="mb-3">
+        <label class="form-label" for="username">Tên đăng nhập</label>
+        <input class="form-control form-control-custom" id="username" name="username" autocomplete="username" required autofocus placeholder="Nhập tên đăng nhập">
+      </div>
+
+      <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+          <label class="form-label mb-0" for="password">Mật khẩu</label>
+        </div>
+        <input class="form-control form-control-custom mt-1" id="password" name="password" type="password" autocomplete="current-password" required placeholder="••••••••">
+      </div>
+
+      <button class="btn btn-submit-pro" type="submit">Đăng nhập Quản trị</button>
+    </form>
+
+    <div class="login-footer">
+      <a class="back-home-link" href="/">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m12 19-7-7 7-7"/>
+          <path d="M19 12H5"/>
+        </svg>
+        <span>Quay lại trang xem camera</span>
+      </a>
+    </div>
+  </main>
+
+  <script>
+    // Theme Management Logic (Sync with admin.html & home.html)
+    const STORAGE_KEY = 'adminTheme';
+    const btnToggleTheme = document.getElementById('btnToggleTheme');
+    const themeBtnIcon = document.getElementById('themeBtnIcon');
+    const themeBtnText = document.getElementById('themeBtnText');
+
+    const THEME_ICONS = {
+      sun: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>',
+      moon: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
+      clock: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+    };
+
+    function isDayTime() {
+      const h = new Date().getHours();
+      return (h >= 6 && h < 18);
+    }
+
+    function getResolvedTheme(setting) {
+      if (setting === 'auto') return isDayTime() ? 'light' : 'dark';
+      return setting;
+    }
+
+    function updateThemeUI(setting) {
+      const resolved = getResolvedTheme(setting);
+      const isDark = (resolved === 'dark');
+
+      document.documentElement.classList.toggle('dark', isDark);
+      document.body.classList.toggle('dark', isDark);
+      document.body.classList.toggle('light-mode', !isDark);
+
+      if (themeBtnIcon && themeBtnText) {
+        if (setting === 'light') {
+          themeBtnIcon.innerHTML = THEME_ICONS.sun;
+          themeBtnText.textContent = 'Sáng';
+        } else if (setting === 'dark') {
+          themeBtnIcon.innerHTML = THEME_ICONS.moon;
+          themeBtnText.textContent = 'Tối';
+        } else {
+          themeBtnIcon.innerHTML = THEME_ICONS.clock;
+          themeBtnText.textContent = 'Tự động';
+        }
+      }
+    }
+
+    function cycleTheme() {
+      const current = localStorage.getItem(STORAGE_KEY) || 'auto';
+      let next = 'auto';
+      if (current === 'auto') next = 'light';
+      else if (current === 'light') next = 'dark';
+      else next = 'auto';
+
+      localStorage.setItem(STORAGE_KEY, next);
+      localStorage.setItem('cambida_admin_theme', next);
+      updateThemeUI(next);
+    }
+
+    btnToggleTheme.addEventListener('click', cycleTheme);
+
+    // Init Theme on Load
+    const initialSetting = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('cambida_admin_theme') || 'auto';
+    updateThemeUI(initialSetting);
+
+    // 60-second periodic check in background for Day/Night auto-shift
+    setInterval(() => {
+      const setting = localStorage.getItem(STORAGE_KEY) || 'auto';
+      if (setting === 'auto') updateThemeUI('auto');
+    }, 60000);
+  </script>
 </body>
 </html>

@@ -6,179 +6,840 @@
   <title>Quản trị{% if version %} v{{ version }}{% endif %} · {{ site.name }}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    :root { --bg:#f4f6f8; --card:#fff; --text:#1d2733; --muted:#64748b; --border:#d9e0e7; --input:#fff; --primary:#1769aa; --soft:#edf5fc; }
-    body.admin-dark { --bg:#17212b; --card:#202d39; --text:#edf4fa; --muted:#aab8c5; --border:#3a4b59; --input:#17212b; --primary:#62b2f4; --soft:#263b4c; }
-    body { min-height:100vh; background:var(--bg); color:var(--text); transition:background .2s,color .2s; }
-    .wrap { max-width:1100px; margin:auto; padding:30px 18px 72px; }
-    .card { background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:14px; box-shadow:0 3px 12px rgba(20,37,54,.05); }
-    .section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 16px 0; }
-    .section-head h2 { margin:0; }
-    .section-toggle { min-width:94px; }
-    .section-card.is-collapsed .section-content { display:none; }
-    .form-control,.form-select { background:var(--input); color:var(--text); border-color:var(--border); }
-    .form-control:focus,.form-select:focus { background:var(--input); color:var(--text); border-color:var(--primary); box-shadow:0 0 0 .2rem rgba(23,105,170,.12); }
-    .form-text,.muted { color:var(--muted)!important; }
-    .btn-brand { background:var(--primary); color:#fff; border:0; } .btn-brand:hover { filter:brightness(.92); color:#fff; }
-    .camera-card { background:var(--soft); border:1px solid var(--border); border-radius:12px; padding:16px; }
-    .camera-card details summary { color:var(--primary); cursor:pointer; }
-    .qr-card { background:#fff; color:#1d2733; border:1px solid #d9e0e7; border-radius:12px; padding:12px; text-align:center; }
-    .qr-card img { width:145px; max-width:100%; }
-    textarea { min-height:190px; font:13px Consolas,monospace; }
-    .sticky-save { position:sticky; bottom:0; background:color-mix(in srgb,var(--bg) 92%,transparent); backdrop-filter:blur(7px); padding:12px 0; }
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-header: #24324d;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --input-bg: #0f172a;
+      --primary: #0ea5e9;
+      --primary-hover: #0284c7;
+      --accent: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --soft: rgba(30, 41, 59, 0.7);
+      --glass: rgba(15, 23, 42, 0.85);
+      --radius: 14px;
+      --shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+    }
+    body:not(.admin-dark) {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --card-header: #f1f5f9;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --input-bg: #ffffff;
+      --primary: #0284c7;
+      --primary-hover: #0369a1;
+      --accent: #059669;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --soft: #f1f5f9;
+      --glass: rgba(255, 255, 255, 0.9);
+      --shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      transition: background .2s, color .2s;
+    }
+    .admin-container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 24px 16px 100px;
+    }
+
+    /* Cards & Panels */
+    .card-pro {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      margin-bottom: 20px;
+      transition: border-color .2s;
+    }
+    .card-pro:hover {
+      border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+    }
+    .card-pro-header {
+      background: var(--card-header);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-pro-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-pro-body {
+      padding: 18px;
+    }
+    .section-card.is-collapsed .card-pro-body {
+      display: none;
+    }
+
+    /* SVG Icons */
+    .svg-icon {
+      display: inline-block;
+      width: 1.1em;
+      height: 1.1em;
+      vertical-align: -0.16em;
+      stroke-width: 1.8;
+      stroke: currentColor;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+    .svg-icon-lg {
+      width: 1.35em;
+      height: 1.35em;
+      vertical-align: -0.2em;
+    }
+    .card-pro-title .svg-icon {
+      width: 1.2em;
+      height: 1.2em;
+      color: var(--primary);
+    }
+    .nav-tab-btn .svg-icon {
+      width: 1.15em;
+      height: 1.15em;
+    }
+
+    /* Navigation Tabs */
+    .nav-tabs-pro {
+      display: flex;
+      gap: 6px;
+      background: var(--soft);
+      padding: 6px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 24px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .nav-tab-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-tab-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .nav-tab-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(14, 165, 233, 0.35);
+    }
+
+    /* Forms & Controls */
+    .form-control, .form-select {
+      background: var(--input-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+    }
+    .form-control:focus, .form-select:focus {
+      background: var(--input-bg);
+      color: var(--text);
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+    }
+    .form-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 5px;
+    }
+    .form-text, .muted {
+      color: var(--text-muted) !important;
+      font-size: 0.8rem;
+    }
+
+    /* Buttons */
+    .btn-brand {
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      font-weight: 600;
+      border-radius: 8px;
+      padding: 8px 16px;
+      transition: all .15s;
+    }
+    .btn-brand:hover {
+      background: var(--primary-hover);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+    .btn-outline-custom {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all .15s;
+    }
+    .btn-outline-custom:hover {
+      background: var(--soft);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    /* Camera Card */
+    .camera-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 14px;
+      transition: box-shadow .15s, border-color .15s;
+    }
+    .camera-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.2);
+    }
+    .camera-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .channel-number {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--primary) 15%, transparent);
+      color: var(--primary);
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+    }
+    .camera-card details summary {
+      color: var(--primary);
+      cursor: pointer;
+      font-size: 0.83rem;
+      font-weight: 600;
+    }
+
+    /* QR Card */
+    .qr-card {
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      transition: transform .15s, border-color .15s;
+    }
+    .qr-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--primary);
+    }
+    .qr-card img {
+      width: 140px;
+      height: 140px;
+      max-width: 100%;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 6px;
+      margin-bottom: 8px;
+    }
+
+    /* KPI Summary Widgets */
+    .kpi-metric-box {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .kpi-metric-value {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    /* Sticky Bottom Actions */
+    .sticky-save {
+      position: sticky;
+      bottom: 0;
+      background: var(--glass);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border);
+      padding: 12px 20px;
+      margin: 30px -16px -100px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Code & JSON */
+    textarea#rawConfig {
+      min-height: 220px;
+      font-family: 'JetBrains Mono', Consolas, monospace;
+      font-size: 0.82rem;
+      background: var(--input-bg);
+      color: var(--text);
+    }
+
+    /* Status indicators */
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
   </style>
 </head>
-<body>
-<main class="wrap">
-  <div class="d-flex justify-content-between align-items-center mb-4">
+<body class="admin-dark">
+
+<main class="admin-container">
+  
+  <!-- TOP APP HEADER -->
+  <header class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-3 border-bottom" style="border-color: var(--border) !important;">
     <div>
       <div class="d-flex align-items-center gap-2 mb-1">
-        <h1 class="h3 mb-0">⚙️ Quản trị hệ thống</h1>
-        <span class="badge bg-primary fs-6" id="appVersionBadge">v{{ version or '2.1.60' }}</span>
+        <svg class="svg-icon svg-icon-lg text-primary" style="width: 28px; height: 28px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+          <circle cx="12" cy="13" r="3"/>
+        </svg>
+        <h1 class="h4 mb-0 fw-bold">Quản trị Cambida CCTV</h1>
+        <span class="badge bg-primary" id="appVersionBadge">v{{ version or '2.2.0' }}</span>
+        <span class="pulse-dot ms-1" title="Hệ thống đang hoạt động"></span>
       </div>
-      <div class="muted">{{ site.name }}</div>
+      <div class="muted small">{{ site.name or 'CLB Bida' }} · Quản lý Camera & Phát lại Trực tiếp</div>
     </div>
-    <div class="d-flex gap-2 align-items-center"><button id="themeToggle" class="btn btn-outline-secondary btn-sm" type="button">🌙 Tối</button><a class="btn btn-outline-secondary btn-sm" href="/stats">📊 Thống kê</a><a class="btn btn-outline-secondary btn-sm" href="/">Trang camera</a><form action="/admin/logout" method="post"><button class="btn btn-outline-secondary btn-sm">Đăng xuất</button></form></div>
-  </div>
+    
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <button id="themeToggle" class="btn btn-outline-custom btn-sm d-inline-flex align-items-center" type="button">
+        <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Tự động</span>
+      </button>
+      <a class="btn btn-outline-custom btn-sm d-inline-flex align-items-center" href="/stats">
+        <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+        <span>Thống kê</span>
+      </a>
+      <a class="btn btn-outline-custom btn-sm d-inline-flex align-items-center" href="/" target="_blank">
+        <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+        <span>Trang Camera</span>
+      </a>
+      <form action="/admin/logout" method="post" class="m-0">
+        <button class="btn btn-outline-danger btn-sm d-inline-flex align-items-center" type="submit">
+          <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+          <span>Đăng xuất</span>
+        </button>
+      </form>
+    </div>
+  </header>
+
+  <!-- ALERT NOTIFICATION CONTAINER -->
   <div id="notice"></div>
 
-  <section class="card mb-4 section-card">
-    <div class="section-head"><h2 class="h5">Trung tâm vận hành 2.0</h2><button class="btn btn-outline-secondary btn-sm section-toggle" type="button">Thu gọn</button></div>
-    <div class="card-body section-content">
-      <div id="healthSummary" class="row g-3 mb-3"><div class="muted">Đang đọc trạng thái...</div></div>
-      <div id="cameraHealth" class="list-group mb-3"></div>
-      <div class="d-flex flex-wrap gap-2">
-        <button id="refreshHealth" type="button" class="btn btn-outline-primary btn-sm">Làm mới</button>
-        <button id="reconcileLibrary" type="button" class="btn btn-outline-warning btn-sm">Kiểm tra toàn bộ video</button>
-        <button id="safeRestart" type="button" class="btn btn-outline-danger btn-sm">🔄 Khởi động lại Server</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="card mb-4 section-card">
-    <div class="section-head"><h2 class="h5">Thư viện, video khóa và sự kiện</h2><button class="btn btn-outline-secondary btn-sm section-toggle" type="button">Thu gọn</button></div>
-    <div class="card-body section-content">
-      <div class="input-group mb-3"><input id="librarySearch" class="form-control" placeholder="Tìm tên file hoặc ghi chú"><button id="searchLibrary" class="btn btn-outline-primary" type="button">Tìm</button></div>
-      <div id="videoLibrary" class="list-group mb-3"></div>
-      <h3 class="h6">Sự kiện mới đánh dấu</h3><div id="eventList" class="list-group"></div>
-    </div>
-  </section>
+  <!-- NAVIGATION TABS -->
+  <div class="nav-tabs-pro">
+    <button type="button" class="nav-tab-btn active" onclick="switchAdminTab('tab-cameras', this)">
+      <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+      <span>Bàn & Camera</span>
+    </button>
+    <button type="button" class="nav-tab-btn" onclick="switchAdminTab('tab-health', this)">
+      <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      <span>Sức khỏe Hệ thống</span>
+    </button>
+    <button type="button" class="nav-tab-btn" onclick="switchAdminTab('tab-library', this)">
+      <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/></svg>
+      <span>Thư viện & Sự kiện</span>
+    </button>
+    <button type="button" class="nav-tab-btn" onclick="switchAdminTab('tab-site', this)">
+      <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+      <span>Thông tin & Giao diện</span>
+    </button>
+    <button type="button" class="nav-tab-btn" onclick="switchAdminTab('tab-server', this)">
+      <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
+      <span>Máy chủ & Mạng</span>
+    </button>
+    <button type="button" class="nav-tab-btn" onclick="switchAdminTab('tab-advanced', this)">
+      <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      <span>Nâng cao (JSON)</span>
+    </button>
+  </div>
 
   <form id="configForm">
-    <section class="card mb-4 section-card"><div class="section-head"><h2 class="h5">Thông tin quán và màu trang khách</h2><button class="btn btn-outline-secondary btn-sm section-toggle" type="button">Thu gọn</button></div><div class="card-body section-content">
-      <p class="form-text">Các màu này chỉ áp dụng cho trang khách xem camera, không đổi màu trang quản trị.</p>
-      <div class="row g-3">
-        <div class="col-md-6"><label class="form-label">Tên quán</label><input id="siteName" class="form-control" maxlength="80" required></div>
-        <div class="col-md-6"><label class="form-label">Dòng giới thiệu</label><input id="siteTagline" class="form-control" maxlength="160"></div>
-        <div class="col-sm-6 col-md-3"><label class="form-label">Nền</label><input id="themeBackground" type="color" class="form-control form-control-color"></div>
-        <div class="col-sm-6 col-md-3"><label class="form-label">Mảng nền</label><input id="themeSurface" type="color" class="form-control form-control-color"></div>
-        <div class="col-sm-6 col-md-3"><label class="form-label">Màu chính</label><input id="themePrimary" type="color" class="form-control form-control-color"></div>
-        <div class="col-sm-6 col-md-3"><label class="form-label">Màu nhấn</label><input id="themeAccent" type="color" class="form-control form-control-color"></div>
-      </div>
-    </div></section>
 
-    <section class="card mb-4 section-card"><div class="section-head"><h2 class="h5">Kênh camera</h2><button class="btn btn-outline-secondary btn-sm section-toggle" type="button">Thu gọn</button></div><div class="card-body section-content">
-      <div class="camera-card mb-4">
-        <div class="fw-bold mb-1">Thêm camera / Thiết bị</div>
-        <p class="form-text mt-0 mb-3">Dò tìm thiết bị trong mạng LAN hoặc nhập thông tin camera/đầu ghi để kiểm tra kênh thực tế qua SDK trước khi thêm.</p>
-        <div class="row g-2">
-          <div class="col-md-3">
-            <label class="form-label small" for="newCamName">Tên bàn</label>
-            <input id="newCamName" class="form-control form-control-sm" placeholder="Ví dụ: Bàn 1">
-          </div>
-          <div class="col-md-3">
-            <label class="form-label small" for="newCamVendor">Giao thức</label>
-            <select id="newCamVendor" class="form-select form-select-sm">
-              <option value="hikvision">Hikvision / Ezviz (SDK 8000)</option>
-              <option value="dahua" selected>Dahua / Imou (NetSDK 37777)</option>
-              <option value="kbvision">KBVision (8888)</option>
-              <option value="rtsp">RTSP (554)</option>
-              <option value="onvif">ONVIF (80)</option>
-            </select>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label small" for="newCamHost">Host / IP thiết bị</label>
-            <input id="newCamHost" class="form-control form-control-sm" placeholder="192.168.1.100">
-          </div>
-          <div class="col-md-2">
-            <label class="form-label small" for="newCamPort">Cổng</label>
-            <input id="newCamPort" type="number" min="1" max="65535" class="form-control form-control-sm" value="37777">
-          </div>
-          <div class="col-md-3">
-            <label class="form-label small" for="newCamUser">Tài khoản</label>
-            <input id="newCamUser" class="form-control form-control-sm" value="admin">
-          </div>
-          <div class="col-md-3">
-            <label class="form-label small" for="newCamPass">Mật khẩu</label>
-            <input id="newCamPass" type="password" class="form-control form-control-sm" placeholder="Mật khẩu thiết bị" autocomplete="new-password">
-          </div>
-          <div class="col-md-6 d-flex align-items-end gap-2">
-            <button id="btnDiscoverCameras" class="btn btn-outline-primary btn-sm" type="button">🔍 Dò tìm thiết bị</button>
-            <button id="btnProbeCamera" class="btn btn-brand btn-sm" type="button">⚡ Kết nối</button>
-          </div>
+    <!-- ========================================================================= -->
+    <!-- TAB 1: BÀN & CAMERA -->
+    <!-- ========================================================================= -->
+    <div id="tab-cameras" class="tab-pane-content">
+      
+      <!-- Box Dò tìm & Kết nối Camera -->
+      <section class="card-pro section-card">
+        <div class="card-pro-header">
+          <h2 class="card-pro-title">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            <span>Thêm Camera & Dò tìm Thiết bị Tự động</span>
+          </h2>
+          <button class="btn btn-outline-custom btn-sm section-toggle" type="button">Thu gọn</button>
         </div>
-        <div id="discoverResult" class="mt-3 d-none"></div>
-        <div id="probeNotice" class="mt-3 d-none"></div>
-        <div id="probeChannelsSection" class="mt-3 p-3 border rounded bg-body-tertiary d-none">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <strong class="small">Kênh thực tế phát hiện được từ thiết bị:</strong>
-            <div class="d-flex gap-2">
-              <button id="btnSelectAllChannels" class="btn btn-link btn-sm p-0 text-decoration-none" type="button">Chọn tất cả</button>
-              <span class="text-muted">|</span>
-              <button id="btnDeselectAllChannels" class="btn btn-link btn-sm p-0 text-decoration-none text-muted" type="button">Bỏ chọn</button>
+        <div class="card-pro-body section-content">
+          <p class="form-text mt-0 mb-3">
+            Dò tìm tự động camera trong mạng LAN hoặc nhập thông tin host/IP để kiểm tra các kênh thực tế qua SDK (Dahua NetSDK / Hikvision / RTSP) trước khi thêm.
+          </p>
+
+          <div class="row g-2">
+            <div class="col-md-3">
+              <label class="form-label" for="newCamName">Tên bàn</label>
+              <input id="newCamName" class="form-control" placeholder="Ví dụ: Bàn 1">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="newCamVendor">Giao thức</label>
+              <select id="newCamVendor" class="form-select">
+                <option value="dahua" selected>Dahua / Imou (NetSDK 37777)</option>
+                <option value="hikvision">Hikvision / Ezviz (SDK 8000)</option>
+                <option value="kbvision">KBVision (8888)</option>
+                <option value="rtsp">RTSP (554)</option>
+                <option value="onvif">ONVIF (80)</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="newCamHost">Host / IP thiết bị</label>
+              <input id="newCamHost" class="form-control" placeholder="192.168.1.100">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label" for="newCamPort">Cổng</label>
+              <input id="newCamPort" type="number" min="1" max="65535" class="form-control" value="37777">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="newCamUser">Tài khoản</label>
+              <input id="newCamUser" class="form-control" value="admin">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="newCamPass">Mật khẩu</label>
+              <input id="newCamPass" type="password" class="form-control" placeholder="Mật khẩu camera" autocomplete="new-password">
+            </div>
+            <div class="col-md-6 d-flex align-items-end gap-2">
+              <button id="btnDiscoverCameras" class="btn btn-outline-custom flex-grow-1 d-inline-flex align-items-center justify-content-center" type="button">
+                <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <span>Dò tìm Thiết bị LAN</span>
+              </button>
+              <button id="btnProbeCamera" class="btn btn-brand flex-grow-1 d-inline-flex align-items-center justify-content-center" type="button">
+                <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                <span>Kết nối & Kiểm tra Kênh</span>
+              </button>
             </div>
           </div>
-          <div id="probeChannelsList" class="d-flex flex-column gap-1 mb-3"></div>
-          <div id="probeActionContainer"></div>
+
+          <div id="discoverResult" class="mt-3 d-none"></div>
+          <div id="probeNotice" class="mt-3 d-none"></div>
+
+          <!-- Kênh thực tế phát hiện được -->
+          <div id="probeChannelsSection" class="mt-3 p-3 border rounded d-none" style="background: var(--soft); border-color: var(--border) !important;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <strong class="small">Kênh thực tế phát hiện được từ thiết bị:</strong>
+              <div class="d-flex gap-2">
+                <button id="btnSelectAllChannels" class="btn btn-link btn-sm p-0 text-decoration-none" type="button">Chọn tất cả</button>
+                <span class="text-muted">|</span>
+                <button id="btnDeselectAllChannels" class="btn btn-link btn-sm p-0 text-decoration-none text-muted" type="button">Bỏ chọn</button>
+              </div>
+            </div>
+            <div id="probeChannelsList" class="d-flex flex-column gap-1 mb-3"></div>
+            <div id="probeActionContainer"></div>
+          </div>
+
+          <!-- Thêm thủ công legacy -->
+          <details class="mt-3">
+            <summary class="small text-muted">Cấu hình tương thích (Thêm thủ công / Đầu ghi NVR cũ)</summary>
+            <div class="p-3 border rounded mt-2 small" style="background: var(--soft); border-color: var(--border) !important;">
+              <div class="muted mb-2">Thêm camera đơn lẻ hoặc đầu ghi NVR thủ công khi không dùng tự động dò tìm:</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button id="addLocalCamera" class="btn btn-outline-custom btn-sm d-inline-flex align-items-center" type="button">
+                  <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                  <span>Thêm Local (RTSP/NetSDK thủ công)</span>
+                </button>
+                <button id="addNvrCamera" class="btn btn-outline-custom btn-sm d-inline-flex align-items-center" type="button">
+                  <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                  <span>Thêm NVR (Đầu ghi thủ công)</span>
+                </button>
+              </div>
+            </div>
+          </details>
         </div>
-        <details class="mt-3">
-          <summary class="small text-muted">Cấu hình tương thích (Thêm thủ công / Đầu ghi NVR cũ)</summary>
-          <div class="p-2 border rounded mt-2 bg-body-tertiary small">
-            <div class="text-muted mb-2">Dành cho thiết bị đã tồn tại hoặc thêm thủ công khi chưa migration sang SDK. Lưu ý: HCNetSDK.dll chưa có sẵn trên hệ thống nên Hikvision SDK không khả dụng trực tiếp.</div>
-            <div class="d-flex flex-wrap gap-2">
-              <button id="addLocalCamera" class="btn btn-outline-secondary btn-sm" type="button">＋ Thêm Local (RTSP/NetSDK thủ công)</button>
-              <button id="addNvrCamera" class="btn btn-outline-secondary btn-sm" type="button">＋ Thêm NVR (Đầu ghi thủ công)</button>
+      </section>
+
+      <!-- Danh sách Camera & Bàn Hiện Có -->
+      <section class="card-pro section-card">
+        <div class="card-pro-header">
+          <h2 class="card-pro-title">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+            <span>Danh sách Kênh Camera & Bàn Bida</span>
+          </h2>
+          <button class="btn btn-outline-custom btn-sm section-toggle" type="button">Thu gọn</button>
+        </div>
+        <div class="card-pro-body section-content">
+          <div id="cameraList" class="row g-3">
+            <div class="col-12 muted">Đang nạp danh sách camera...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Mã QR theo Bàn -->
+      <section class="card-pro section-card">
+        <div class="card-pro-header">
+          <h2 class="card-pro-title">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+            <span>Mã QR Theo Bàn Cho Khách Quét</span>
+          </h2>
+          <button class="btn btn-outline-custom btn-sm section-toggle" type="button">Thu gọn</button>
+        </div>
+        <div class="card-pro-body section-content">
+          <p class="form-text mt-0 mb-3">
+            Mỗi bàn bida có một mã QR riêng biệt. In và dán tại bàn để khách quét và xem lại các pha đánh highlight.
+          </p>
+          <div id="qrGrid" class="row g-3"></div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 2: SỨC KHỎE HỆ THỐNG -->
+    <!-- ========================================================================= -->
+    <div id="tab-health" class="tab-pane-content d-none">
+      <section class="card-pro section-card">
+        <div class="card-pro-header">
+          <h2 class="card-pro-title">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <span>Trung tâm Vận hành & Giám sát Hệ thống</span>
+          </h2>
+          <button class="btn btn-outline-custom btn-sm section-toggle" type="button">Thu gọn</button>
+        </div>
+        <div class="card-pro-body section-content">
+          
+          <!-- Health Summary Metrics -->
+          <div id="healthSummary" class="row g-3 mb-4">
+            <div class="muted">Đang đọc trạng thái sức khỏe máy chủ...</div>
+          </div>
+
+          <!-- Camera Health List -->
+          <h3 class="h6 fw-bold mb-2">Trạng thái ghi hình từng Camera:</h3>
+          <div id="cameraHealth" class="list-group mb-4" style="border-radius: 10px; overflow: hidden;"></div>
+
+          <div class="d-flex flex-wrap gap-2">
+            <button id="refreshHealth" type="button" class="btn btn-brand btn-sm d-inline-flex align-items-center">
+              <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+              <span>Làm mới trạng thái</span>
+            </button>
+            <button id="reconcileLibrary" type="button" class="btn btn-outline-custom btn-sm d-inline-flex align-items-center">
+              <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+              <span>Kiểm tra toàn bộ video (Reconcile)</span>
+            </button>
+            <button id="safeRestart" type="button" class="btn btn-outline-danger btn-sm d-inline-flex align-items-center">
+              <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+              <span>Khởi động lại Server</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: THƯ VIỆN & SỰ KIỆN -->
+    <!-- ========================================================================= -->
+    <div id="tab-library" class="tab-pane-content d-none">
+      
+      <!-- Video Library -->
+      <section class="card-pro section-card">
+        <div class="card-pro-header">
+          <h2 class="card-pro-title">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/></svg>
+            <span>Thư viện Video & Quản lý Clip Khóa</span>
+          </h2>
+          <button class="btn btn-outline-custom btn-sm section-toggle" type="button">Thu gọn</button>
+        </div>
+        <div class="card-pro-body section-content">
+          <div class="input-group mb-3">
+            <input id="librarySearch" class="form-control" placeholder="Tìm tên file video hoặc ghi chú...">
+            <button id="searchLibrary" class="btn btn-brand d-inline-flex align-items-center" type="button">
+              <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <span>Tìm kiếm</span>
+            </button>
+          </div>
+          <div id="videoLibrary" class="list-group mb-4" style="max-height: 480px; overflow-y: auto;"></div>
+
+          <h3 class="h6 fw-bold mb-2">Sự kiện mới đánh dấu:</h3>
+          <div id="eventList" class="list-group" style="max-height: 320px; overflow-y: auto;"></div>
+        </div>
+      </section>
+
+      <!-- Merged Videos -->
+      <section class="card-pro section-card">
+        <div class="card-pro-header">
+          <h2 class="card-pro-title">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 11 2.4-5a2 2 0 0 1 1.8-1h11.6a2 2 0 0 1 1.8 1l2.4 5H4Z"/><path d="M4 11v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8H4Z"/><path d="m6.6 5 3.8 6"/><path d="m13.6 5 3.8 6"/></svg>
+            <span>Video Đã Ghép (Merged Clips)</span>
+          </h2>
+          <button class="btn btn-outline-custom btn-sm section-toggle" type="button">Thu gọn</button>
+        </div>
+        <div class="card-pro-body section-content">
+          <p class="form-text mt-0 mb-3">Xóa nhanh các file ghép highlight cũ để giải phóng ổ cứng; video gốc không bị ảnh hưởng.</p>
+          <div id="mergedVideos" class="list-group"></div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 4: THÔNG TIN QUÁN & MÀU SẮC -->
+    <!-- ========================================================================= -->
+    <div id="tab-site" class="tab-pane-content d-none">
+      <section class="card-pro section-card">
+        <div class="card-pro-header">
+          <h2 class="card-pro-title">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+            <span>Thông tin Quán & Giao diện Khách</span>
+          </h2>
+          <button class="btn btn-outline-custom btn-sm section-toggle" type="button">Thu gọn</button>
+        </div>
+        <div class="card-pro-body section-content">
+          <p class="form-text mt-0 mb-3">Tùy biến tên thương hiệu, khẩu hiệu và màu sắc chủ đạo hiển thị trên trang điện thoại của khách.</p>
+          
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="siteName">Tên CLB Bida / Quán</label>
+              <input id="siteName" class="form-control" maxlength="80" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="siteTagline">Khẩu hiệu / Giới thiệu</label>
+              <input id="siteTagline" class="form-control" maxlength="160">
+            </div>
+            <div class="col-sm-6 col-md-3">
+              <label class="form-label" for="themeBackground">Màu nền chính</label>
+              <input id="themeBackground" type="color" class="form-control form-control-color w-100">
+            </div>
+            <div class="col-sm-6 col-md-3">
+              <label class="form-label" for="themeSurface">Màu mảng nền (Surface)</label>
+              <input id="themeSurface" type="color" class="form-control form-control-color w-100">
+            </div>
+            <div class="col-sm-6 col-md-3">
+              <label class="form-label" for="themePrimary">Màu thương hiệu (Primary)</label>
+              <input id="themePrimary" type="color" class="form-control form-control-color w-100">
+            </div>
+            <div class="col-sm-6 col-md-3">
+              <label class="form-label" for="themeAccent">Màu nhấn (Accent)</label>
+              <input id="themeAccent" type="color" class="form-control form-control-color w-100">
             </div>
           </div>
-        </details>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 5: MÁY CHỦ, GHI HÌNH & TELEGRAM -->
+    <!-- ========================================================================= -->
+    <div id="tab-server" class="tab-pane-content d-none">
+      <section class="card-pro section-card">
+        <div class="card-pro-header">
+          <h2 class="card-pro-title">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
+            <span>Máy chủ, Dung lượng Ổ Đĩa & Mạng</span>
+          </h2>
+          <button class="btn btn-outline-custom btn-sm section-toggle" type="button">Thu gọn</button>
+        </div>
+        <div class="card-pro-body section-content">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label" for="serverPort">Port Web Server</label>
+              <input id="serverPort" type="number" min="1" max="65535" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="diskLimit">Giới hạn ổ đĩa (GB)</label>
+              <input id="diskLimit" type="number" min="1" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="minFreeDisk">Ổ D trống tối thiểu (GB)</label>
+              <input id="minFreeDisk" type="number" min="1" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="recordDuration">Độ dài mỗi video (giây)</label>
+              <input id="recordDuration" type="number" min="10" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="recordTimeout">Timeout FFmpeg (giây)</label>
+              <input id="recordTimeout" type="number" min="15" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="maxMergeMinutes">Ghép video tối đa (phút)</label>
+              <input id="maxMergeMinutes" type="number" min="1" max="1440" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="cameraStall">Cảnh báo treo sau (giây)</label>
+              <input id="cameraStall" type="number" min="60" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label" for="maxJobs">Job cắt/ghép đồng thời</label>
+              <input id="maxJobs" type="number" min="1" max="4" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="minRecordingRatio">Tỷ lệ video hợp lệ</label>
+              <input id="minRecordingRatio" type="number" min="0.5" max="1" step="0.05" class="form-control">
+              <div class="form-text">0.9 = video đạt ít nhất 90% thời lượng danh nghĩa.</div>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label" for="publicBaseUrl">URL quét QR / Tên miền Cloudflare từ xa</label>
+              <input id="publicBaseUrl" class="form-control" placeholder="https://bida-club.example.com hoặc http://192.168.1.10:8000">
+              <div class="form-text">Điền IP LAN cố định hoặc domain Cloudflare Tunnel để khách quét QR kết nối đúng.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Tự khởi động cùng Windows & Khay hệ thống</label>
+              <div class="d-flex gap-4 pt-2">
+                <label class="form-check-label"><input id="runOnStartup" type="checkbox" class="form-check-input me-1"> Khởi động cùng Windows</label>
+                <label class="form-check-label"><input id="runInTray" type="checkbox" class="form-check-input me-1"> Thu nhỏ xuống System Tray</label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="telegramToken">Telegram Bot Token (Thông báo sự cố)</label>
+              <input id="telegramToken" type="password" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="telegramChatId">Telegram Chat ID</label>
+              <input id="telegramChatId" class="form-control">
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 6: CẤU HÌNH NÂNG CAO (JSON RAW & BACKUP) -->
+    <!-- ========================================================================= -->
+    <div id="tab-advanced" class="tab-pane-content d-none">
+      <section class="card-pro section-card">
+        <div class="card-pro-header">
+          <h2 class="card-pro-title">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            <span>Cấu hình Gốc (config.json) & Sao lưu / Phục hồi</span>
+          </h2>
+          <button class="btn btn-outline-custom btn-sm section-toggle" type="button">Thu gọn</button>
+        </div>
+        <div class="card-pro-body section-content">
+          <p class="form-text mt-0 mb-3">Chỉ chỉnh sửa trực tiếp khi cần tùy biến đường dẫn lưu trữ, định dạng file hoặc tham số chuyên sâu.</p>
+          <textarea id="rawConfig" class="form-control mb-3"></textarea>
+          
+          <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-custom btn-sm d-inline-flex align-items-center" type="button" id="loadRaw">
+              <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              <span>Nạp JSON vào Biểu mẫu</span>
+            </button>
+            <a class="btn btn-outline-custom btn-sm d-inline-flex align-items-center" href="/api/admin/config/download">
+              <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span>Tải file Backup config.json</span>
+            </a>
+            <label class="btn btn-outline-custom btn-sm mb-0 d-inline-flex align-items-center">
+              <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 20 1.6-9.6A2 2 0 0 1 7.6 9h12.8a2 2 0 0 1 2 2.2l-1.6 8.8H4Z"/><path d="M4 20V4a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v3"/></svg>
+              <span>Khôi phục từ file Backup</span>
+              <input id="restoreConfig" type="file" accept="application/json,.json" hidden>
+            </label>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- STICKY BOTTOM ACTIONS -->
+    <div class="sticky-save">
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-brand px-4 py-2 d-inline-flex align-items-center" type="submit">
+          <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          <span>Lưu Cấu hình Toàn bộ</span>
+        </button>
+        <button id="restartServerSticky" type="button" class="btn btn-outline-danger py-2 d-inline-flex align-items-center">
+          <svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+          <span>Khởi động lại Server</span>
+        </button>
       </div>
-      <div id="cameraList" class="row g-3"></div>
-    </div></section>
-
-    <section class="card mb-4 section-card"><div class="section-head"><h2 class="h5">Máy chủ, ghi hình và Telegram</h2><button class="btn btn-outline-secondary btn-sm section-toggle" type="button">Thu gọn</button></div><div class="card-body section-content">
-      <div class="row g-3">
-        <div class="col-md-3"><label class="form-label">Port web</label><input id="serverPort" type="number" min="1" max="65535" class="form-control"></div>
-        <div class="col-md-3"><label class="form-label">Giới hạn ổ (GB)</label><input id="diskLimit" type="number" min="1" class="form-control"></div>
-        <div class="col-md-3"><label class="form-label">Mỗi video (giây)</label><input id="recordDuration" type="number" min="10" class="form-control"></div>
-        <div class="col-md-3"><label class="form-label">Timeout FFmpeg (giây)</label><input id="recordTimeout" type="number" min="15" class="form-control"></div>
-        <div class="col-md-3"><label class="form-label">Ghép video tối đa (phút)</label><input id="maxMergeMinutes" type="number" min="1" max="1440" class="form-control"></div>
-        <div class="col-md-3"><label class="form-label">Cảnh báo treo sau (giây)</label><input id="cameraStall" type="number" min="60" class="form-control"></div>
-        <div class="col-md-3"><label class="form-label">Job cắt/ghép đồng thời</label><input id="maxJobs" type="number" min="1" max="4" class="form-control"></div>
-        <div class="col-md-3"><label class="form-label">Ổ D trống tối thiểu (GB)</label><input id="minFreeDisk" type="number" min="1" class="form-control"></div>
-        <div class="col-md-3"><label class="form-label">Tỷ lệ video hợp lệ</label><input id="minRecordingRatio" type="number" min="0.5" max="1" step="0.05" class="form-control"><div class="form-text">0.9 = ít nhất 90% thời lượng.</div></div>
-        <div class="col-md-6"><label class="form-label">URL quét QR từ điện thoại</label><input id="publicBaseUrl" class="form-control" placeholder="http://192.168.1.10:8000"><div class="form-text">Dùng IP LAN cố định và port hiện tại để khách quét QR được.</div></div>
-        <div class="col-md-6"><label class="form-label">Chạy cùng Windows / khay hệ thống</label><div class="d-flex gap-4 pt-2"><label><input id="runOnStartup" type="checkbox"> Startup</label><label><input id="runInTray" type="checkbox"> Tray</label></div></div>
-        <div class="col-md-6"><label class="form-label">Telegram bot token</label><input id="telegramToken" type="password" class="form-control"></div>
-        <div class="col-md-6"><label class="form-label">Telegram chat ID</label><input id="telegramChatId" class="form-control"></div>
+      <div class="muted small d-none d-md-block">
+        Thay đổi camera, port hoặc FFmpeg cần khởi động lại Server để có hiệu lực.
       </div>
-    </div></section>
+    </div>
 
-    <section class="card mb-4 section-card"><div class="section-head"><h2 class="h5">Mã QR theo bàn</h2><button class="btn btn-outline-secondary btn-sm section-toggle" type="button">Thu gọn</button></div><div class="card-body section-content"><p class="form-text">Mỗi camera được tự tạo một bàn/QR. Đổi tên camera để đổi tên bàn trên QR.</p><div id="qrGrid" class="row g-3"></div></div></section>
-
-    <section class="card mb-4 section-card"><div class="section-head"><h2 class="h5">Video đã ghép</h2><button class="btn btn-outline-secondary btn-sm section-toggle" type="button">Thu gọn</button></div><div class="card-body section-content"><p class="form-text">Xóa nhanh các file ghép không còn cần; video gốc không bị ảnh hưởng.</p><div id="mergedVideos" class="list-group"></div></div></section>
-
-    <section class="card mb-4 section-card is-collapsed"><div class="section-head"><h2 class="h5">Cấu hình nâng cao (config.json)</h2><button class="btn btn-outline-secondary btn-sm section-toggle" type="button">Mở rộng</button></div><div class="card-body section-content"><p class="form-text">Chỉ dùng khi cần đổi đường dẫn video, log hoặc database. Camera nên sửa ở phần Camera phía trên.</p><textarea id="rawConfig" class="form-control"></textarea><div class="d-flex flex-wrap gap-2 mt-2"><button class="btn btn-outline-secondary btn-sm" type="button" id="loadRaw">Nạp JSON vào biểu mẫu</button><a class="btn btn-outline-secondary btn-sm" href="/api/admin/config/download">Tải backup config</a><label class="btn btn-outline-secondary btn-sm mb-0">Khôi phục backup <input id="restoreConfig" type="file" accept="application/json,.json" hidden></label></div></div></section>
-    <div class="sticky-save d-flex gap-2 align-items-center flex-wrap"><button class="btn btn-brand px-4" type="submit">Lưu cấu hình</button><button id="restartServerSticky" type="button" class="btn btn-outline-danger">🔄 Khởi động lại Server</button><span class="muted">Đổi camera, port hoặc FFmpeg cần khởi động lại app.</span></div>
   </form>
+
 </main>
+
 <script>
+  const ICONS = {
+    zap: `<svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
+    trash: `<svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
+    settings: `<svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    sliders: `<svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg>`,
+    check: `<svg class="svg-icon text-success me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    alert: `<svg class="svg-icon text-warning me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>`,
+    lock: `<svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    unlock: `<svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>`,
+    sun: `<svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,
+    moon: `<svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
+    clock: `<svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+    plus: `<svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>`
+  };
+
   let currentConfig = {}, cameraDrafts = [];
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const pretty = value => JSON.stringify(value, null, 2);
-  const notice = (text, ok=true) => $('notice').innerHTML = `<div class="alert ${ok ? 'alert-success' : 'alert-danger'}">${esc(text)}</div>`;
+  const notice = (text, ok=true) => {
+    $('notice').innerHTML = `
+      <div class="alert ${ok ? 'alert-success' : 'alert-danger'} alert-dismissible fade show mb-4 d-flex justify-content-between align-items-center" role="alert">
+        <div class="d-flex align-items-center">${ok ? ICONS.check : ICONS.alert}<div><strong>${ok ? 'Thành công:' : 'Thông báo:'}</strong> ${esc(text)}</div></div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" onclick="this.parentElement.remove()"></button>
+      </div>`;
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  };
   const asYesNo = value => String(value || 'no').toLowerCase() === 'yes';
   const isDahua = camera => String(camera.record_path || '').includes('cam/realmonitor');
   const preset = camera => camera.record_rtsp_url || camera.preview_rtsp_url ? 'custom' : isDahua(camera) ? 'dahua' : 'hikvision';
+
+  // Tab switching logic
+  function switchAdminTab(tabId, btn) {
+    document.querySelectorAll('.tab-pane-content').forEach(el => el.classList.add('d-none'));
+    document.querySelectorAll('.nav-tab-btn').forEach(el => el.classList.remove('active'));
+    
+    const target = $(tabId);
+    if (target) target.classList.remove('d-none');
+    if (btn) btn.classList.add('active');
+  }
 
   function normalizeCamera(camera, index=0) {
     const normalized = {...(camera || {})};
@@ -189,7 +850,7 @@
     normalized.view_stream = ['auto', 'main', 'sub'].includes(String(normalized.view_stream || '').toLowerCase())
       ? String(normalized.view_stream).toLowerCase()
       : (String(normalized.netsdk_stream || '').toLowerCase() === 'sub' ? 'sub' : (String(normalized.netsdk_stream || '').toLowerCase() === 'main' ? 'main' : 'auto'));
-    normalized.aspect_ratio = ['auto', '4:3', '16:9'].includes(String(normalized.aspect_ratio || '').toLowerCase())
+    normalized.aspect_ratio = ['16:9', '4:3', 'auto'].includes(String(normalized.aspect_ratio || '').toLowerCase())
       ? String(normalized.aspect_ratio).toLowerCase()
       : 'auto';
     const legacyIp = normalized.ip || normalized.host || '';
@@ -247,25 +908,25 @@
       const isNvr = playback === 'nvr';
       const localTransport = String(cam.local_transport || 'rtsp').toLowerCase() === 'netsdk' ? 'netsdk' : 'rtsp';
 
-      const rtspFields = localTransport === 'rtsp' ? `<div class="col-md-4"><label class="form-label small">Preset RTSP camera</label><select class="form-select cam-preset" data-index="${index}"><option value="hikvision" ${preset(cam)==='hikvision'?'selected':''}>Hikvision / chuẩn cũ</option><option value="dahua" ${preset(cam)==='dahua'?'selected':''}>Dahua</option><option value="custom" ${preset(cam)==='custom'?'selected':''}>Tự chỉnh</option></select></div>` : '';
-      const netsdkFields = localTransport === 'netsdk' ? `<div class="col-md-4"><label class="form-label small">NetSDK port</label><input class="form-control cam-netsdk-port" data-index="${index}" type="number" min="1" max="65535" value="${esc(cam.netsdk_port ?? 37777)}"></div><div class="col-md-4"><label class="form-label small">Kênh NetSDK</label><input class="form-control cam-netsdk-channel" data-index="${index}" type="number" min="1" value="${esc(cam.netsdk_channel ?? 1)}"></div>` : '';
+      const rtspFields = localTransport === 'rtsp' ? `<div class="col-md-4"><label class="form-label">Preset RTSP camera</label><select class="form-select cam-preset" data-index="${index}"><option value="hikvision" ${preset(cam)==='hikvision'?'selected':''}>Hikvision / chuẩn cũ</option><option value="dahua" ${preset(cam)==='dahua'?'selected':''}>Dahua</option><option value="custom" ${preset(cam)==='custom'?'selected':''}>Tự chỉnh</option></select></div>` : '';
+      const netsdkFields = localTransport === 'netsdk' ? `<div class="col-md-4"><label class="form-label">NetSDK port</label><input class="form-control cam-netsdk-port" data-index="${index}" type="number" min="1" max="65535" value="${esc(cam.netsdk_port ?? 37777)}"></div><div class="col-md-4"><label class="form-label">Kênh NetSDK</label><input class="form-control cam-netsdk-channel" data-index="${index}" type="number" min="1" value="${esc(cam.netsdk_channel ?? 1)}"></div>` : '';
       const localFields = `
-        <div class="col-md-4"><label class="form-label small">Kết nối camera</label><select class="form-select cam-local-transport" data-index="${index}"><option value="rtsp" ${localTransport==='rtsp'?'selected':''}>RTSP (554)</option><option value="netsdk" ${localTransport==='netsdk'?'selected':''}>Dahua / Imou NetSDK (37777)</option></select></div>
+        <div class="col-md-4"><label class="form-label">Giao thức kết nối</label><select class="form-select cam-local-transport" data-index="${index}"><option value="rtsp" ${localTransport==='rtsp'?'selected':''}>RTSP (554)</option><option value="netsdk" ${localTransport==='netsdk'?'selected':''}>Dahua / Imou NetSDK (37777)</option></select></div>
         ${rtspFields}
         ${netsdkFields}
-        <div class="col-md-4"><label class="form-label small">IP camera</label><input class="form-control cam-ip" data-index="${index}" value="${esc(cam.ip || '')}" placeholder="192.168.1.208"></div>
-        <div class="col-md-4"><label class="form-label small">Tài khoản camera</label><input class="form-control cam-user" data-index="${index}" value="${esc(cam.user || '')}"></div>
-        <div class="col-md-4"><label class="form-label small">Mật khẩu camera</label><input class="form-control cam-pass" data-index="${index}" type="password" value="${esc(cam.pass || '')}"></div>`;
+        <div class="col-md-4"><label class="form-label">IP Camera</label><input class="form-control cam-ip" data-index="${index}" value="${esc(cam.ip || '')}" placeholder="192.168.1.208"></div>
+        <div class="col-md-4"><label class="form-label">Tài khoản</label><input class="form-control cam-user" data-index="${index}" value="${esc(cam.user || '')}"></div>
+        <div class="col-md-4"><label class="form-label">Mật khẩu</label><input class="form-control cam-pass" data-index="${index}" type="password" value="${esc(cam.pass || '')}"></div>`;
 
       const nvrFields = `
-        <div class="col-md-4"><label class="form-label small">Hãng đầu ghi</label><select class="form-select cam-nvr-vendor" data-index="${index}"><option value="hikvision" ${(cam.vendor||'hikvision')==='hikvision'?'selected':''}>Hikvision ISAPI</option><option value="dahua" ${(cam.vendor||'')==='dahua'?'selected':''}>Dahua CGI + RTSP</option></select></div>
-        <div class="col-md-4"><label class="form-label small">IP / Host đầu ghi</label><input class="form-control cam-nvr-host" data-index="${index}" value="${esc(cam.host || cam.ip || '')}" placeholder="192.168.1.64"></div>
-        <div class="col-md-2"><label class="form-label small">HTTP port</label><input class="form-control cam-nvr-http-port" data-index="${index}" type="number" min="1" max="65535" value="${esc(cam.http_port ?? ((cam.vendor||'hikvision')==='dahua'?81:80))}"></div>
-        <div class="col-md-2"><label class="form-label small">RTSP port</label><input class="form-control cam-nvr-rtsp-port" data-index="${index}" type="number" min="1" max="65535" value="${esc(cam.rtsp_port ?? cam.port ?? 554)}"></div>
-        <div class="col-md-3"><label class="form-label small">Tài khoản đầu ghi</label><input class="form-control cam-nvr-user" data-index="${index}" value="${esc(cam.user ?? cam.username ?? 'admin')}"></div>
-        <div class="col-md-3"><label class="form-label small">Mật khẩu đầu ghi</label><input class="form-control cam-nvr-pass" data-index="${index}" type="password" value="${esc(cam.pass ?? cam.password ?? '')}"></div>
-        <div class="col-md-3"><label class="form-label small">Kênh NVR</label><input class="form-control cam-nvr-channel" data-index="${index}" type="number" min="1" max="256" value="${esc(cam.nvr_channel ?? index + 1)}"><div class="form-text">CH1 = 1, CH2 = 2...</div></div>
-        <div class="col-md-3"><label class="form-label small">Luồng bản ghi</label><select class="form-select cam-nvr-stream" data-index="${index}"><option value="main" ${(cam.stream||'main')==='main'?'selected':''}>Main</option><option value="sub" ${(cam.stream||'')==='sub'?'selected':''}>Sub</option></select></div>
+        <div class="col-md-4"><label class="form-label">Hãng đầu ghi</label><select class="form-select cam-nvr-vendor" data-index="${index}"><option value="hikvision" ${(cam.vendor||'hikvision')==='hikvision'?'selected':''}>Hikvision ISAPI</option><option value="dahua" ${(cam.vendor||'')==='dahua'?'selected':''}>Dahua CGI + RTSP</option></select></div>
+        <div class="col-md-4"><label class="form-label">IP / Host đầu ghi</label><input class="form-control cam-nvr-host" data-index="${index}" value="${esc(cam.host || cam.ip || '')}" placeholder="192.168.1.64"></div>
+        <div class="col-md-2"><label class="form-label">HTTP port</label><input class="form-control cam-nvr-http-port" data-index="${index}" type="number" min="1" max="65535" value="${esc(cam.http_port ?? ((cam.vendor||'hikvision')==='dahua'?81:80))}"></div>
+        <div class="col-md-2"><label class="form-label">RTSP port</label><input class="form-control cam-nvr-rtsp-port" data-index="${index}" type="number" min="1" max="65535" value="${esc(cam.rtsp_port ?? cam.port ?? 554)}"></div>
+        <div class="col-md-3"><label class="form-label">Tài khoản đầu ghi</label><input class="form-control cam-nvr-user" data-index="${index}" value="${esc(cam.user ?? cam.username ?? 'admin')}"></div>
+        <div class="col-md-3"><label class="form-label">Mật khẩu đầu ghi</label><input class="form-control cam-nvr-pass" data-index="${index}" type="password" value="${esc(cam.pass ?? cam.password ?? '')}"></div>
+        <div class="col-md-3"><label class="form-label">Kênh NVR</label><input class="form-control cam-nvr-channel" data-index="${index}" type="number" min="1" max="256" value="${esc(cam.nvr_channel ?? index + 1)}"><div class="form-text">CH1 = 1, CH2 = 2...</div></div>
+        <div class="col-md-3"><label class="form-label">Luồng bản ghi</label><select class="form-select cam-nvr-stream" data-index="${index}"><option value="main" ${(cam.stream||'main')==='main'?'selected':''}>Main</option><option value="sub" ${(cam.stream||'')==='sub'?'selected':''}>Sub</option></select></div>
         <div class="col-12 mt-2">
           <div class="form-check form-switch">
             <input class="form-check-input cam-backup-local" type="checkbox" id="backupLocal_${index}" data-index="${index}" ${cam.backup_local ? 'checked' : ''}>
@@ -275,30 +936,40 @@
         </div>`;
 
       const advanced = isNvr
-        ? `<details class="mt-3"><summary>Cấu hình đầu ghi nâng cao (Timezone, Timeout, HTTPS)</summary><div class="row g-2 mt-1"><div class="col-md-3"><label class="form-label small">UTC offset (phút)</label><input class="form-control cam-nvr-timezone" data-index="${index}" type="number" min="-840" max="840" value="${esc(cam.timezone_offset_minutes ?? 420)}"><div class="form-text">Việt Nam = 420.</div></div><div class="col-md-3"><label class="form-label small">Timeout kết nối (giây)</label><input class="form-control cam-nvr-connect-timeout" data-index="${index}" type="number" min="1" value="${esc(cam.connect_timeout_sec ?? 5)}"></div><div class="col-md-3"><label class="form-label small">Timeout đọc (giây)</label><input class="form-control cam-nvr-read-timeout" data-index="${index}" type="number" min="5" value="${esc(cam.read_timeout_sec ?? 30)}"></div><div class="col-md-3"><label class="form-label small">Mỗi lần phát (giây)</label><input class="form-control cam-nvr-playback-chunk" data-index="${index}" type="number" min="30" max="3600" value="${esc(cam.playback_chunk_sec ?? 300)}"><div class="form-text">Độ dài đoạn phát Dahua</div></div><div class="col-md-3"><label class="form-label small">HTTPS</label><div class="pt-2"><label><input class="cam-nvr-https" data-index="${index}" type="checkbox" ${cam.use_https ? 'checked' : ''}> Dùng HTTPS</label></div></div></div></details>`
+        ? `<details class="mt-3"><summary class="d-inline-flex align-items-center">${ICONS.settings}<span>Cấu hình đầu ghi nâng cao (Timezone, Timeout, HTTPS)</span></summary><div class="row g-2 mt-2 p-2 rounded" style="background:var(--soft);"><div class="col-md-3"><label class="form-label">UTC offset (phút)</label><input class="form-control cam-nvr-timezone" data-index="${index}" type="number" min="-840" max="840" value="${esc(cam.timezone_offset_minutes ?? 420)}"><div class="form-text">Việt Nam = 420.</div></div><div class="col-md-3"><label class="form-label">Timeout kết nối (giây)</label><input class="form-control cam-nvr-connect-timeout" data-index="${index}" type="number" min="1" value="${esc(cam.connect_timeout_sec ?? 5)}"></div><div class="col-md-3"><label class="form-label">Timeout đọc (giây)</label><input class="form-control cam-nvr-read-timeout" data-index="${index}" type="number" min="5" value="${esc(cam.read_timeout_sec ?? 30)}"></div><div class="col-md-3"><label class="form-label">Mỗi lần phát (giây)</label><input class="form-control cam-nvr-playback-chunk" data-index="${index}" type="number" min="30" max="3600" value="${esc(cam.playback_chunk_sec ?? 300)}"><div class="form-text">Độ dài đoạn phát Dahua</div></div><div class="col-md-3"><label class="form-label">HTTPS</label><div class="pt-2"><label class="form-check-label"><input class="cam-nvr-https form-check-input me-1" data-index="${index}" type="checkbox" ${cam.use_https ? 'checked' : ''}> Dùng HTTPS</label></div></div></div></details>`
         : localTransport === 'rtsp'
-          ? `<details class="mt-3"><summary>Chỉnh luồng RTSP camera nâng cao</summary><div class="row g-2 mt-1"><div class="col-md-2"><label class="form-label small">Port RTSP</label><input class="form-control cam-port" data-index="${index}" type="number" value="${esc(cam.port || 554)}"></div><div class="col-md-5"><label class="form-label small">Luồng ghi</label><input class="form-control cam-record-path" data-index="${index}" value="${esc(cam.record_path || 'h264/ch1/main/av_stream')}"></div><div class="col-md-5"><label class="form-label small">Luồng xem trực tiếp</label><input class="form-control cam-preview-path" data-index="${index}" value="${esc(cam.preview_path || 'h264/ch1/sub/av_stream')}"></div><div class="col-md-6"><label class="form-label small">URL RTSP ghi đầy đủ (ghi đè, tùy chọn)</label><input class="form-control cam-record-url" data-index="${index}" value="${esc(cam.record_rtsp_url || '')}" placeholder="rtsp://..."></div><div class="col-md-6"><label class="form-label small">URL RTSP xem đầy đủ (ghi đè, tùy chọn)</label><input class="form-control cam-preview-url" data-index="${index}" value="${esc(cam.preview_rtsp_url || '')}" placeholder="rtsp://..."></div></div></details>`
+          ? `<details class="mt-3"><summary class="d-inline-flex align-items-center">${ICONS.sliders}<span>Chỉnh luồng RTSP camera nâng cao</span></summary><div class="row g-2 mt-2 p-2 rounded" style="background:var(--soft);"><div class="col-md-2"><label class="form-label">Port RTSP</label><input class="form-control cam-port" data-index="${index}" type="number" value="${esc(cam.port || 554)}"></div><div class="col-md-5"><label class="form-label">Luồng ghi</label><input class="form-control cam-record-path" data-index="${index}" value="${esc(cam.record_path || 'h264/ch1/main/av_stream')}"></div><div class="col-md-5"><label class="form-label">Luồng xem trực tiếp</label><input class="form-control cam-preview-path" data-index="${index}" value="${esc(cam.preview_path || 'h264/ch1/sub/av_stream')}"></div><div class="col-md-6"><label class="form-label">URL RTSP ghi đầy đủ (ghi đè, tùy chọn)</label><input class="form-control cam-record-url" data-index="${index}" value="${esc(cam.record_rtsp_url || '')}" placeholder="rtsp://..."></div><div class="col-md-6"><label class="form-label">URL RTSP xem đầy đủ (ghi đè, tùy chọn)</label><input class="form-control cam-preview-url" data-index="${index}" value="${esc(cam.preview_rtsp_url || '')}" placeholder="rtsp://..."></div></div></details>`
           : '';
 
-      const testBtnText = isNvr ? 'Kiểm tra NVR' : 'Kiểm tra Local';
-      const badgeText = isNvr ? 'Local + NVR' : 'Local';
+      const testBtnText = isNvr ? `${ICONS.zap}<span>Kiểm tra NVR</span>` : `${ICONS.zap}<span>Kiểm tra Kết nối</span>`;
+      const badgeClass = isNvr ? 'bg-indigo-900 text-indigo-300' : 'bg-primary text-white';
+      const badgeText = isNvr ? 'Local + NVR' : (localTransport === 'netsdk' ? 'NetSDK 37777' : 'RTSP');
 
-      return `<div class="col-12"><section class="camera-card">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <div><strong>Kênh ${index + 1}</strong><span class="badge text-bg-secondary ms-2">${badgeText}</span><span class="test-result small ms-2" data-index="${index}"></span></div>
-          <div class="d-flex gap-2"><button class="btn btn-outline-primary btn-sm test-camera" data-index="${index}" type="button">${testBtnText}</button><button class="btn btn-outline-danger btn-sm remove-camera" data-index="${index}" type="button">Xóa kênh</button></div>
+      return `<div class="col-12"><div class="camera-card">
+        <div class="camera-card-header">
+          <div class="d-flex align-items-center gap-2">
+            <span class="channel-number">${index + 1}</span>
+            <strong>${esc(cam.name || `Bàn ${index + 1}`)}</strong>
+            <span class="badge ${badgeClass} ms-1">${badgeText}</span>
+            <span class="test-result small ms-2" data-index="${index}"></span>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-custom btn-sm test-camera d-inline-flex align-items-center" data-index="${index}" type="button">${testBtnText}</button>
+            <button class="btn btn-outline-danger btn-sm remove-camera d-inline-flex align-items-center" data-index="${index}" type="button">${ICONS.trash}<span>Xóa</span></button>
+          </div>
         </div>
         <div class="row g-2">
-          <div class="col-md-3"><label class="form-label small">Tên / bàn</label><input class="form-control cam-name" data-index="${index}" value="${esc(cam.name || `Bàn ${index + 1}`)}"></div>
-          <div class="col-md-3"><label class="form-label small">Nguồn kênh</label><select class="form-select cam-playback-source" data-index="${index}"><option value="local" ${playback==='local'?'selected':''}>Local (Camera độc lập)</option><option value="nvr" ${playback==='nvr'?'selected':''}>Local + NVR dự phòng</option></select></div>
-          <div class="col-md-3"><label class="form-label small">Luồng xem trực tiếp</label><select class="form-select cam-view-stream" data-index="${index}"><option value="auto" ${(cam.view_stream||'auto')==='auto'?'selected':''}>Tự động (Auto)</option><option value="main" ${(cam.view_stream||'')==='main'?'selected':''}>Luồng chính (Main)</option><option value="sub" ${(cam.view_stream||'')==='sub'?'selected':''}>Luồng phụ (Sub)</option></select></div>
-          <div class="col-md-3"><label class="form-label small">Tỉ lệ khung hình</label><select class="form-select cam-aspect-ratio" data-index="${index}"><option value="auto" ${(cam.aspect_ratio||'auto')==='auto'?'selected':''}>Tự động (Auto)</option><option value="16:9" ${(cam.aspect_ratio||'')==='16:9'?'selected':''}>16:9 (Màn rộng)</option><option value="4:3" ${(cam.aspect_ratio||'')==='4:3'?'selected':''}>4:3 (Tiêu chuẩn)</option></select></div>
+          <div class="col-md-3"><label class="form-label">Tên bàn bida</label><input class="form-control cam-name" data-index="${index}" value="${esc(cam.name || `Bàn ${index + 1}`)}"></div>
+          <div class="col-md-3"><label class="form-label">Nguồn kênh</label><select class="form-select cam-playback-source" data-index="${index}"><option value="local" ${playback==='local'?'selected':''}>Local (Camera độc lập)</option><option value="nvr" ${playback==='nvr'?'selected':''}>Local + NVR dự phòng</option></select></div>
+          <div class="col-md-3"><label class="form-label">Luồng xem trực tiếp</label><select class="form-select cam-view-stream" data-index="${index}"><option value="auto" ${(cam.view_stream||'auto')==='auto'?'selected':''}>Tự động (Auto)</option><option value="main" ${(cam.view_stream||'')==='main'?'selected':''}>Luồng chính (Main)</option><option value="sub" ${(cam.view_stream||'')==='sub'?'selected':''}>Luồng phụ (Sub)</option></select></div>
+          <div class="col-md-3"><label class="form-label">Tỉ lệ khung hình</label><select class="form-select cam-aspect-ratio" data-index="${index}"><option value="auto" ${(cam.aspect_ratio||'auto')==='auto'?'selected':''}>Tự động (Auto)</option><option value="16:9" ${(cam.aspect_ratio||'')==='16:9'?'selected':''}>16:9 (Màn rộng)</option><option value="4:3" ${(cam.aspect_ratio||'')==='4:3'?'selected':''}>4:3 (Tiêu chuẩn)</option></select></div>
           ${isNvr ? nvrFields : localFields}
         </div>
         ${advanced}
-      </section></div>`;
-    }).join('') || '<div class="col-12 muted">Chưa có kênh. Bấm “Thêm kênh” để bắt đầu.</div>';
+      </div></div>`;
+    }).join('') || '<div class="col-12 muted py-3 text-center">Chưa có kênh camera nào. Nhập thông tin ở trên hoặc bấm "Dò tìm thiết bị LAN" để bắt đầu.</div>';
   }
+
   function cameraValues() {
     const read = selector => [...document.querySelectorAll(selector)];
     const values = cameraDrafts.map(camera => ({...camera}));
@@ -348,6 +1019,7 @@
 
     return values.map((camera, index) => normalizeCamera(camera, index));
   }
+
   function tablesForCameras(cameras) {
     const previous = Array.isArray(currentConfig.tables) ? currentConfig.tables : [];
     return cameras.map((camera, index) => {
@@ -355,7 +1027,21 @@
       return {enabled: true, privacy_off: false, sort_order: cameraId, ...(old || {}), id: old?.id || `ban-${String(cameraId).padStart(2,'0')}`, name: camera.name || `Bàn ${cameraId}`, camera_id: cameraId};
     });
   }
-  function renderQrs(tables) { $('qrGrid').innerHTML = tables.length ? tables.map(t => `<div class="col-6 col-sm-4 col-md-3"><div class="qr-card"><img src="/qr/table/${encodeURIComponent(t.id)}.png" alt="QR ${esc(t.name)}"><div class="fw-bold">${esc(t.name)}</div><small>Camera ${esc(t.camera_id)}</small><br><a class="btn btn-sm btn-dark mt-2" download="qr-${esc(t.id)}.png" href="/qr/table/${encodeURIComponent(t.id)}.png">Tải PNG</a></div></div>`).join('') : '<div class="muted">Chưa có camera để tạo QR.</div>'; }
+
+  function renderQrs(tables) {
+    $('qrGrid').innerHTML = tables.length ? tables.map(t => `
+      <div class="col-6 col-sm-4 col-md-3">
+        <div class="qr-card">
+          <img src="/qr/table/${encodeURIComponent(t.id)}.png" alt="QR ${esc(t.name)}">
+          <div class="fw-bold">${esc(t.name)}</div>
+          <small class="muted">Camera ${esc(t.camera_id)}</small>
+          <div class="mt-2">
+            <a class="btn btn-sm btn-brand w-100" download="qr-${esc(t.id)}.png" href="/qr/table/${encodeURIComponent(t.id)}.png">Tải PNG</a>
+          </div>
+        </div>
+      </div>`).join('') : '<div class="muted col-12 py-3 text-center">Chưa có camera để tạo mã QR bàn.</div>';
+  }
+
   function setForm(config) {
     currentConfig = config;
     cameraDrafts = (config.cameras || []).map((camera, index) => {
@@ -364,17 +1050,91 @@
       return normalizeCamera({...camera, playback_source: playback}, index);
     });
     const site=config.site||{}, theme=site.theme||{};
-    $('siteName').value=site.name||'HỆ THỐNG CCTV'; $('siteTagline').value=site.tagline||''; $('themeBackground').value=theme.background||'#2c0b0b'; $('themeSurface').value=theme.surface||'#660000'; $('themePrimary').value=theme.primary||'#c1121f'; $('themeAccent').value=theme.accent||'#ffa500'; $('serverPort').value=config.server_port||8000; $('diskLimit').value=config.disk_limit_gb||400; $('recordDuration').value=config.record_duration_sec||300; $('recordTimeout').value=config.record_timeout_sec||330; $('maxMergeMinutes').value=config.max_merge_minutes||60; $('cameraStall').value=config.camera_stall_sec||600; $('maxJobs').value=config.max_concurrent_jobs||1; $('minFreeDisk').value=config.minimum_free_disk_gb||10; $('minRecordingRatio').value=config.minimum_recording_ratio||0.9; $('publicBaseUrl').value=config.public_base_url||''; $('runOnStartup').checked=asYesNo(config.run_on_startup); $('runInTray').checked=asYesNo(config.run_in_tray); $('telegramToken').value=config.telegram_token||''; $('telegramChatId').value=config.telegram_chat_id||''; $('rawConfig').value=pretty(config);
-    renderCameras(); renderQrs(config.tables||[]); loadMergedVideos();
+    $('siteName').value=site.name||'HỆ THỐNG CCTV';
+    $('siteTagline').value=site.tagline||'';
+    $('themeBackground').value=theme.background||'#2c0b0b';
+    $('themeSurface').value=theme.surface||'#660000';
+    $('themePrimary').value=theme.primary||'#c1121f';
+    $('themeAccent').value=theme.accent||'#ffa500';
+    $('serverPort').value=config.server_port||8000;
+    $('diskLimit').value=config.disk_limit_gb||400;
+    $('recordDuration').value=config.record_duration_sec||300;
+    $('recordTimeout').value=config.record_timeout_sec||330;
+    $('maxMergeMinutes').value=config.max_merge_minutes||60;
+    $('cameraStall').value=config.camera_stall_sec||600;
+    $('maxJobs').value=config.max_concurrent_jobs||1;
+    $('minFreeDisk').value=config.minimum_free_disk_gb||10;
+    $('minRecordingRatio').value=config.minimum_recording_ratio||0.9;
+    $('publicBaseUrl').value=config.public_base_url||'';
+    $('runOnStartup').checked=asYesNo(config.run_on_startup);
+    $('runInTray').checked=asYesNo(config.run_in_tray);
+    $('telegramToken').value=config.telegram_token||'';
+    $('telegramChatId').value=config.telegram_chat_id||'';
+    $('rawConfig').value=pretty(config);
+    renderCameras();
+    renderQrs(config.tables||[]);
+    loadMergedVideos();
   }
+
   function readForm() {
     const cameras = cameraValues(), tables = tablesForCameras(cameras), nextConfig = {...currentConfig};
     delete nextConfig.retention_days;
     delete nextConfig.playback_source;
-    return {...nextConfig,site:{name:$('siteName').value.trim(),tagline:$('siteTagline').value.trim(),theme:{background:$('themeBackground').value,surface:$('themeSurface').value,primary:$('themePrimary').value,accent:$('themeAccent').value,text:(currentConfig.site?.theme?.text||'#ffffff')}},server_port:Number($('serverPort').value),disk_limit_gb:Number($('diskLimit').value),record_duration_sec:Number($('recordDuration').value),record_timeout_sec:Number($('recordTimeout').value),max_merge_minutes:Number($('maxMergeMinutes').value),camera_stall_sec:Number($('cameraStall').value),max_concurrent_jobs:Number($('maxJobs').value),minimum_free_disk_gb:Number($('minFreeDisk').value),minimum_recording_ratio:Number($('minRecordingRatio').value),public_base_url:$('publicBaseUrl').value.trim(),run_on_startup:$('runOnStartup').checked?'yes':'no',run_in_tray:$('runInTray').checked?'yes':'no',telegram_token:$('telegramToken').value.trim(),telegram_chat_id:$('telegramChatId').value.trim(),cameras,tables};
+    return {
+      ...nextConfig,
+      site:{
+        name:$('siteName').value.trim(),
+        tagline:$('siteTagline').value.trim(),
+        theme:{
+          background:$('themeBackground').value,
+          surface:$('themeSurface').value,
+          primary:$('themePrimary').value,
+          accent:$('themeAccent').value,
+          text:(currentConfig.site?.theme?.text||'#ffffff')
+        }
+      },
+      server_port:Number($('serverPort').value),
+      disk_limit_gb:Number($('diskLimit').value),
+      record_duration_sec:Number($('recordDuration').value),
+      record_timeout_sec:Number($('recordTimeout').value),
+      max_merge_minutes:Number($('maxMergeMinutes').value),
+      camera_stall_sec:Number($('cameraStall').value),
+      max_concurrent_jobs:Number($('maxJobs').value),
+      minimum_free_disk_gb:Number($('minFreeDisk').value),
+      minimum_recording_ratio:Number($('minRecordingRatio').value),
+      public_base_url:$('publicBaseUrl').value.trim(),
+      run_on_startup:$('runOnStartup').checked?'yes':'no',
+      run_in_tray:$('runInTray').checked?'yes':'no',
+      telegram_token:$('telegramToken').value.trim(),
+      telegram_chat_id:$('telegramChatId').value.trim(),
+      cameras,
+      tables
+    };
   }
-  async function loadMergedVideos() { try { const response=await fetch('/api/admin/merged-videos'); const videos=await response.json(); $('mergedVideos').innerHTML=videos.length ? videos.map(video => `<div class="list-group-item d-flex justify-content-between align-items-center"><div class="text-break"><strong>${esc(video.name)}</strong><div class="small text-muted">${esc(video.modified)} · ${esc(video.size_mb)} MB</div></div><button type="button" class="btn btn-outline-danger btn-sm delete-merged" data-name="${esc(video.name)}">Xóa</button></div>`).join('') : '<div class="text-muted">Chưa có video ghép.</div>'; } catch (error) { $('mergedVideos').innerHTML='<div class="text-danger">Không tải được danh sách video ghép.</div>'; } }
-  async function loadConfig() { const response=await fetch('/api/admin/config'); if (!response.ok) throw new Error('Không tải được config'); setForm(await response.json()); }
+
+  async function loadMergedVideos() {
+    try {
+      const response=await fetch('/api/admin/merged-videos');
+      const videos=await response.json();
+      $('mergedVideos').innerHTML=videos.length ? videos.map(video => `
+        <div class="list-group-item d-flex justify-content-between align-items-center" style="background:var(--card-bg); border-color:var(--border);">
+          <div class="text-break">
+            <strong>${esc(video.name)}</strong>
+            <div class="small muted">${esc(video.modified)} · ${esc(video.size_mb)} MB</div>
+          </div>
+          <button type="button" class="btn btn-outline-danger btn-sm delete-merged" data-name="${esc(video.name)}">Xóa</button>
+        </div>`).join('') : '<div class="muted py-2">Chưa có video ghép nào.</div>';
+    } catch (error) {
+      $('mergedVideos').innerHTML='<div class="text-danger py-2">Không tải được danh sách video ghép.</div>';
+    }
+  }
+
+  async function loadConfig() {
+    const response=await fetch('/api/admin/config');
+    if (!response.ok) throw new Error('Không tải được config');
+    setForm(await response.json());
+  }
+
   const VENDOR_DEFAULT_PORTS = {
     hikvision: 8000,
     ezviz: 8000,
@@ -392,10 +1152,10 @@
     }
   });
 
-  $('btnDiscoverCameras')?.addEventListener('click', async () => {
+  async function discoverCameras() {
     const box = $('discoverResult');
     box.classList.remove('d-none');
-    box.innerHTML = '<div class="small text-muted py-1">Đang dò tìm thiết bị trong mạng LAN...</div>';
+    box.innerHTML = '<div class="small text-muted py-2"><span class="spinner-border spinner-border-sm me-1"></span> Đang dò tìm thiết bị trong mạng LAN...</div>';
     try {
       const response = await fetch('/api/admin/camera/discover');
       const data = await response.json();
@@ -409,7 +1169,7 @@
         return;
       }
       box.innerHTML = `
-        <div class="border rounded p-2 bg-body small">
+        <div class="border rounded p-2 small" style="background:var(--card-bg); border-color:var(--border) !important;">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <strong>Thiết bị phát hiện (${devices.length}):</strong>
             <button id="btnCloseDiscover" class="btn btn-link btn-sm p-0 text-muted" type="button">Đóng</button>
@@ -424,12 +1184,12 @@
                 : v.includes('rtsp') ? 'rtsp' : 'dahua';
               const name = d.name || `${d.vendor || 'Camera'} (${d.ip})`;
               const hint = d.channel_count_hint ? ` · ${d.channel_count_hint} kênh` : '';
-              return `<div class="list-group-item d-flex justify-content-between align-items-center py-1 px-1">
+              return `<div class="list-group-item d-flex justify-content-between align-items-center py-2 px-1" style="background:transparent; border-color:var(--border);">
                 <div>
                   <div class="fw-semibold">${esc(name)}</div>
                   <div class="text-muted" style="font-size:11px;">IP: ${esc(d.ip)} · Port: ${esc(d.port)} · Giao thức: ${esc(d.protocol || d.vendor)}${esc(hint)}</div>
                 </div>
-                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2 select-device-btn"
+                <button type="button" class="btn btn-brand btn-sm py-0 px-2 select-device-btn"
                   data-ip="${esc(d.ip)}"
                   data-port="${esc(d.port)}"
                   data-vendor="${esc(vendorKey)}"
@@ -442,7 +1202,8 @@
     } catch (err) {
       box.innerHTML = `<div class="alert alert-danger py-2 small mb-0">Lỗi mạng khi dò tìm thiết bị: ${esc(err.message)}</div>`;
     }
-  });
+  }
+  $('btnDiscoverCameras')?.addEventListener('click', discoverCameras);
 
   $('discoverResult')?.addEventListener('click', event => {
     const btn = event.target.closest('.select-device-btn');
@@ -464,7 +1225,7 @@
 
   let activeProbeData = null;
 
-  $('btnProbeCamera')?.addEventListener('click', async () => {
+  async function probeCamera() {
     const vendor = $('newCamVendor').value;
     const host = $('newCamHost').value.trim();
     const port = Number($('newCamPort').value) || VENDOR_DEFAULT_PORTS[vendor] || 8000;
@@ -501,7 +1262,7 @@
     }
 
     probeBtn.disabled = true;
-    probeBtn.textContent = '⏳ Đang kết nối…';
+    probeBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span><span>Đang kết nối…</span>';
 
     try {
       const response = await fetch('/api/admin/camera/probe', {
@@ -512,20 +1273,17 @@
       const data = await response.json();
 
       if (response.status === 501) {
-        // Giao thức chưa hỗ trợ xác thực và liệt kê kênh SDK (ví dụ rtsp, kbvision)
         noticeEl.className = 'mt-3 alert alert-warning py-2 small';
         noticeEl.textContent = (data.error || data.message || 'Chưa hỗ trợ xác thực và liệt kê kênh SDK cho giao thức này') + '. Không thể xác định kênh thực tế và không tự giả định kênh.';
         return;
       }
 
       if (response.status === 503 || !response.ok || !data.ok) {
-        // Lỗi SDK hoặc thiếu khả năng (HCNetSDK.dll thiếu, sai tài khoản/mật khẩu, kết nối thất bại...)
         noticeEl.className = 'mt-3 alert alert-danger py-2 small';
         noticeEl.textContent = (data.message || data.error || 'Không thể xác thực hoặc kết nối tới thiết bị.') + ' (Thiếu SDK hoặc không thể xác định kênh. Tuyệt đối không tự đoán kênh và không tạo camera giả).';
         return;
       }
 
-      // Probe thành công
       activeProbeData = {
         vendor,
         host,
@@ -554,7 +1312,7 @@
           ? (ch.online ? ' · <span class="badge text-bg-success">Online</span>' : ' · <span class="badge text-bg-secondary">Offline</span>')
           : '';
         return `
-          <div class="form-check py-1 border-bottom">
+          <div class="form-check py-1 border-bottom" style="border-color:var(--border) !important;">
             <input class="form-check-input probe-channel-cb" type="checkbox" id="probeCh_${chId}" data-channel-id="${esc(chId)}" data-channel-name="${esc(chName)}" checked>
             <label class="form-check-label small" for="probeCh_${chId}">
               <strong>Kênh ${esc(chId)}:</strong> ${esc(chName)}${onlineTag}
@@ -562,18 +1320,13 @@
           </div>`;
       }).join('');
 
-      // Backend mapping check:
-      // Trong backend 1.py hiện hành, Dahua/Imou NetSDK (local_transport: netsdk, netsdk_port, netsdk_channel)
-      // được hỗ trợ ghi hình và lưu cấu hình đã kiểm chứng.
-      // Nếu backend chưa có cách mapping kênh đã kiểm chứng vào cấu hình hiện hành (ví dụ Hikvision SDK thiếu dll, ONVIF...):
-      // hiển thị kênh đã tìm nhưng báo 'chưa hỗ trợ cấu hình stream thực tế' và không ghi camera giả.
       const hasVerifiedMapping = (vendor === 'dahua' || vendor === 'imou') && data.transport === 'netsdk';
 
       if (hasVerifiedMapping) {
         actionEl.innerHTML = `
           <div class="d-flex justify-content-between align-items-center mt-3">
             <span class="small text-muted">Kênh đã kiểm chứng tương thích qua Dahua/Imou NetSDK.</span>
-            <button id="btnAddSelectedChannels" class="btn btn-success btn-sm" type="button">＋ Thêm các kênh đã chọn vào danh sách</button>
+            <button id="btnAddSelectedChannels" class="btn btn-success btn-sm d-inline-flex align-items-center" type="button">${ICONS.plus}<span>Thêm các kênh đã chọn vào danh sách</span></button>
           </div>`;
       } else {
         actionEl.innerHTML = `
@@ -587,9 +1340,10 @@
       noticeEl.textContent = `Lỗi mạng khi kết nối probe: ${esc(err.message)}. Không thể xác định kênh.`;
     } finally {
       probeBtn.disabled = false;
-      probeBtn.textContent = '⚡ Kết nối';
+      probeBtn.innerHTML = `${ICONS.zap}<span>Kết nối & Kiểm tra Kênh</span>`;
     }
-  });
+  }
+  $('btnProbeCamera')?.addEventListener('click', probeCamera);
 
   $('btnSelectAllChannels')?.addEventListener('click', () => {
     document.querySelectorAll('.probe-channel-cb').forEach(cb => cb.checked = true);
@@ -656,12 +1410,11 @@
     renderCameras();
     renderQrs(tablesForCameras(cameraDrafts));
 
-    // Ẩn bảng kênh sau khi thêm
     $('probeChannelsSection').classList.add('d-none');
     $('probeNotice').className = 'mt-3 d-none';
     activeProbeData = null;
 
-    notice(`Đã thêm ${addedCount} kênh vào danh sách cameraDrafts. Nhấn "Lưu cấu hình" ở cuối trang để lưu vĩnh viễn vào hệ thống.`, true);
+    notice(`Đã thêm ${addedCount} kênh vào danh sách cameraDrafts. Nhấn "Lưu Cấu hình" ở cuối trang để lưu vĩnh viễn vào hệ thống.`, true);
   });
 
   function addCameraWithSource(source) {
@@ -676,7 +1429,7 @@
     cameraDrafts.push(camera);
     renderCameras();
     renderQrs(tablesForCameras(cameraDrafts));
-    notice(`Đã thêm Camera ${number} vào bản nháp. Nhấn "Lưu cấu hình" để lưu lại.`, true);
+    notice(`Đã thêm Camera ${number} vào bản nháp. Nhấn "Lưu Cấu hình" để lưu lại.`, true);
   }
   $('addLocalCamera')?.addEventListener('click', () => addCameraWithSource('local'));
   $('addNvrCamera')?.addEventListener('click', () => addCameraWithSource('nvr'));
@@ -719,6 +1472,7 @@
       renderQrs(tablesForCameras(cameraDrafts));
     }
   });
+
   $('cameraList').addEventListener('change', event => {
     const sourceSelect = event.target.closest('.cam-playback-source');
     const viewStreamSelect = event.target.closest('.cam-view-stream');
@@ -798,50 +1552,253 @@
       return;
     }
   });
-  $('configForm').addEventListener('submit', async event => { event.preventDefault(); const payload=readForm(); const response=await fetch('/api/admin/config',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const data=await response.json(); notice(data.message||data.error||'Không thể lưu',response.ok); if (response.ok) setForm(payload); });
-  $('mergedVideos').addEventListener('click', async event => { const button=event.target.closest('.delete-merged'); if (!button) return; if (!confirm(`Xóa video ${button.dataset.name}?`)) return; const response=await fetch('/api/admin/merged-videos/'+encodeURIComponent(button.dataset.name),{method:'DELETE'}); const data=await response.json(); notice(data.message||'Không thể xóa',response.ok); if (response.ok) loadMergedVideos(); });
-  $('restoreConfig').addEventListener('change', async event => { const file=event.target.files[0]; if (!file) return; const form=new FormData(); form.append('config',file); const response=await fetch('/api/admin/config/restore',{method:'POST',body:form}); const data=await response.json(); notice(data.message||data.error||'Không thể khôi phục',response.ok); if (response.ok) loadConfig(); event.target.value=''; });
-  $('loadRaw').addEventListener('click', () => { try { setForm(JSON.parse($('rawConfig').value)); notice('Đã nạp JSON vào biểu mẫu.'); } catch (error) { notice('JSON không hợp lệ: '+error.message,false); } });
-  async function loadHealth() { const response=await fetch('/api/status'); const data=await response.json(); if(data.version && $('appVersionBadge')) $('appVersionBadge').textContent='v'+data.version; $('healthSummary').innerHTML=[['Phiên bản',data.version],['Video',`${data.video_used_gb}/${data.video_limit_gb} GB`],['Trống ổ D',`${data.disk_free_gb} GB`],['File tạm',data.orphan_part_files],['MP4 lỗi',data.video_counts?.corrupt||0]].map(([label,value])=>`<div class="col-6 col-md"><div class="camera-card"><div class="small muted">${esc(label)}</div><strong>${esc(value)}</strong></div></div>`).join(''); $('cameraHealth').innerHTML=(data.cameras||[]).map(cam=>{ const nvr=cam.source==='nvr'; const backup=nvr&&Boolean(cam.backup_local); const ok=cam.worker_alive&&cam.ffmpeg_running; const healthy=nvr?(!backup||ok):ok; const status=nvr?(backup?(ok?'NVR + dự phòng đang ghi':esc(cam.last_error||'Mất worker dự phòng')):'NVR-only'):(ok?'Đang ghi':esc(cam.last_error||'Mất worker')); const detail=nvr?(backup?'nguồn NVR · có ghi dự phòng Local':'nguồn NVR · không ghi Local'):`${cam.gaps_24h||0} khoảng trống/24h`; return `<div class="list-group-item d-flex justify-content-between"><span>${esc(cam.name)} <small class="muted">· ${detail}</small></span><span class="${healthy?'text-success':'text-danger'}">${status}</span></div>`; }).join(''); }
-  async function loadLibrary() { const q=$('librarySearch').value.trim(); const response=await fetch('/api/videos?limit=100&q='+encodeURIComponent(q)); const videos=await response.json(); $('videoLibrary').innerHTML=videos.length?videos.map(video=>`<div class="list-group-item"><div class="d-flex justify-content-between gap-2"><div class="text-break"><strong>${esc(video.filename)}</strong><div class="small muted">${esc(video.started_at)} · ${Math.round(Number(video.duration_sec||0))} giây · ${esc(video.status)}</div><div class="small">${esc(video.note||'')}</div></div><div class="d-flex gap-1 align-items-start"><a class="btn btn-outline-secondary btn-sm" target="_blank" href="/video/${encodeURIComponent(video.filename)}">Xem</a><button class="btn btn-sm ${video.locked?'btn-warning':'btn-outline-warning'} toggle-lock" type="button" data-name="${esc(video.filename)}" data-locked="${video.locked?1:0}">${video.locked?'Đã khóa':'Khóa'}</button><button class="btn btn-outline-primary btn-sm edit-note" type="button" data-name="${esc(video.filename)}" data-note="${esc(video.note||'')}">Ghi chú</button></div></div></div>`).join(''):'<div class="muted">Không có video phù hợp.</div>'; }
-  async function loadEvents() { const response=await fetch('/api/events'); const events=await response.json(); $('eventList').innerHTML=events.length?events.slice(0,50).map(event=>`<div class="list-group-item"><strong>${esc(event.label)}</strong> · ${esc(event.event_time)}<div class="small muted">${esc(event.note||event.filename||'')}</div></div>`).join(''):'<div class="muted">Chưa có sự kiện.</div>'; }
-  $('refreshHealth').addEventListener('click',loadHealth); $('searchLibrary').addEventListener('click',loadLibrary);
-  $('reconcileLibrary').addEventListener('click',async()=>{const response=await fetch('/api/admin/reconcile',{method:'POST'});const data=await response.json();notice(data.message||data.error,response.ok);});
-  async function triggerServerRestart(){
-    if(!confirm('Khởi động lại Server để cập nhật cài đặt mới?'))return;
-    notice('Đang gửi lệnh khởi động lại server...',true);
-    try{
-      const response=await fetch('/api/admin/restart',{method:'POST'});
-      const data=await response.json();
-      notice(data.message||'Hệ thống đang khởi động lại. Vui lòng đợi...',true);
-    }catch(_){
-      notice('Đã gửi lệnh khởi động lại server...',true);
+
+  $('configForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const payload = readForm();
+    const response = await fetch('/api/admin/config', {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    notice(data.message || data.error || 'Không thể lưu cấu hình', response.ok);
+    if (response.ok) setForm(payload);
+  });
+
+  $('mergedVideos').addEventListener('click', async event => {
+    const button = event.target.closest('.delete-merged');
+    if (!button) return;
+    if (!confirm(`Xóa video ${button.dataset.name}?`)) return;
+    const response = await fetch('/api/admin/merged-videos/' + encodeURIComponent(button.dataset.name), {method: 'DELETE'});
+    const data = await response.json();
+    notice(data.message || 'Không thể xóa', response.ok);
+    if (response.ok) loadMergedVideos();
+  });
+
+  $('restoreConfig').addEventListener('change', async event => {
+    const file = event.target.files[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append('config', file);
+    const response = await fetch('/api/admin/config/restore', {method: 'POST', body: form});
+    const data = await response.json();
+    notice(data.message || data.error || 'Không thể khôi phục', response.ok);
+    if (response.ok) loadConfig();
+    event.target.value = '';
+  });
+
+  $('loadRaw').addEventListener('click', () => {
+    try {
+      setForm(JSON.parse($('rawConfig').value));
+      notice('Đã nạp JSON vào biểu mẫu thành công.');
+    } catch (error) {
+      notice('JSON không hợp lệ: ' + error.message, false);
     }
-    let retries=0;
-    const pollInterval=setInterval(async()=>{
-      retries+=1;
-      try{
-        const res=await fetch('/api/status',{cache:'no-store'});
-        if(res.ok){
+  });
+
+  async function loadHealth() {
+    try {
+      const response = await fetch('/api/status');
+      const data = await response.json();
+      if (data.version && $('appVersionBadge')) $('appVersionBadge').textContent = 'v' + data.version;
+      $('healthSummary').innerHTML = [
+        ['Phiên bản', data.version || '2.2.0'],
+        ['Dung lượng Video', `${data.video_used_gb || 0}/${data.video_limit_gb || 0} GB`],
+        ['Trống ổ D', `${data.disk_free_gb || 0} GB`],
+        ['File tạm (orphans)', data.orphan_part_files || 0],
+        ['MP4 lỗi', data.video_counts?.corrupt || 0]
+      ].map(([label, value]) => `
+        <div class="col-6 col-md">
+          <div class="kpi-metric-box">
+            <div class="small muted">${esc(label)}</div>
+            <div class="kpi-metric-value">${esc(value)}</div>
+          </div>
+        </div>`).join('');
+
+      $('cameraHealth').innerHTML = (data.cameras || []).map(cam => {
+        const nvr = cam.source === 'nvr';
+        const backup = nvr && Boolean(cam.backup_local);
+        const ok = cam.worker_alive && cam.ffmpeg_running;
+        const healthy = nvr ? (!backup || ok) : ok;
+        const status = nvr ? (backup ? (ok ? 'NVR + dự phòng đang ghi' : esc(cam.last_error || 'Mất worker dự phòng')) : 'NVR-only') : (ok ? 'Đang ghi hình tốt' : esc(cam.last_error || 'Mất worker'));
+        const detail = nvr ? (backup ? 'nguồn NVR · có ghi dự phòng Local' : 'nguồn NVR · không ghi Local') : `${cam.gaps_24h || 0} khoảng trống/24h`;
+        return `
+          <div class="list-group-item d-flex justify-content-between align-items-center py-2" style="background:var(--card-bg); border-color:var(--border);">
+            <span><strong>${esc(cam.name)}</strong> <small class="muted">· ${detail}</small></span>
+            <span class="badge ${healthy ? 'bg-success' : 'bg-danger'}">${status}</span>
+          </div>`;
+      }).join('') || '<div class="muted py-2">Không có dữ liệu camera.</div>';
+    } catch (_) {}
+  }
+
+  async function loadLibrary() {
+    const q = $('librarySearch').value.trim();
+    try {
+      const response = await fetch('/api/videos?limit=100&q=' + encodeURIComponent(q));
+      const videos = await response.json();
+      $('videoLibrary').innerHTML = videos.length ? videos.map(video => `
+        <div class="list-group-item" style="background:var(--card-bg); border-color:var(--border);">
+          <div class="d-flex justify-content-between align-items-center gap-2">
+            <div class="text-break">
+              <strong>${esc(video.filename)}</strong>
+              <div class="small muted">${esc(video.started_at)} · ${Math.round(Number(video.duration_sec || 0))} giây · ${esc(video.status)}</div>
+              <div class="small">${esc(video.note || '')}</div>
+            </div>
+            <div class="d-flex gap-1 align-items-start shrink-0">
+              <a class="btn btn-outline-custom btn-sm" target="_blank" href="/video/${encodeURIComponent(video.filename)}">Xem</a>
+              <button class="btn btn-sm ${video.locked ? 'btn-warning' : 'btn-outline-custom'} toggle-lock d-inline-flex align-items-center" type="button" data-name="${esc(video.filename)}" data-locked="${video.locked ? 1 : 0}">
+                ${video.locked ? `${ICONS.lock}<span>Đã khóa</span>` : `${ICONS.unlock}<span>Khóa</span>`}
+              </button>
+              <button class="btn btn-outline-custom btn-sm edit-note" type="button" data-name="${esc(video.filename)}" data-note="${esc(video.note || '')}">Ghi chú</button>
+            </div>
+          </div>
+        </div>`).join('') : '<div class="muted py-2">Không có video phù hợp.</div>';
+    } catch (_) {
+      $('videoLibrary').innerHTML = '<div class="text-danger py-2">Lỗi tải danh sách video.</div>';
+    }
+  }
+
+  async function loadEvents() {
+    try {
+      const response = await fetch('/api/events');
+      const events = await response.json();
+      $('eventList').innerHTML = events.length ? events.slice(0, 50).map(event => `
+        <div class="list-group-item" style="background:var(--card-bg); border-color:var(--border);">
+          <strong>${esc(event.label)}</strong> · <span class="muted">${esc(event.event_time)}</span>
+          <div class="small muted">${esc(event.note || event.filename || '')}</div>
+        </div>`).join('') : '<div class="muted py-2">Chưa có sự kiện nào.</div>';
+    } catch (_) {}
+  }
+
+  $('refreshHealth').addEventListener('click', loadHealth);
+  $('searchLibrary').addEventListener('click', loadLibrary);
+  $('reconcileLibrary').addEventListener('click', async () => {
+    const response = await fetch('/api/admin/reconcile', {method: 'POST'});
+    const data = await response.json();
+    notice(data.message || data.error, response.ok);
+  });
+
+  async function triggerServerRestart() {
+    if (!confirm('Khởi động lại Server để cập nhật cài đặt mới?')) return;
+    notice('Đang gửi lệnh khởi động lại Server...', true);
+    try {
+      const response = await fetch('/api/admin/restart', {method: 'POST'});
+      const data = await response.json();
+      notice(data.message || 'Hệ thống đang khởi động lại. Vui lòng đợi...', true);
+    } catch (_) {
+      notice('Đã gửi lệnh khởi động lại Server...', true);
+    }
+    let retries = 0;
+    const pollInterval = setInterval(async () => {
+      retries += 1;
+      try {
+        const res = await fetch('/api/status', {cache: 'no-store'});
+        if (res.ok) {
           clearInterval(pollInterval);
-          notice('Server đã khởi động lại thành công!',true);
+          notice('Server đã khởi động lại thành công!', true);
           loadHealth();
-          loadConfig().catch(()=>{});
+          loadConfig().catch(() => {});
         }
-      }catch(_){
-        if(retries>30){
+      } catch (_) {
+        if (retries > 30) {
           clearInterval(pollInterval);
-          notice('Server đang khởi động lại lâu hơn dự kiến. Vui lòng tải lại trang sau giây lát.',false);
+          notice('Server đang khởi động lại lâu hơn dự kiến. Vui lòng tải lại trang sau giây lát.', false);
         }
       }
-    },1500);
+    }, 1500);
   }
-  $('safeRestart').addEventListener('click',triggerServerRestart);
-  $('restartServerSticky')?.addEventListener('click',triggerServerRestart);
-  $('videoLibrary').addEventListener('click',async event=>{const lock=event.target.closest('.toggle-lock'), noteButton=event.target.closest('.edit-note'); if(!lock&&!noteButton)return; const button=lock||noteButton; const payload=lock?{locked:lock.dataset.locked!=='1'}:{note:prompt('Ghi chú cho video:',noteButton.dataset.note||'')}; if(payload.note===null)return; const response=await fetch('/api/admin/videos/'+encodeURIComponent(button.dataset.name),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); if(response.ok)loadLibrary();});
-  document.querySelectorAll('.section-toggle').forEach(button => button.addEventListener('click', () => { const section=button.closest('.section-card'); const collapsed=section.classList.toggle('is-collapsed'); button.textContent=collapsed?'Mở rộng':'Thu gọn'; }));
-  const dark = localStorage.getItem('adminTheme') === 'dark'; document.body.classList.toggle('admin-dark',dark); $('themeToggle').textContent=dark?'☀️ Sáng':'🌙 Tối'; $('themeToggle').addEventListener('click', () => { const active=document.body.classList.toggle('admin-dark'); localStorage.setItem('adminTheme',active?'dark':'light'); $('themeToggle').textContent=active?'☀️ Sáng':'🌙 Tối'; });
-  loadConfig().catch(error => notice(error.message,false)); loadHealth(); loadLibrary(); loadEvents(); setInterval(loadHealth,30000);
+
+  $('safeRestart').addEventListener('click', triggerServerRestart);
+  $('restartServerSticky')?.addEventListener('click', triggerServerRestart);
+
+  $('videoLibrary').addEventListener('click', async event => {
+    const lock = event.target.closest('.toggle-lock'), noteButton = event.target.closest('.edit-note');
+    if (!lock && !noteButton) return;
+    const button = lock || noteButton;
+    const payload = lock ? {locked: lock.dataset.locked !== '1'} : {note: prompt('Ghi chú cho video:', noteButton.dataset.note || '')};
+    if (payload.note === null) return;
+    const response = await fetch('/api/admin/videos/' + encodeURIComponent(button.dataset.name), {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (response.ok) loadLibrary();
+  });
+
+  document.querySelectorAll('.section-toggle').forEach(button => button.addEventListener('click', () => {
+    const section = button.closest('.section-card');
+    const collapsed = section.classList.toggle('is-collapsed');
+    button.textContent = collapsed ? 'Mở rộng' : 'Thu gọn';
+  }));
+
+  // Quản lý theme: Tối / Sáng / Tự động (theo giờ)
+  const THEME_STORAGE_KEY = 'adminTheme';
+  const THEME_CYCLE = ['dark', 'light', 'auto'];
+
+  function isDayTime() {
+    const hour = new Date().getHours();
+    return hour >= 6 && hour < 18;
+  }
+
+  function getStoredTheme() {
+    try {
+      const val = localStorage.getItem(THEME_STORAGE_KEY);
+      if (val === 'dark' || val === 'light' || val === 'auto') return val;
+    } catch (_) {}
+    return 'auto';
+  }
+
+  function updateThemeUI(pref, isDark) {
+    const toggleBtn = $('themeToggle');
+    if (!toggleBtn) return;
+    if (pref === 'dark') {
+      toggleBtn.innerHTML = `${ICONS.moon}<span>Tối</span>`;
+      toggleBtn.title = 'Giao diện: Tối (Bấm để chuyển sang Sáng)';
+    } else if (pref === 'light') {
+      toggleBtn.innerHTML = `${ICONS.sun}<span>Sáng</span>`;
+      toggleBtn.title = 'Giao diện: Sáng (Bấm để chuyển sang Tự động)';
+    } else {
+      toggleBtn.innerHTML = `${ICONS.clock}<span>Tự động</span>`;
+      const currentModeName = isDark ? 'Tối' : 'Sáng';
+      toggleBtn.title = `Giao diện: Tự động theo giờ (06:00-18:00 Sáng, 18:00-06:00 Tối · Đang ${currentModeName}) (Bấm để chuyển sang Tối)`;
+    }
+  }
+
+  function applyTheme(targetPref) {
+    const pref = targetPref || getStoredTheme();
+    const isDark = (pref === 'auto') ? !isDayTime() : (pref === 'dark');
+    document.body.classList.toggle('admin-dark', isDark);
+    updateThemeUI(pref, isDark);
+    return pref;
+  }
+
+  function cycleTheme() {
+    const current = getStoredTheme();
+    const currentIndex = THEME_CYCLE.indexOf(current);
+    const nextPref = THEME_CYCLE[(currentIndex + 1) % THEME_CYCLE.length];
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, nextPref);
+    } catch (_) {}
+    applyTheme(nextPref);
+  }
+
+  $('themeToggle')?.addEventListener('click', cycleTheme);
+  window.addEventListener('storage', event => {
+    if (event.key === THEME_STORAGE_KEY) applyTheme(event.newValue);
+  });
+  applyTheme();
+  setInterval(() => {
+    if (getStoredTheme() === 'auto') {
+      applyTheme('auto');
+    }
+  }, 60000);
+
+  loadConfig().catch(error => notice(error.message, false));
+  loadHealth();
+  loadLibrary();
+  loadEvents();
+  setInterval(loadHealth, 30000);
 </script>
 </body>
 </html>

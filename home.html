@@ -2,134 +2,344 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ site.name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ site.name }} · Xem Lại Camera Bàn Bida</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     :root {
-      --bg: {{ site.theme.background }};
-      --surface: {{ site.theme.surface }};
-      --primary: {{ site.theme.primary }};
-      --accent: {{ site.theme.accent }};
-      --text: {{ site.theme.text }};
+      --bg-theme: {{ site.theme.background or '#090d16' }};
+      --surface-theme: {{ site.theme.surface or '#111827' }};
+      --primary: {{ site.theme.primary or '#0ea5e9' }};
+      --accent: {{ site.theme.accent or '#f59e0b' }};
+      --text: {{ site.theme.text or '#f8fafc' }};
+      --card-bg: rgba(17, 24, 39, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-hover-border: rgba(14, 165, 233, 0.4);
     }
+
+    * { box-sizing: border-box; }
     body {
       min-height: 100vh;
       margin: 0;
       color: var(--text);
-      background: radial-gradient(circle at 15% 0, var(--surface), var(--bg) 55%);
+      background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 45%, #030712 100%);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+      overflow-x: hidden;
     }
+
+    /* Ambient background glow decoration */
+    body::before {
+      content: "";
+      position: fixed;
+      top: -150px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 700px;
+      height: 400px;
+      background: radial-gradient(circle, color-mix(in srgb, var(--primary) 22%, transparent) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
     .page {
-      max-width: 1050px;
+      max-width: 1180px;
       margin: auto;
-      padding: 48px 20px;
+      padding: 36px 20px 80px;
+      position: relative;
+      z-index: 1;
     }
-    .brand {
-      color: var(--accent);
-      font-weight: 800;
-      letter-spacing: .06em;
+
+    /* Header & Navigation Bar */
+    .header-nav {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 16px 22px;
+      margin-bottom: 32px;
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.35);
     }
-    .tagline {
-      color: color-mix(in srgb, var(--text) 72%, transparent);
-    }
-    .admin-link {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 500;
-    }
-    .admin-link:hover {
-      text-decoration: underline;
-      color: var(--accent);
-    }
-    .btn-mode-toggle {
-      background: none;
-      border: none;
-      padding: 0;
-      color: var(--accent);
-      text-decoration: none;
-      font: inherit;
-      cursor: pointer;
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--primary) 0%, #4338ca 100%);
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      transition: opacity .15s, color .15s;
+      justify-content: center;
+      color: #ffffff;
+      box-shadow: 0 4px 15px color-mix(in srgb, var(--primary) 35%, transparent);
+      flex-shrink: 0;
     }
-    .btn-mode-toggle:hover {
-      text-decoration: underline;
-      opacity: 0.85;
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .spin {
+      animation: spin 1s linear infinite;
+    }
+    .brand-name {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: .03em;
+      margin: 0;
+      background: linear-gradient(120deg, #ffffff 40%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .tagline {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      margin: 0;
+    }
+
+    /* Navigation Pill Buttons */
+    .nav-pill-btn {
+      color: #cbd5e1;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 7px 14px;
+      border-radius: 10px;
+      transition: all .18s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-pill-btn:hover {
+      color: #ffffff;
+      background: rgba(51, 65, 85, 0.9);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+    .nav-pill-btn.btn-live {
+      background: rgba(14, 165, 233, 0.15);
+      border-color: rgba(14, 165, 233, 0.35);
+      color: #38bdf8;
+    }
+    .nav-pill-btn.btn-live:hover {
+      background: rgba(14, 165, 233, 0.25);
+      color: #ffffff;
+    }
+    .btn-mode-toggle {
+      cursor: pointer;
     }
     .btn-mode-toggle.active {
-      color: #ef4444;
+      background: rgba(239, 68, 68, 0.2) !important;
+      border-color: rgba(239, 68, 68, 0.5) !important;
+      color: #f87171 !important;
       font-weight: 700;
     }
 
-    /* Cards */
+    /* Quick Guide Banner for Players */
+    .guide-banner {
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 12px 18px;
+      margin-bottom: 28px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .guide-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+    }
+    .guide-num {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      background: var(--primary);
+      color: #030712;
+      font-weight: 800;
+      font-size: 0.72rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Billiard Table Cards */
     .cam-btn {
       position: relative;
-      background: linear-gradient(135deg, var(--surface), var(--primary));
-      border: 1px solid color-mix(in srgb, var(--accent) 72%, transparent);
-      border-radius: 18px;
+      background: var(--card-bg);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
       color: var(--text);
       text-decoration: none;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 145px;
-      box-shadow: 0 10px 25px rgba(0,0,0,.24);
-      transition: transform .18s, box-shadow .18s, background .2s, border-color .2s, opacity .2s;
+      justify-content: space-between;
+      padding: 16px;
+      height: 195px;
+      box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.35);
+      transition: all .22s cubic-bezier(0.16, 1, 0.3, 1);
       user-select: none;
+      overflow: hidden;
     }
     .cam-btn:hover {
-      transform: translateY(-4px);
+      transform: translateY(-5px);
+      border-color: var(--card-hover-border);
       color: var(--text);
-      box-shadow: 0 16px 30px rgba(0,0,0,.34);
+      box-shadow: 0 16px 34px -4px rgba(14, 165, 233, 0.25);
     }
 
-    /* Edit Mode styles */
+    /* Card Top Bar */
+    .table-top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+    .table-num-badge {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 7px;
+      background: rgba(14, 165, 233, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(14, 165, 233, 0.3);
+    }
+    .table-live-dot {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #10b981;
+    }
+    .table-live-dot::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      display: inline-block;
+    }
+
+    /* Billiard Table Graphic in Card */
+    .table-visual-art {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 6px 0 10px;
+      width: 100%;
+    }
+    .table-vector-art {
+      width: 130px;
+      height: 64px;
+      color: var(--primary);
+      opacity: 0.85;
+      transition: all .25s ease;
+    }
+    .cam-btn:hover .table-vector-art {
+      opacity: 1;
+      transform: translateY(-1px) scale(1.03);
+      filter: drop-shadow(0 2px 8px color-mix(in srgb, var(--primary) 35%, transparent));
+    }
+    .art-cushion { opacity: 0.35; }
+    .art-pocket { opacity: 0.55; }
+    .art-sight { opacity: 0.45; }
+    .art-ball { opacity: 0.85; }
+
+    /* Card Bottom Info */
+    .table-info-wrap {
+      width: 100%;
+      text-align: center;
+    }
+    .table-display-name {
+      font-size: 0.98rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .table-action-hint {
+      font-size: 0.72rem;
+      color: #94a3b8;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 2px;
+      transition: color .15s;
+    }
+    .table-action-hint svg {
+      transition: transform .18s ease;
+    }
+    .cam-btn:hover .table-action-hint {
+      color: var(--primary);
+    }
+    .cam-btn:hover .table-action-hint svg {
+      transform: translateX(3px);
+    }
+
+    /* Edit Mode Styling */
     body.edit-mode .cam-btn {
       cursor: pointer;
     }
-    /* Đỏ khi bật (guest được xem) */
     body.edit-mode .cam-btn.table-enabled {
-      background: linear-gradient(135deg, #7f1d1d 0%, #b91c1c 50%, #dc2626 100%) !important;
+      background: linear-gradient(145deg, rgba(127, 29, 29, 0.45) 0%, rgba(220, 38, 38, 0.35) 100%) !important;
       border: 2px solid #ef4444 !important;
-      box-shadow: 0 10px 28px rgba(239, 68, 68, 0.4) !important;
+      box-shadow: 0 8px 25px rgba(239, 68, 68, 0.35) !important;
       color: #ffffff !important;
       opacity: 1 !important;
       filter: none !important;
     }
     body.edit-mode .cam-btn.table-enabled:hover {
-      box-shadow: 0 14px 34px rgba(239, 68, 68, 0.6) !important;
+      box-shadow: 0 12px 30px rgba(239, 68, 68, 0.5) !important;
       transform: translateY(-4px) scale(1.02);
     }
-    /* Xám mờ khi tắt */
     body.edit-mode .cam-btn.table-disabled {
-      background: #1e222a !important;
+      background: rgba(17, 24, 39, 0.5) !important;
       border: 2px dashed #4b5563 !important;
       box-shadow: none !important;
       color: #9ca3af !important;
-      opacity: 0.42 !important;
+      opacity: 0.45 !important;
       filter: grayscale(1) !important;
     }
     body.edit-mode .cam-btn.table-disabled:hover {
-      opacity: 0.7 !important;
+      opacity: 0.75 !important;
       transform: translateY(-2px);
     }
     body.edit-mode .cam-btn.table-loading {
       pointer-events: none;
       opacity: 0.6 !important;
     }
+    body.edit-mode .cam-btn.table-enabled .table-vector-art {
+      color: #f87171 !important;
+    }
+    body.edit-mode .cam-btn.table-disabled .table-vector-art {
+      color: #64748b !important;
+      opacity: 0.35 !important;
+    }
 
     .status-pill {
-      font-size: 0.73rem;
+      font-size: 0.72rem;
       font-weight: 700;
-      letter-spacing: .03em;
-      padding: 3px 8px;
+      letter-spacing: .02em;
+      padding: 4px 10px;
       border-radius: 999px;
       text-transform: uppercase;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      display: inline-block;
+      margin-top: 4px;
     }
     .table-enabled .status-pill {
       background: #ffffff;
@@ -147,8 +357,8 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(0, 0, 0, 0.65);
-      backdrop-filter: blur(4px);
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(6px);
       z-index: 1050;
     }
     .custom-modal {
@@ -157,33 +367,33 @@
       left: 50%;
       transform: translate(-50%, -50%);
       width: 90%;
-      max-width: 430px;
-      background: var(--surface);
+      max-width: 440px;
+      background: #111827;
       color: var(--text);
-      border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-      border-radius: 18px;
-      padding: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 26px;
       z-index: 1060;
-      box-shadow: 0 20px 45px rgba(0,0,0,0.6);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
     }
     .form-control-custom {
-      background: rgba(0, 0, 0, 0.3) !important;
+      background: rgba(15, 23, 42, 0.8) !important;
       color: var(--text) !important;
       border: 1px solid rgba(255, 255, 255, 0.15) !important;
       border-radius: 10px;
       padding: 10px 14px;
     }
     .form-control-custom:focus {
-      border-color: var(--accent) !important;
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent) !important;
+      border-color: var(--primary) !important;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent) !important;
     }
     .btn-submit-login {
-      background: var(--accent);
-      color: #000;
+      background: var(--primary);
+      color: #ffffff;
       font-weight: 700;
       border: none;
       border-radius: 10px;
-      padding: 11px;
+      padding: 12px;
       transition: opacity .15s, transform .15s;
     }
     .btn-submit-login:hover {
@@ -191,25 +401,308 @@
       transform: translateY(-1px);
     }
 
+    .btn-theme-toggle {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    body, .header-nav, .guide-banner, .cam-btn, .nav-pill-btn {
+      transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    /* =========================================================
+       LIGHT MODE DEFINITIONS (Sáng dịu mắt / Kính mờ trắng sứ)
+       Áp dụng khi body có class 'light-mode' hoặc :root.light
+       ========================================================= */
+    :root.light, body.light-mode {
+      --bg-theme: #f1f5f9;
+      --surface-theme: #ffffff;
+      --text: #0f172a;
+      --card-bg: rgba(255, 255, 255, 0.92);
+      --card-border: #e2e8f0;
+      --card-hover-border: rgba(14, 165, 233, 0.5);
+    }
+
+    body.light-mode, :root.light body {
+      color: #0f172a;
+      background: radial-gradient(circle at 50% 0%, #ffffff 0%, #f1f5f9 45%, #e2e8f0 100%);
+    }
+
+    body.light-mode::before, :root.light body::before {
+      background: radial-gradient(circle, color-mix(in srgb, var(--primary) 12%, transparent) 0%, transparent 70%);
+    }
+
+    /* Light Mode Header & Navbar */
+    body.light-mode .header-nav, :root.light .header-nav {
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+    }
+    body.light-mode .brand-name, :root.light .brand-name {
+      background: linear-gradient(120deg, #0f172a 40%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    body.light-mode .tagline, :root.light .tagline {
+      color: #64748b;
+    }
+
+    /* Light Mode Navigation Pill Buttons */
+    body.light-mode .nav-pill-btn, :root.light .nav-pill-btn {
+      color: #334155;
+      background: rgba(241, 245, 249, 0.85);
+      border: 1px solid #cbd5e1;
+    }
+    body.light-mode .nav-pill-btn:hover, :root.light .nav-pill-btn:hover {
+      color: #0f172a;
+      background: #ffffff;
+      border-color: #94a3b8;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+    }
+    body.light-mode .nav-pill-btn.btn-live, :root.light .nav-pill-btn.btn-live {
+      background: rgba(14, 165, 233, 0.12);
+      border-color: rgba(14, 165, 233, 0.35);
+      color: #0284c7;
+    }
+    body.light-mode .nav-pill-btn.btn-live:hover, :root.light .nav-pill-btn.btn-live:hover {
+      background: rgba(14, 165, 233, 0.22);
+      color: #0369a1;
+    }
+    body.light-mode .nav-pill-btn.btn-mode-toggle.active, :root.light .nav-pill-btn.btn-mode-toggle.active {
+      background: rgba(239, 68, 68, 0.15) !important;
+      border-color: rgba(239, 68, 68, 0.45) !important;
+      color: #dc2626 !important;
+    }
+
+    /* Light Mode Quick Guide Banner */
+    body.light-mode .guide-banner, :root.light .guide-banner {
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 18px -2px rgba(15, 23, 42, 0.04);
+    }
+    body.light-mode .guide-step, :root.light .guide-step {
+      color: #334155;
+    }
+    body.light-mode .guide-num, :root.light .guide-num {
+      background: var(--primary);
+      color: #ffffff;
+    }
+
+    /* Light Mode Billiard Table Cards (.cam-btn) */
+    body.light-mode .cam-btn, :root.light .cam-btn {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid #e2e8f0;
+      color: #0f172a;
+      box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.07), 0 2px 8px -2px rgba(15, 23, 42, 0.04);
+    }
+    body.light-mode .cam-btn:hover, :root.light .cam-btn:hover {
+      transform: translateY(-5px);
+      border-color: rgba(14, 165, 233, 0.5);
+      color: #0f172a;
+      box-shadow: 0 16px 35px -4px rgba(14, 165, 233, 0.22), 0 4px 14px -2px rgba(15, 23, 42, 0.06);
+    }
+    body.light-mode .table-display-name, :root.light .table-display-name {
+      color: #0f172a;
+    }
+    body.light-mode .table-action-hint, :root.light .table-action-hint {
+      color: #64748b;
+    }
+    body.light-mode .cam-btn:hover .table-action-hint, :root.light .cam-btn:hover .table-action-hint {
+      color: var(--primary);
+    }
+    body.light-mode .table-num-badge, :root.light .table-num-badge {
+      background: rgba(14, 165, 233, 0.1);
+      color: #0284c7;
+      border: 1px solid rgba(14, 165, 233, 0.25);
+    }
+    body.light-mode .table-live-dot, :root.light .table-live-dot {
+      color: #059669;
+    }
+    body.light-mode .table-live-dot::before, :root.light .table-live-dot::before {
+      background: #10b981;
+      box-shadow: 0 0 6px #10b981;
+    }
+    body.light-mode .table-vector-art, :root.light .table-vector-art {
+      color: var(--primary);
+      opacity: 0.9;
+    }
+
+    /* Light Mode Edit Mode */
+    body.light-mode.edit-mode .cam-btn.table-enabled,
+    :root.light body.edit-mode .cam-btn.table-enabled {
+      background: linear-gradient(145deg, #fef2f2 0%, #fee2e2 100%) !important;
+      border: 2px solid #ef4444 !important;
+      box-shadow: 0 8px 25px rgba(239, 68, 68, 0.22) !important;
+      color: #991b1b !important;
+    }
+    body.light-mode.edit-mode .cam-btn.table-enabled .table-vector-art,
+    :root.light body.edit-mode .cam-btn.table-enabled .table-vector-art {
+      color: #dc2626 !important;
+    }
+    body.light-mode.edit-mode .cam-btn.table-enabled .table-display-name,
+    :root.light body.edit-mode .cam-btn.table-enabled .table-display-name {
+      color: #991b1b !important;
+    }
+    body.light-mode.edit-mode .cam-btn.table-enabled .status-pill,
+    :root.light body.edit-mode .cam-btn.table-enabled .status-pill {
+      background: #ef4444 !important;
+      color: #ffffff !important;
+    }
+    body.light-mode.edit-mode .cam-btn.table-disabled,
+    :root.light body.edit-mode .cam-btn.table-disabled {
+      background: rgba(241, 245, 249, 0.75) !important;
+      border: 2px dashed #94a3b8 !important;
+      box-shadow: none !important;
+      color: #64748b !important;
+      opacity: 0.55 !important;
+      filter: grayscale(1) !important;
+    }
+    body.light-mode.edit-mode .cam-btn.table-disabled .table-display-name,
+    :root.light body.edit-mode .cam-btn.table-disabled .table-display-name {
+      color: #64748b !important;
+    }
+    body.light-mode.edit-mode .table-disabled .status-pill,
+    :root.light body.edit-mode .table-disabled .status-pill {
+      background: #cbd5e1 !important;
+      color: #334155 !important;
+    }
+    body.light-mode #editModeBanner,
+    :root.light #editModeBanner {
+      background: rgba(254, 240, 138, 0.35) !important;
+      border: 1px solid rgba(202, 138, 4, 0.4) !important;
+      color: #854d0e !important;
+    }
+    body.light-mode #btnRefreshTables,
+    :root.light #btnRefreshTables {
+      color: #854d0e;
+      border-color: #ca8a04;
+    }
+    body.light-mode #btnRefreshTables:hover,
+    :root.light #btnRefreshTables:hover {
+      background-color: #ca8a04;
+      color: #ffffff;
+    }
+
+    /* Light Mode Modal & Dialog */
+    body.light-mode .custom-modal-backdrop,
+    :root.light .custom-modal-backdrop {
+      background: rgba(15, 23, 42, 0.45);
+    }
+    body.light-mode .custom-modal,
+    :root.light .custom-modal {
+      background: #ffffff;
+      color: #0f172a;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.18);
+    }
+    body.light-mode .custom-modal .btn-close-white,
+    :root.light .custom-modal .btn-close-white {
+      filter: invert(1) grayscale(100%) brightness(20%);
+    }
+    body.light-mode .form-control-custom,
+    :root.light .form-control-custom {
+      background: #f8fafc !important;
+      color: #0f172a !important;
+      border: 1px solid #cbd5e1 !important;
+    }
+    body.light-mode .form-control-custom:focus,
+    :root.light .form-control-custom:focus {
+      border-color: var(--primary) !important;
+      background: #ffffff !important;
+    }
+    body.light-mode .custom-modal .border-secondary,
+    :root.light .custom-modal .border-secondary {
+      border-color: #e2e8f0 !important;
+    }
+    body.light-mode #globalAlert .btn-close-white,
+    :root.light #globalAlert .btn-close-white {
+      filter: none;
+    }
+
     @media (max-width: 576px) {
-      .page { padding: 24px 14px; }
-      .header-wrap { flex-direction: column; gap: 16px; align-items: stretch !important; }
-      .nav-links { justify-content: flex-start; gap: 12px; }
-      .cam-btn { height: 130px; }
+      .page { padding: 20px 14px 60px; }
+      .header-nav { padding: 14px; border-radius: 16px; margin-bottom: 20px; }
+      .header-wrap { flex-direction: column; gap: 14px; align-items: stretch !important; }
+      .nav-links { justify-content: flex-start; gap: 8px; }
+      .cam-btn { height: 175px; padding: 12px; }
+      .table-vector-art { width: 110px; height: 54px; }
     }
   </style>
+  <script>
+    /* Immediate theme check before body render to eliminate FOUC */
+    (function() {
+      try {
+        var key = 'cambida_home_theme';
+        var pref = localStorage.getItem(key) || 'auto';
+        var eff = pref;
+        if (pref === 'auto') {
+          var h = new Date().getHours();
+          eff = (h >= 6 && h < 18) ? 'light' : 'dark';
+        }
+        if (eff === 'light') {
+          document.documentElement.classList.add('light');
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
+
   <main class="page">
-    <div class="d-flex justify-content-between align-items-start mb-5 header-wrap">
-      <div>
-        <h1 class="brand mb-2">🎥 {{ site.name }}</h1>
-        <p class="tagline mb-0">{{ site.tagline }}</p>
+    
+    <!-- TOP HEADER NAVBAR -->
+    <div class="header-nav d-flex justify-content-between align-items-center flex-wrap gap-3 header-wrap">
+      <div class="d-flex align-items-center gap-3">
+        <div class="brand-logo" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="5" width="20" height="14" rx="3" />
+            <circle cx="6" cy="8.5" r="1" fill="currentColor" />
+            <circle cx="12" cy="7.5" r="0.8" fill="currentColor" />
+            <circle cx="18" cy="8.5" r="1" fill="currentColor" />
+            <circle cx="6" cy="15.5" r="1" fill="currentColor" />
+            <circle cx="12" cy="16.5" r="0.8" fill="currentColor" />
+            <circle cx="18" cy="15.5" r="1" fill="currentColor" />
+            <circle cx="9.5" cy="12" r="1.8" />
+            <circle cx="14.5" cy="12" r="1.8" fill="currentColor" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-name">{{ site.name or 'CLB BIDA' }}</h1>
+          <p class="tagline">{{ site.tagline or 'Hệ thống Xem Lại & Phát Highlight Pha Bóng' }}</p>
+        </div>
       </div>
-      <div class="d-flex gap-3 align-items-center flex-wrap nav-links">
-        <a class="admin-link" href="/live">📺 Xem trực tiếp</a>
-        <button type="button" id="btnToggleMode" class="admin-link btn-mode-toggle" title="Bật/tắt chế độ chỉnh sửa quyền riêng tư bàn">🔘 Bật/tắt</button>
-        <a class="admin-link" href="/admin">⚙️ Quản trị</a>
+      
+      <div class="d-flex gap-2 align-items-center flex-wrap nav-links">
+        <a class="nav-pill-btn btn-live" href="/live">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect width="20" height="14" x="2" y="3" rx="2" />
+            <polygon points="10 7 15 10 10 13 10 7" fill="currentColor" />
+            <path d="M8 21h8M12 17v4" />
+          </svg>
+          <span>Xem trực tiếp</span>
+        </a>
+        <button type="button" id="btnToggleMode" class="nav-pill-btn btn-mode-toggle" title="Bật/tắt quyền xem riêng tư cho từng bàn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />
+          </svg>
+          <span>Bật/tắt</span>
+        </button>
+        <button type="button" id="btnToggleTheme" class="nav-pill-btn btn-theme-toggle" title="Chuyển đổi giao diện: Sáng / Tối / Tự động">
+          <span id="themeBtnIcon" class="d-inline-flex align-items-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </span>
+          <span id="themeBtnText">Tự động</span>
+        </button>
+        <a class="nav-pill-btn" href="/admin">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+          <span>Quản trị</span>
+        </a>
       </div>
     </div>
 
@@ -219,29 +712,99 @@
       <button type="button" class="btn-close btn-close-white" aria-label="Close" onclick="hideGlobalAlert()"></button>
     </div>
 
-    <!-- Banner hiển thị khi đang trong chế độ chỉnh -->
-    <div id="editModeBanner" class="alert alert-warning py-2 px-3 mb-4 d-none align-items-center justify-content-between flex-wrap gap-2 rounded-3 shadow-sm" style="background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.35); color: #fef08a;">
+    <!-- Banner hiển thị khi đang trong chế độ chỉnh (Edit Mode) -->
+    <div id="editModeBanner" class="alert alert-warning py-2.5 px-3 mb-4 d-none align-items-center justify-content-between flex-wrap gap-2 rounded-3 shadow-sm" style="background: rgba(234, 179, 8, 0.15); border: 1px solid rgba(234, 179, 8, 0.35); color: #fef08a;">
       <div class="d-flex align-items-center gap-2">
-        <span class="badge bg-warning text-dark fw-bold">CHẾ ĐỘ CHỈNH</span>
+        <span class="badge bg-warning text-dark fw-bold">CHẾ ĐỘ CHỈNH BÀN</span>
         <span class="small">Chạm/nhấn vào từng bàn để chuyển đổi: <strong>Đỏ</strong> (Bật - khách xem được) / <strong>Xám mờ</strong> (Tắt - ẩn khách).</span>
       </div>
       <div class="d-flex gap-2 align-items-center">
-        <button type="button" id="btnRefreshTables" class="btn btn-outline-warning btn-sm py-1 px-2">🔄 Tải lại</button>
-        <button type="button" id="btnExitEditMode" class="btn btn-secondary btn-sm py-1 px-2">Thoát chỉnh</button>
+        <button type="button" id="btnRefreshTables" class="btn btn-outline-warning btn-sm py-1 px-2.5 d-inline-flex align-items-center gap-1.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+          <span>Tải lại</span>
+        </button>
+        <button type="button" id="btnExitEditMode" class="btn btn-secondary btn-sm py-1 px-2.5">Thoát chỉnh</button>
       </div>
     </div>
 
-    <div class="row g-4" id="cameraGrid">
+    <!-- Player 3-Step Guide Banner -->
+    <div class="guide-banner">
+      <div class="guide-step">
+        <span class="guide-num">1</span>
+        <span>Chọn bàn bida của bạn</span>
+      </div>
+      <div class="text-secondary d-none d-md-flex align-items-center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </div>
+      <div class="guide-step">
+        <span class="guide-num">2</span>
+        <span>Tua lại pha đánh đẹp (15s - 60s)</span>
+      </div>
+      <div class="text-secondary d-none d-md-flex align-items-center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </div>
+      <div class="guide-step">
+        <span class="guide-num">3</span>
+        <span>Quét mã QR tải clip về điện thoại</span>
+      </div>
+    </div>
+
+    <!-- Camera / Table Cards Grid -->
+    <div class="row g-3 g-md-4" id="cameraGrid">
       {% for camera in cameras %}
       <div class="col-6 col-md-4 col-lg-3 card-col">
         <a href="/replay/cam{{ camera.id }}" class="cam-btn" data-table-id="{{ camera.table_id }}">
-          <span style="font-size:2.6rem">📷</span>
-          <span class="fw-bold mt-2 text-center text-truncate w-100 px-2">{{ camera.name }}</span>
-          <span class="status-indicator mt-2 d-none"><span class="badge status-pill">--</span></span>
+          
+          <!-- Top Bar: Table Number Badge & Live Indicator -->
+          <div class="table-top-bar">
+            <span class="table-num-badge">BÀN {{ "%02d" % camera.id if camera.id is number else camera.id }}</span>
+            <span class="table-live-dot">LIVE</span>
+          </div>
+
+          <!-- Middle Visual: Mini Billiards Table Vector Graphic -->
+          <div class="table-visual-art">
+            <svg class="table-vector-art" viewBox="0 0 140 70" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+              <rect x="5" y="8" width="130" height="54" rx="8" />
+              <rect x="15" y="17" width="110" height="36" rx="4" stroke-width="1.4" class="art-cushion" />
+              <circle cx="17" cy="19" r="2.8" fill="currentColor" class="art-pocket" />
+              <circle cx="70" cy="17" r="2.2" fill="currentColor" class="art-pocket" />
+              <circle cx="123" cy="19" r="2.8" fill="currentColor" class="art-pocket" />
+              <circle cx="17" cy="51" r="2.8" fill="currentColor" class="art-pocket" />
+              <circle cx="70" cy="53" r="2.2" fill="currentColor" class="art-pocket" />
+              <circle cx="123" cy="51" r="2.8" fill="currentColor" class="art-pocket" />
+              <circle cx="42" cy="12.5" r="1" fill="currentColor" class="art-sight" />
+              <circle cx="98" cy="12.5" r="1" fill="currentColor" class="art-sight" />
+              <circle cx="42" cy="57.5" r="1" fill="currentColor" class="art-sight" />
+              <circle cx="98" cy="57.5" r="1" fill="currentColor" class="art-sight" />
+              <circle cx="45" cy="35" r="4.2" class="art-ball" />
+              <circle cx="92" cy="30" r="4.2" class="art-ball" />
+              <circle cx="98" cy="40" r="4.2" fill="currentColor" class="art-ball" />
+            </svg>
+          </div>
+
+          <!-- Bottom Bar: Table Name & Action Hint -->
+          <div class="table-info-wrap">
+            <div class="table-display-name">{{ camera.name }}</div>
+            <div class="table-action-hint">
+              <span>Xem lại góc quay</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </div>
+            <div class="status-indicator d-none">
+              <span class="badge status-pill">--</span>
+            </div>
+          </div>
+
         </a>
       </div>
       {% endfor %}
     </div>
+
   </main>
 
   <!-- Popup Modal Đăng nhập Admin -->
@@ -249,7 +812,13 @@
     <div class="custom-modal-backdrop" id="modalBackdrop"></div>
     <div class="custom-modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary border-opacity-25">
-        <h5 class="m-0 fw-bold" id="modalTitle">🔐 Đăng nhập Quản trị</h5>
+        <h5 class="m-0 fw-bold d-inline-flex align-items-center gap-2" id="modalTitle">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <span>Đăng nhập Quản trị</span>
+        </h5>
         <button type="button" class="btn-close btn-close-white" id="btnCloseLoginModal" aria-label="Close"></button>
       </div>
 
@@ -282,6 +851,16 @@
   <script>
     let isEditMode = false;
     let tableStates = {}; // Lưu trạng thái thật từ backend: { [tableId]: boolean }
+
+    // Hệ thống SVG Vector tối giản (Lucide / Heroicons: stroke='currentColor', stroke-width='1.8', fill='none')
+    const SVG_ICONS = {
+      sliders: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>`,
+      spinner: `<svg class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`,
+      refresh: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>`,
+      sun: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`,
+      moon: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
+      clock: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`
+    };
 
     const btnToggleMode = document.getElementById('btnToggleMode');
     const editModeBanner = document.getElementById('editModeBanner');
@@ -407,10 +986,10 @@
         const state = getTableState(tableId);
         if (state === true) {
           btn.classList.add('table-enabled');
-          badge.textContent = '🔴 BẬT (Khách xem)';
+          badge.textContent = 'BẬT (Khách xem)';
         } else {
           btn.classList.add('table-disabled');
-          badge.textContent = '⚪ TẮT (Ẩn khách)';
+          badge.textContent = 'TẮT (Ẩn khách)';
         }
       });
     }
@@ -419,7 +998,7 @@
       isEditMode = true;
       document.body.classList.add('edit-mode');
       btnToggleMode.classList.add('active');
-      btnToggleMode.innerHTML = '🛠️ Thoát chỉnh';
+      btnToggleMode.innerHTML = `${SVG_ICONS.sliders} <span>Thoát chỉnh</span>`;
       if (editModeBanner) editModeBanner.classList.remove('d-none');
 
       tableStates = parseTablesData(data);
@@ -430,7 +1009,7 @@
       isEditMode = false;
       document.body.classList.remove('edit-mode');
       btnToggleMode.classList.remove('active');
-      btnToggleMode.innerHTML = '🔘 Bật/tắt';
+      btnToggleMode.innerHTML = `${SVG_ICONS.sliders} <span>Bật/tắt</span>`;
       if (editModeBanner) editModeBanner.classList.add('d-none');
 
       document.querySelectorAll('.cam-btn').forEach(btn => {
@@ -479,7 +1058,7 @@
 
       btnToggleMode.disabled = true;
       const originalText = btnToggleMode.innerHTML;
-      btnToggleMode.innerHTML = '⏳ Đang kiểm tra...';
+      btnToggleMode.innerHTML = `${SVG_ICONS.spinner} <span>Đang kiểm tra...</span>`;
 
       const result = await checkSessionAndFetchTables(true);
 
@@ -513,7 +1092,7 @@
       cardEl.classList.add('table-loading');
       const badge = cardEl.querySelector('.status-pill');
       const prevBadgeText = badge ? badge.textContent : '';
-      if (badge) badge.textContent = '⏳ Đang lưu...';
+      if (badge) badge.textContent = 'Đang lưu...';
 
       try {
         const res = await fetch(`/api/admin/tables/${encodeURIComponent(tableId)}/privacy`, {
@@ -582,10 +1161,9 @@
       loginAlert.classList.add('d-none');
       loginAlert.textContent = '';
       btnLoginSubmit.disabled = true;
-      btnLoginSubmit.innerHTML = '⏳ Đang đăng nhập...';
+      btnLoginSubmit.innerHTML = `${SVG_ICONS.spinner} <span>Đang đăng nhập...</span>`;
 
       try {
-        // Ưu tiên endpoint API /api/admin/session
         const res = await fetch('/api/admin/session', {
           method: 'POST',
           headers: {
@@ -616,7 +1194,6 @@
           return;
         }
 
-        // Nếu 404 hoặc 405 (API /api/admin/session chưa có trên backend), thử form post /admin/login
         if (res.status === 404 || res.status === 405) {
           const formBody = new URLSearchParams();
           formBody.append('username', username);
@@ -652,16 +1229,16 @@
       }
     }
 
-    // Sự kiện
+    // Gắn sự kiện
     btnToggleMode.addEventListener('click', handleToggleModeBtnClick);
     btnExitEditMode.addEventListener('click', exitEditMode);
 
     btnRefreshTables.addEventListener('click', async () => {
       btnRefreshTables.disabled = true;
-      btnRefreshTables.innerHTML = '⏳ Đang tải...';
+      btnRefreshTables.innerHTML = `${SVG_ICONS.spinner} <span>Đang tải...</span>`;
       const result = await checkSessionAndFetchTables(true);
       btnRefreshTables.disabled = false;
-      btnRefreshTables.innerHTML = '🔄 Tải lại';
+      btnRefreshTables.innerHTML = `${SVG_ICONS.refresh} <span>Tải lại</span>`;
       if (result.authenticated) {
         tableStates = parseTablesData(result.data);
         applyTableStatesToUI();
@@ -702,7 +1279,7 @@
 
     btnCheckSessionAgain.addEventListener('click', async () => {
       btnCheckSessionAgain.disabled = true;
-      btnCheckSessionAgain.innerHTML = '⏳ Đang kiểm tra...';
+      btnCheckSessionAgain.innerHTML = `${SVG_ICONS.spinner} <span>Đang kiểm tra...</span>`;
       const check = await checkSessionAndFetchTables(false);
       btnCheckSessionAgain.disabled = false;
       btnCheckSessionAgain.innerHTML = 'Kiểm tra lại phiên';
@@ -719,6 +1296,116 @@
     document.querySelectorAll('.cam-btn').forEach(card => {
       card.addEventListener('click', (e) => handleCardToggleClick(e, card));
     });
+
+    // ========================================================
+    // QUẢN LÝ GIAO DIỆN: SÁNG / TỐI / TỰ ĐỘNG (HOÀNG HÔN & BÌNH MINH)
+    // ========================================================
+    const THEME_STORAGE_KEY = 'cambida_home_theme';
+    const btnToggleTheme = document.getElementById('btnToggleTheme');
+    const themeBtnIcon = document.getElementById('themeBtnIcon');
+    const themeBtnText = document.getElementById('themeBtnText');
+
+    /**
+     * Thuật toán Hoàng hôn / Bình minh:
+     * 06:00 - 18:00 (Ban ngày): Kích hoạt Light Mode ('light')
+     * 18:00 - 06:00 (Ban đêm): Kích hoạt Dark Mode ('dark')
+     */
+    function getScheduledTheme() {
+      const hour = new Date().getHours();
+      return (hour >= 6 && hour < 18) ? 'light' : 'dark';
+    }
+
+    /**
+     * Lấy cài đặt theme đã lưu trong localStorage ('cambida_home_theme')
+     * Nếu chưa chọn hoặc chọn 'auto', trả về 'auto'
+     */
+    function getStoredThemePref() {
+      try {
+        const saved = localStorage.getItem(THEME_STORAGE_KEY);
+        if (saved === 'light' || saved === 'dark' || saved === 'auto') {
+          return saved;
+        }
+      } catch (_) {}
+      return 'auto';
+    }
+
+    /**
+     * Áp dụng theme vào DOM và cập nhật nút bấm
+     */
+    function applyTheme(targetPref) {
+      const pref = targetPref || getStoredThemePref();
+      let effectiveTheme;
+
+      if (pref === 'light') {
+        effectiveTheme = 'light';
+      } else if (pref === 'dark') {
+        effectiveTheme = 'dark';
+      } else {
+        // Chế độ 'auto' hoặc chưa chọn: áp dụng theo giờ thực tế
+        effectiveTheme = getScheduledTheme();
+      }
+
+      if (effectiveTheme === 'light') {
+        document.documentElement.classList.add('light');
+        document.body.classList.add('light-mode');
+      } else {
+        document.documentElement.classList.remove('light');
+        document.body.classList.remove('light-mode');
+      }
+
+      // Cập nhật trạng thái hiển thị 3 nấc: Sáng / Tối / Tự động
+      if (themeBtnIcon && themeBtnText && btnToggleTheme) {
+        if (pref === 'light') {
+          themeBtnIcon.innerHTML = SVG_ICONS.sun;
+          themeBtnText.textContent = 'Sáng';
+          btnToggleTheme.title = 'Giao diện: Sáng (Bấm để chuyển sang Tối)';
+        } else if (pref === 'dark') {
+          themeBtnIcon.innerHTML = SVG_ICONS.moon;
+          themeBtnText.textContent = 'Tối';
+          btnToggleTheme.title = 'Giao diện: Tối (Bấm để chuyển sang Tự động)';
+        } else {
+          themeBtnIcon.innerHTML = SVG_ICONS.clock;
+          themeBtnText.textContent = 'Tự động';
+          const currentDayNightHint = effectiveTheme === 'light' ? 'Đang kích hoạt: Sáng' : 'Đang kích hoạt: Tối';
+          btnToggleTheme.title = `Giao diện: Tự động (06:00-18:00 Sáng, 18:00-06:00 Tối · ${currentDayNightHint}) (Bấm để chuyển sang Sáng)`;
+        }
+      }
+    }
+
+    /**
+     * Chuyển đổi lần lượt giữa 3 nấc: Tự động -> Sáng -> Tối -> Tự động
+     */
+    function cycleTheme() {
+      const currentPref = getStoredThemePref();
+      let nextPref;
+      if (currentPref === 'auto') {
+        nextPref = 'light';
+      } else if (currentPref === 'light') {
+        nextPref = 'dark';
+      } else {
+        nextPref = 'auto';
+      }
+
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, nextPref);
+      } catch (_) {}
+
+      applyTheme(nextPref);
+    }
+
+    if (btnToggleTheme) {
+      btnToggleTheme.addEventListener('click', cycleTheme);
+    }
+
+    // Khởi tạo theme ngay khi script chạy
+    applyTheme();
+
+    // Tự động kiểm tra thời gian thực mỗi 60 giây nếu đang ở chế độ 'auto'
+    setInterval(() => {
+      if (getStoredThemePref() === 'auto') {
+        applyTheme('auto');
+      }
+    }, 60000);
   </script>
 </body>
 </html>

@@ -31,6 +31,28 @@
       --shadow-player: 0 10px 30px rgba(15, 23, 42, 0.09);
       --system: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
+
+    :root.dark, body.dark-mode {
+      color-scheme: dark;
+      --bg: #090d16;
+      --card-bg: #111827;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-sub: #64748b;
+      --border: #1e293b;
+      --border-soft: #162032;
+      --blue-soft: rgba(29, 114, 242, 0.15);
+      --blue-border: rgba(29, 114, 242, 0.35);
+      --green-bg: rgba(34, 197, 94, 0.12);
+      --green-border: rgba(34, 197, 94, 0.25);
+      --green-dark: #4ade80;
+      --warn: rgba(245, 158, 11, 0.12);
+      --warn-border: rgba(245, 158, 11, 0.25);
+      --warn-text: #fbbf24;
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+      --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.45);
+      --shadow-player: 0 10px 30px rgba(0, 0, 0, 0.65);
+    }
     * { box-sizing: border-box; }
     html, body {
       margin: 0;
@@ -73,20 +95,43 @@
       border-radius: 50%;
       border: 0;
       background: transparent;
-      color: #1e293b;
+      color: var(--text);
       display: grid;
       place-items: center;
       padding: 0;
       cursor: pointer;
-      transition: background 0.15s ease;
+      transition: background 0.15s ease, color 0.15s ease;
     }
-    .nav-btn:hover { background: rgba(0, 0, 0, 0.05); }
+    .nav-btn:hover { background: var(--blue-soft); }
+    .theme-toggle-btn {
+      font-size: 16px;
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+    }
+    .theme-toggle-btn:hover {
+      background: var(--blue-soft);
+      border-color: var(--blue-border);
+    }
+    #themeBtnIcon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 0;
+    }
+    #themeBtnIcon svg {
+      display: block;
+    }
     .nav-breadcrumb {
       flex: 1;
       text-align: center;
       font-size: 13.5px;
       font-weight: 600;
-      color: #334155;
+      color: var(--text-muted);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -104,7 +149,7 @@
       font-size: 26px;
       font-weight: 800;
       letter-spacing: -0.6px;
-      color: #0f172a;
+      color: var(--text);
       line-height: 1.15;
     }
     .main-subtitle {
@@ -157,12 +202,15 @@
       gap: 4px;
       margin-bottom: 14px;
     }
+    :root.dark .segmented-control, body.dark-mode .segmented-control {
+      background: #1e293b;
+    }
     .segment-tab {
       height: 42px;
       border: 0;
       border-radius: 22px;
       background: transparent;
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 14px;
       font-weight: 650;
       display: inline-flex;
@@ -193,7 +241,7 @@
       isolation: isolate;
       -webkit-mask-image: -webkit-radial-gradient(white, black);
       mask-image: radial-gradient(white, black);
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
     .player video, .player .live-stream {
       width: 100%;
@@ -375,18 +423,20 @@
 
     /* Control Bars */
     .replay-control-bar, .cut-control-bar {
+      position: relative;
+      z-index: 10;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
     .pill {
       height: 44px;
       border: 1px solid var(--border);
       border-radius: 22px;
-      background: #ffffff;
-      color: #1e293b;
+      background: var(--card-bg);
+      color: var(--text);
       box-shadow: var(--shadow-sm);
       display: flex;
       align-items: center;
@@ -415,26 +465,28 @@
       color: var(--blue);
       cursor: pointer;
     }
-    .live-switch-pill:hover { background: #e2effe; }
+    .live-switch-pill:hover { background: var(--blue-soft); filter: brightness(0.95); }
     .circle-btn {
       width: 44px;
       height: 44px;
       border-radius: 50%;
       border: 1px solid var(--border);
-      background: #ffffff;
-      color: #1e293b;
+      background: var(--card-bg);
+      color: var(--text);
       display: grid;
       place-items: center;
       box-shadow: var(--shadow-sm);
       cursor: pointer;
       flex-shrink: 0;
     }
-    .circle-btn:hover { background: #f8fafc; }
+    .circle-btn:hover { background: var(--blue-soft); }
 
     /* Timeline Card */
     .timeline-card {
-      background: #ffffff;
-      border: 1px solid var(--border-soft);
+      position: relative;
+      z-index: 10;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
       border-radius: 20px;
       box-shadow: var(--shadow-md);
       padding: 14px 14px 10px;
@@ -473,8 +525,8 @@
       font-size: 12.5px;
     }
     .source-toggle-pill {
-      background: #f1f5f9;
-      color: #334155;
+      background: var(--border-soft);
+      color: var(--text);
       border: 1px solid var(--border);
       gap: 6px;
       font-weight: 700;
@@ -484,6 +536,11 @@
       background: #fef3c7;
       color: #b45309;
       border-color: #fde68a;
+    }
+    :root.dark .source-toggle-pill.is-nvr, body.dark-mode .source-toggle-pill.is-nvr {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border-color: rgba(245, 158, 11, 0.35);
     }
     .timeline-control-block {
       display: flex;
@@ -498,7 +555,7 @@
     .control-block-label {
       font-size: 11px;
       font-weight: 600;
-      color: #64748b;
+      color: var(--text-muted);
       line-height: 1.2;
       padding-left: 2px;
       user-select: none;
@@ -512,8 +569,8 @@
       align-items: center;
       height: 32px;
       box-sizing: border-box;
-      background: #f1f5f9;
-      border: 1px solid #e2e8f0;
+      background: var(--border-soft);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 2px;
       gap: 2px;
@@ -524,7 +581,7 @@
       border: none;
       border-radius: 6px;
       background: transparent;
-      color: #475569;
+      color: var(--text-muted);
       font-size: 12px;
       font-weight: 600;
       display: inline-flex;
@@ -537,10 +594,10 @@
     }
     .rate-button:hover {
       color: var(--blue);
-      background: rgba(29, 114, 242, 0.06);
+      background: var(--blue-soft);
     }
     .rate-button.is-active {
-      background: #ffffff;
+      background: var(--card-bg);
       color: var(--blue);
       font-weight: 750;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -560,8 +617,8 @@
       align-items: center;
       height: 32px;
       box-sizing: border-box;
-      background: #f1f5f9;
-      border: 1px solid #e2e8f0;
+      background: var(--border-soft);
+      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 2px;
       gap: 2px;
@@ -573,7 +630,7 @@
       border: none;
       border-radius: 6px;
       background: transparent;
-      color: #475569;
+      color: var(--text-muted);
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -589,10 +646,10 @@
     }
     .dir-button:hover {
       color: var(--blue);
-      background: rgba(29, 114, 242, 0.06);
+      background: var(--blue-soft);
     }
     .dir-button.is-active {
-      background: #ffffff;
+      background: var(--card-bg);
       color: var(--blue);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     }
@@ -615,10 +672,10 @@
     .zoom-button {
       width: 32px;
       height: 32px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       border-radius: 8px;
-      background: #ffffff;
-      color: #334155;
+      background: var(--card-bg);
+      color: var(--text);
       display: grid;
       place-items: center;
       cursor: pointer;
@@ -627,8 +684,8 @@
     }
     .zoom-button svg { width: 16px; height: 16px; }
     .zoom-button:hover {
-      border-color: #93c5fd;
-      background: #eff6ff;
+      border-color: var(--blue);
+      background: var(--blue-soft);
       color: var(--blue);
       outline: none;
     }
@@ -701,30 +758,67 @@
       top: 36px;
       width: 100%;
       height: 62px;
-      border-top: 1px solid #e2e8f0;
-      background: repeating-linear-gradient(90deg, transparent 0, transparent calc(2.0833% - 1px), #cbd5e1 calc(2.0833% - 1px), #cbd5e1 2.0833%);
-      background-position: 0 46px;
-      background-size: 100% 4px;
-      background-repeat: no-repeat;
+      border-top: 1px solid var(--border);
       pointer-events: none;
+      background-image:
+        repeating-linear-gradient(90deg, #475569 0, #475569 1.5px, transparent 1.5px, transparent 2.083333%),
+        repeating-linear-gradient(90deg, #64748b 0, #64748b 1px, transparent 1px, transparent 1.041667%),
+        repeating-linear-gradient(90deg, #94a3b8 0, #94a3b8 1px, transparent 1px, transparent 0.520833%),
+        repeating-linear-gradient(90deg, #cbd5e1 0, #cbd5e1 1px, transparent 1px, transparent 0.173611%),
+        repeating-linear-gradient(90deg, #e2e8f0 0, #e2e8f0 1px, transparent 1px, transparent 0.034722%);
+      background-position:
+        0 45px,
+        0 47px,
+        0 48.5px,
+        0 50px,
+        0 51px;
+      background-size:
+        100% 8px,
+        100% 6px,
+        100% 4.5px,
+        100% 3px,
+        100% 2px;
+      background-repeat: no-repeat;
     }
     .ruler-major {
       position: absolute;
       top: 3px;
       transform: translateX(-50%);
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 11px;
       font-weight: 600;
       white-space: nowrap;
     }
     .ruler-major:before {
-      content: "";
+      display: none;
+    }
+    .ruler-min-5, .ruler-min-1 {
       position: absolute;
-      top: 46px;
-      left: 50%;
-      width: 1px;
-      height: 7px;
-      background: #94a3b8;
+      top: 6px;
+      transform: translateX(-50%);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      letter-spacing: -0.3px;
+      line-height: 1;
+      white-space: nowrap;
+      pointer-events: none;
+      display: none;
+    }
+    .ruler-min-5 {
+      color: var(--text-muted);
+      font-size: 8px;
+      font-weight: 600;
+    }
+    .ruler-min-1 {
+      color: var(--text-sub);
+      font-size: 7.5px;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .is-zoom-30m .ruler-min-5 {
+      display: block;
+    }
+    .is-zoom-10m .ruler-min-1 {
+      display: block;
     }
     .ruler-major.ruler-midnight {
       transform: translateX(-50%);
@@ -732,7 +826,7 @@
       align-items: center;
       gap: 4px;
     }
-    .ruler-midnight-prev { color: #64748b; }
+    .ruler-midnight-prev { color: var(--text-muted); }
     .ruler-midnight-next { color: var(--blue); font-weight: 750; }
     .ruler-major.ruler-prev-day {
       color: var(--blue);
@@ -748,9 +842,9 @@
       width: 100%;
       height: 24px;
       border-radius: 6px;
-      background: #f1f5f9;
+      background: var(--border-soft);
       overflow: hidden;
-      border-bottom: 1px solid #e2e8f0;
+      border-bottom: 1px solid var(--border);
     }
     .filmstrip-cell {
       position: absolute;
@@ -875,16 +969,16 @@
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
       margin-bottom: 14px;
-      border: 1px solid var(--border-soft);
+      border: 1px solid var(--border);
       border-radius: 18px;
-      background: #ffffff;
+      background: var(--card-bg);
       box-shadow: var(--shadow-sm);
       overflow: hidden;
     }
     .selection-col {
       padding: 12px 6px;
       text-align: center;
-      border-right: 1px solid var(--border-soft);
+      border-right: 1px solid var(--border);
     }
     .selection-col:last-child { border-right: 0; }
     .selection-col label {
@@ -892,13 +986,13 @@
       align-items: center;
       gap: 4px;
       margin-bottom: 5px;
-      color: #64748b;
+      color: var(--text-muted);
       font-size: 10.5px;
       font-weight: 600;
     }
     .selection-col strong {
       display: block;
-      color: #0f172a;
+      color: var(--text);
       font-size: 15.5px;
       font-weight: 800;
       white-space: nowrap;
@@ -1023,9 +1117,9 @@
     .done-panel {
       margin-top: 10px;
       padding: 24px 18px;
-      border: 1px solid var(--border-soft);
+      border: 1px solid var(--border);
       border-radius: 20px;
-      background: #fff;
+      background: var(--card-bg);
       box-shadow: var(--shadow-md);
       text-align: center;
     }
@@ -1039,7 +1133,7 @@
       display: grid;
       place-items: center;
     }
-    .done-panel h2 { font-size: 19px; margin: 0 0 6px; font-weight: 800; }
+    .done-panel h2 { font-size: 19px; margin: 0 0 6px; font-weight: 800; color: var(--text); }
     .done-panel p { font-size: 13px; color: var(--text-muted); margin: 0 0 16px; }
 
     .done-icon-processing {
@@ -1118,14 +1212,140 @@
       pointer-events: auto !important;
     }
     .action.secondary {
-      border: 1.5px solid #cbd5e1;
-      color: #334155;
-      background: #f8fafc;
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      background: var(--card-bg);
       font-weight: 700;
     }
     .action.secondary:hover {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    /* Done Screen Actions Bar & Buttons */
+    #doneActions {
+      display: flex !important;
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+      gap: 14px;
+      margin: 22px auto 0;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    #mergedDownloadBtn,
+    .done-btn-download {
+      flex: 1 1 220px;
+      min-width: 180px;
+      min-height: 52px;
+      padding: 0 24px;
+      border-radius: 16px;
+      border: 0;
+      color: #ffffff !important;
+      background: linear-gradient(90deg, #1d72f2 0%, #3b82f6 30%, #8b5cf6 70%, #a855f7 100%);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.38);
+      font-weight: 750;
+      font-size: 15.5px;
+      letter-spacing: -0.1px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    #mergedDownloadBtn:hover,
+    .done-btn-download:hover {
+      filter: brightness(1.06);
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.55);
+      transform: translateY(-1.5px);
+      color: #ffffff !important;
+    }
+    #mergedDownloadBtn:active,
+    .done-btn-download:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.35);
+    }
+    #mergedDownloadBtn svg,
+    .done-btn-download svg {
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+    #mergedDownloadBtn:hover svg,
+    .done-btn-download:hover svg {
+      transform: translateY(1.5px);
+    }
+
+    #doneBackButton,
+    .done-btn-back {
+      flex: 0 1 140px;
+      min-width: 120px;
+      min-height: 52px;
+      padding: 0 20px;
+      border-radius: 16px;
       background: #f1f5f9;
+      color: #475569;
+      font-weight: 650;
+      font-size: 14.5px;
+      border: 1px solid #cbd5e1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+    }
+    #doneBackButton:hover,
+    .done-btn-back:hover {
+      background: #e2e8f0;
       color: #0f172a;
+      border-color: #94a3b8;
+      transform: translateY(-1px);
+    }
+    #doneBackButton:active,
+    .done-btn-back:active {
+      transform: translateY(0);
+    }
+
+    :root.dark #doneBackButton, body.dark-mode #doneBackButton,
+    :root.dark .done-btn-back, body.dark-mode .done-btn-back {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.14);
+      color: #94a3b8;
+    }
+    :root.dark #doneBackButton:hover, body.dark-mode #doneBackButton:hover,
+    :root.dark .done-btn-back:hover, body.dark-mode .done-btn-back:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.25);
+      color: #f8fafc;
+    }
+
+    #iosSaveShareBtn {
+      flex: 1 1 220px;
+      min-width: 180px;
+      min-height: 50px;
+      padding: 0 24px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 750;
+    }
+
+    @media (max-width: 520px) {
+      #doneActions {
+        flex-direction: column !important;
+        gap: 10px;
+      }
+      #mergedDownloadBtn,
+      .done-btn-download,
+      #doneBackButton,
+      .done-btn-back,
+      #iosSaveShareBtn {
+        width: 100% !important;
+        min-width: 100% !important;
+        flex: 1 1 auto;
+      }
     }
 
     /* iOS Guide Box */
@@ -1267,10 +1487,158 @@
     .license-btn-close { height: 44px; border: 1px solid #dce4ec; border-radius: 12px; background: #f8fafc; color: #5a6b82; font-size: 13.5px; font-weight: 650; cursor: pointer; }
     .license-btn-close:hover { background: #edf2f7; }
     .license-modal-hint { margin: 0; font-size: 11.5px; color: #94a3b8; line-height: 1.4; }
+
+    /* Dark Mode Overrides & Contrast Enhancements */
+    :root.dark input[type="date"], body.dark-mode input[type="date"] {
+      color-scheme: dark;
+    }
+    :root.dark .nav-btn:hover, body.dark-mode .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+    :root.dark .rate-button.is-active, body.dark-mode .rate-button.is-active,
+    :root.dark .dir-button.is-active, body.dark-mode .dir-button.is-active {
+      background: #1e293b;
+      color: #38bdf8;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+    :root.dark .rate-button.is-active::after, body.dark-mode .rate-button.is-active::after,
+    :root.dark .dir-button.is-active::after, body.dark-mode .dir-button.is-active::after {
+      background: #38bdf8;
+    }
+    :root.dark .ruler, body.dark-mode .ruler {
+      background-image:
+        repeating-linear-gradient(90deg, #cbd5e1 0, #cbd5e1 1.5px, transparent 1.5px, transparent 2.083333%),
+        repeating-linear-gradient(90deg, #94a3b8 0, #94a3b8 1px, transparent 1px, transparent 1.041667%),
+        repeating-linear-gradient(90deg, #64748b 0, #64748b 1px, transparent 1px, transparent 0.520833%),
+        repeating-linear-gradient(90deg, #334155 0, #334155 1px, transparent 1px, transparent 0.173611%),
+        repeating-linear-gradient(90deg, #1e293b 0, #1e293b 1px, transparent 1px, transparent 0.034722%);
+    }
+    :root.dark .ruler-major:before, body.dark-mode .ruler-major:before {
+      display: none;
+    }
+    :root.dark .ruler-min-5, body.dark-mode .ruler-min-5 {
+      color: #94a3b8;
+    }
+    :root.dark .ruler-min-1, body.dark-mode .ruler-min-1 {
+      color: #64748b;
+    }
+    :root.dark .ruler-midnight-prev, body.dark-mode .ruler-midnight-prev {
+      color: var(--text-muted);
+    }
+    :root.dark .cut-mask, body.dark-mode .cut-mask {
+      background: rgba(15, 23, 42, 0.65);
+    }
+    :root.dark .bottom-callout-card, body.dark-mode .bottom-callout-card {
+      background: linear-gradient(135deg, rgba(30, 58, 138, 0.25) 0%, rgba(17, 24, 39, 0.75) 100%);
+      border-color: #1e3a8a;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+    :root.dark .callout-title, body.dark-mode .callout-title {
+      color: var(--text);
+    }
+    :root.dark .callout-sub, body.dark-mode .callout-sub {
+      color: var(--text-muted);
+    }
+    :root.dark .action.cancel, body.dark-mode .action.cancel {
+      background: #1e293b;
+      color: #cbd5e1;
+    }
+    :root.dark .action.cancel:hover, body.dark-mode .action.cancel:hover {
+      background: #334155;
+      color: #f8fafc;
+    }
+    :root.dark .done-progress-wrap, body.dark-mode .done-progress-wrap {
+      background: #1e293b;
+      border-color: #334155;
+    }
+    :root.dark .done-progress-bar, body.dark-mode .done-progress-bar {
+      background: #0f172a;
+    }
+    :root.dark .done-progress-meta, body.dark-mode .done-progress-meta {
+      color: var(--text);
+    }
+    :root.dark .action.secondary, body.dark-mode .action.secondary {
+      border-color: var(--border);
+      color: var(--text);
+      background: var(--card-bg);
+    }
+    :root.dark .action.secondary:hover, body.dark-mode .action.secondary:hover {
+      background: #1e293b;
+      color: #38bdf8;
+    }
+    :root.dark .ios-guide-box, body.dark-mode .ios-guide-box {
+      background: #111827;
+      border-color: #1e293b;
+    }
+    :root.dark .ios-guide-header, body.dark-mode .ios-guide-header {
+      color: #38bdf8;
+    }
+    :root.dark .ios-guide-steps, body.dark-mode .ios-guide-steps {
+      color: #cbd5e1;
+    }
+    :root.dark .ios-guide-step, body.dark-mode .ios-guide-step {
+      background: #1e293b;
+      border-color: #334155;
+    }
+    :root.dark .guide-badge, body.dark-mode .guide-badge {
+      background: rgba(14, 165, 233, 0.2);
+      color: #38bdf8;
+    }
+    :root.dark .license-modal-dialog, body.dark-mode .license-modal-dialog {
+      background: #111827;
+      border-color: #1e293b;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    }
+    :root.dark .license-modal-title, body.dark-mode .license-modal-title {
+      color: #f8fafc;
+    }
+    :root.dark .license-modal-desc, body.dark-mode .license-modal-desc {
+      color: #94a3b8;
+    }
+    :root.dark .license-key-box, body.dark-mode .license-key-box {
+      background: #090d16;
+      border-color: #334155;
+    }
+    :root.dark .license-key-val, body.dark-mode .license-key-val {
+      color: #38bdf8;
+    }
+    :root.dark .license-modal-icon, body.dark-mode .license-modal-icon {
+      background: rgba(245, 130, 32, 0.15);
+    }
+    :root.dark .license-btn-close, body.dark-mode .license-btn-close {
+      background: #1e293b;
+      border-color: #334155;
+      color: #cbd5e1;
+    }
+    :root.dark .license-btn-close:hover, body.dark-mode .license-btn-close:hover {
+      background: #273549;
+    }
+    :root.dark .license-modal-hint, body.dark-mode .license-modal-hint {
+      color: #64748b;
+    }
+    :root.dark .inline-error, body.dark-mode .inline-error {
+      background: rgba(244, 63, 94, 0.15);
+      border-color: rgba(244, 63, 94, 0.3);
+      color: #fda4af;
+    }
   </style>
 </head>
 <body>
 <main class="app">
+  <!-- Top Navigation Bar -->
+  <header class="top-nav" id="topNav">
+    <button id="navBackBtn" class="nav-btn" type="button" aria-label="Quay lại" title="Quay lại">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="nav-breadcrumb" id="navBreadcrumb">{{ camera_name }} · {{ site.name }}</div>
+    <button id="themeToggleBtn" class="nav-btn theme-toggle-btn" type="button" aria-label="Chuyển đổi giao diện" title="Giao diện: Tự động">
+      <span id="themeBtnIcon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+    </button>
+    <button id="navRefreshBtn" class="nav-btn" type="button" aria-label="Tải lại trang" title="Tải lại trang">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+    </button>
+  </header>
+
   <!-- Title Row for Replay & Live -->
   <div class="title-section" id="mainTitleSection">
     <h1 id="headerTitle" class="main-title">{{ camera_name }}</h1>
@@ -1280,7 +1648,7 @@
   <!-- Screen 1 & Screen 2: Replay & Live Screen -->
   <section id="replayScreen" class="screen screen-replay">
     <div class="player" id="playerFrame" {% if camera_aspect_ratio == '4:3' %}style="aspect-ratio: 4/3;"{% elif camera_aspect_ratio == '16:9' %}style="aspect-ratio: 16/9;"{% endif %}>
-      <video id="videoPlayer" playsinline preload="metadata" poster="/snapshot/cam{{ cam_id }}?view=single"></video>
+      <video id="videoPlayer" playsinline preload="metadata" controlsList="nodownload noplaybackrate nofullscreen" disablePictureInPicture disableRemotePlayback></video>
       <img id="liveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
       <div id="liveLoading" class="live-loading" hidden><div class="live-spinner"></div><span class="live-loading-text">Đang tải...</span></div>
 
@@ -1294,9 +1662,9 @@
       <div class="timeline-top-row" role="toolbar" aria-label="Điều khiển ngày và chế độ phát">
         <div class="live-date-wrap" id="liveDateWrap">
           <div class="pill date-control pill-toolbar" role="group" aria-label="Chọn ngày">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
             <span id="dateLabel">--/--/----</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
             <input id="filterDate" class="date-input" type="date">
             <input id="liveFilterDate" class="date-input" type="date" hidden>
             <span id="liveDateLabel" hidden></span>
@@ -1305,14 +1673,14 @@
         {% if has_nvr %}
         <div class="source-toggle-wrap" id="sourceToggleWrap">
           <button id="sourceToggleBtn" class="pill pill-toolbar source-toggle-pill" type="button" title="Đổi nguồn phát lại: Local (Chính) / NVR (Dự phòng)" aria-label="Nguồn phát lại">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
             <span id="sourceToggleLabel">Local (Chính)</span>
           </button>
           <input type="hidden" id="selectedReplaySource" value="local">
         </div>
         {% endif %}
         <button id="liveButton" class="pill live-switch-pill pill-toolbar" type="button" aria-label="Xem trực tiếp">
-          <svg id="liveButtonIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4.93 19.07a10 10 0 0 1 0-14.14M19.07 4.93a10 10 0 0 1 0 14.14M7.76 16.24a6 6 0 0 1 0-8.48M16.24 7.76a6 6 0 0 1 0 8.48"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+          <svg id="liveButtonIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4.93 19.07a10 10 0 0 1 0-14.14M19.07 4.93a10 10 0 0 1 0 14.14M7.76 16.24a6 6 0 0 1 0-8.48M16.24 7.76a6 6 0 0 1 0 8.48"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
           <span id="liveButtonText">Xem trực tiếp</span>
         </button>
       </div>
@@ -1322,8 +1690,8 @@
         <div class="timeline-control-block control-block-direction">
           <div class="control-block-label">Hướng</div>
           <div class="timeline-dir-group" role="group" aria-label="Hướng phát">
-            <button class="dir-button" type="button" data-timeline-context="replay" data-direction="reverse" title="Phát lùi" aria-label="Phát lùi"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 17-5-5 5-5M11 17l-5-5 5-5"/></svg></button>
-            <button class="dir-button is-active" type="button" data-timeline-context="replay" data-direction="forward" title="Phát tiến" aria-label="Phát tiến"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 17 5-5-5-5M13 17l5-5-5-5"/></svg></button>
+            <button class="dir-button" type="button" data-timeline-context="replay" data-direction="reverse" title="Phát lùi" aria-label="Phát lùi"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 17-5-5 5-5M11 17l-5-5 5-5"/></svg></button>
+            <button class="dir-button is-active" type="button" data-timeline-context="replay" data-direction="forward" title="Phát tiến" aria-label="Phát tiến"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 17 5-5-5-5M13 17l5-5-5-5"/></svg></button>
           </div>
         </div>
         <div class="timeline-control-block">
@@ -1338,8 +1706,8 @@
         <div class="timeline-control-block timeline-control-block-right">
           <div class="control-block-label">Thu phóng</div>
           <div class="timeline-zoom" role="group" aria-label="Thu phóng timeline">
-            <button id="timelineZoomOut" class="zoom-button" type="button" title="Thu nhỏ timeline" aria-label="Thu nhỏ timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
-            <button id="timelineZoomIn" class="zoom-button" type="button" title="Phóng to timeline" aria-label="Phóng to timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button id="timelineZoomOut" class="zoom-button" type="button" title="Thu nhỏ timeline" aria-label="Thu nhỏ timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+            <button id="timelineZoomIn" class="zoom-button" type="button" title="Phóng to timeline" aria-label="Phóng to timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
           </div>
         </div>
       </div>
@@ -1380,7 +1748,7 @@
     </div>
 
     <div class="player" id="cutPlayerFrame" {% if camera_aspect_ratio == '4:3' %}style="aspect-ratio: 4/3;"{% elif camera_aspect_ratio == '16:9' %}style="aspect-ratio: 16/9;"{% endif %}>
-      <video id="cutPlayer" playsinline preload="metadata" poster="/snapshot/cam{{ cam_id }}?view=single"></video>
+      <video id="cutPlayer" playsinline preload="metadata" controlsList="nodownload noplaybackrate nofullscreen" disablePictureInPicture disableRemotePlayback></video>
       <img id="cutLiveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
       <div id="cutLiveLoading" class="live-loading" hidden><div class="live-spinner"></div><span class="live-loading-text">Đang tải...</span></div>
 
@@ -1388,15 +1756,15 @@
     </div>
 
     <div class="cut-control-bar" id="cutControlBar">
-      <button id="cutBackCircleBtn" class="circle-btn" type="button" aria-label="Quay lại"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button id="cutBackCircleBtn" class="circle-btn" type="button" aria-label="Quay lại"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
       <div class="pill date-control" role="group" aria-label="Chọn ngày">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
         <span id="cutDateLabel">--/--/----</span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         <input id="cutFilterDate" class="date-input" type="date">
       </div>
       <button id="cutLiveButton" class="pill live-switch-pill" type="button" aria-label="Xem trực tiếp">
-        <svg id="cutLiveButtonIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4.93 19.07a10 10 0 0 1 0-14.14M19.07 4.93a10 10 0 0 1 0 14.14M7.76 16.24a6 6 0 0 1 0-8.48M16.24 7.76a6 6 0 0 1 0 8.48"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
+        <svg id="cutLiveButtonIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4.93 19.07a10 10 0 0 1 0-14.14M19.07 4.93a10 10 0 0 1 0 14.14M7.76 16.24a6 6 0 0 1 0-8.48M16.24 7.76a6 6 0 0 1 0 8.48"/><circle cx="12" cy="12" r="2" fill="currentColor"/></svg>
         <span id="cutLiveButtonText">Xem trực tiếp</span>
       </button>
     </div>
@@ -1406,8 +1774,8 @@
         <div class="timeline-control-block control-block-direction">
           <div class="control-block-label">Hướng</div>
           <div class="timeline-dir-group" role="group" aria-label="Hướng phát">
-            <button class="dir-button" type="button" data-timeline-context="cut" data-direction="reverse" title="Phát lùi" aria-label="Phát lùi"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 17-5-5 5-5M11 17l-5-5 5-5"/></svg></button>
-            <button class="dir-button is-active" type="button" data-timeline-context="cut" data-direction="forward" title="Phát tiến" aria-label="Phát tiến"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 17 5-5-5-5M13 17l5-5-5-5"/></svg></button>
+            <button class="dir-button" type="button" data-timeline-context="cut" data-direction="reverse" title="Phát lùi" aria-label="Phát lùi"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 17-5-5 5-5M11 17l-5-5 5-5"/></svg></button>
+            <button class="dir-button is-active" type="button" data-timeline-context="cut" data-direction="forward" title="Phát tiến" aria-label="Phát tiến"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 17 5-5-5-5M13 17l5-5-5-5"/></svg></button>
           </div>
         </div>
         <div class="timeline-control-block">
@@ -1422,8 +1790,8 @@
         <div class="timeline-control-block timeline-control-block-right">
           <div class="control-block-label">Thu phóng</div>
           <div class="timeline-zoom" role="group" aria-label="Thu phóng timeline cắt video">
-            <button id="cutTimelineZoomOut" class="zoom-button" type="button" title="Thu nhỏ timeline" aria-label="Thu nhỏ timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
-            <button id="cutTimelineZoomIn" class="zoom-button" type="button" title="Phóng to timeline" aria-label="Phóng to timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button id="cutTimelineZoomOut" class="zoom-button" type="button" title="Thu nhỏ timeline" aria-label="Thu nhỏ timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+            <button id="cutTimelineZoomIn" class="zoom-button" type="button" title="Phóng to timeline" aria-label="Phóng to timeline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
           </div>
         </div>
       </div>
@@ -1491,7 +1859,7 @@
 
       <!-- Video Player Preview (cho cả Điện thoại & Máy tính) -->
       <div id="doneVideoWrap" class="done-video-wrap">
-        <video id="doneVideoPreview" class="done-video-player" playsinline webkit-playsinline controls preload="metadata"></video>
+        <video id="doneVideoPreview" class="done-video-player" playsinline webkit-playsinline controls controlsList="nodownload noplaybackrate nofullscreen" disablePictureInPicture preload="metadata"></video>
       </div>
 
       <!-- Actions -->
@@ -1506,13 +1874,16 @@
         </button>
 
         <!-- Nút tải file về máy (cho Máy tính hoặc Android) -->
-        <a id="mergedDownloadBtn" class="action secondary" href="#" aria-disabled="true">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <a id="mergedDownloadBtn" class="action done-btn-download" href="#" aria-disabled="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           <span>Tải về máy</span>
         </a>
 
         <!-- Nút quay về -->
-        <button id="doneBackButton" class="action cancel" type="button">Quay lại</button>
+        <button id="doneBackButton" class="action done-btn-back" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <span>Quay lại</span>
+        </button>
       </div>
 
       <!-- Hộp hướng dẫn dành cho iPhone -->
@@ -1565,6 +1936,21 @@
 </main>
 
 <script>
+  // Immediate theme check
+  try {
+    const _themeKey = "cambida_player_theme";
+    const _pref = (typeof localStorage !== "undefined" && localStorage.getItem(_themeKey)) || "auto";
+    const _h = new Date().getHours();
+    const _eff = (_pref === "auto") ? ((_h >= 6 && _h < 18) ? "light" : "dark") : _pref;
+    if (_eff === "dark") {
+      document.documentElement?.classList?.add("dark");
+      document.body?.classList?.add("dark-mode");
+    } else {
+      document.documentElement?.classList?.remove("dark");
+      document.body?.classList?.remove("dark-mode");
+    }
+  } catch (_) {}
+
   const LICENSE_ACTIVE = {{ 'true' if license_active else 'false' }};
   const LICENSE_KEY = "{{ license_key }}";
   const CAMERA_MODE = "{{ camera_mode }}";
@@ -1580,10 +1966,12 @@
     } catch (_) {}
     return "16/9";
   }
+  const MIN_MERGE_SECONDS = 120; // Tối thiểu 2 phút
+  const MIN_MERGE_MS = MIN_MERGE_SECONDS * 1000;
   const MAX_MERGE_MINUTES = Number({{ max_merge_minutes|int }});
-  const MAX_MERGE_SECONDS = Math.max(60, MAX_MERGE_MINUTES * 60);
-  const DEFAULT_CLIP_MINUTES = 30;
-  const DEFAULT_CLIP_SECONDS = Math.min(DEFAULT_CLIP_MINUTES * 60, MAX_MERGE_SECONDS);
+  const MAX_MERGE_SECONDS = Math.max(MIN_MERGE_SECONDS, MAX_MERGE_MINUTES * 60);
+  const DEFAULT_CLIP_MINUTES = Math.max(2, Math.min(30, MAX_MERGE_MINUTES));
+  const DEFAULT_CLIP_SECONDS = Math.max(MIN_MERGE_SECONDS, Math.min(DEFAULT_CLIP_MINUTES * 60, MAX_MERGE_SECONDS));
   const COVERAGE_JITTER_MS = 2000;
   const $ = (id) => document.getElementById(id);
   const pad = (n) => String(n).padStart(2, "0");
@@ -1592,6 +1980,94 @@
   let lastMergedFilename = "", lastMergedDownloadUrl = "", lastMergedInlineUrl = "";
   let iosShareFile = null, iosSharePrepareToken = 0, iosShareController = null;
   let fetchSerial = 0, activeScreen = "replay", replayTitle = "";
+
+  // ========================================================
+  // QUẢN LÝ GIAO DIỆN: SÁNG / TỐI / TỰ ĐỘNG (HOÀNG HÔN & BÌNH MINH)
+  // ========================================================
+  const THEME_STORAGE_KEY = "cambida_player_theme";
+
+  const THEME_ICONS = {
+    sun: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,
+    moon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
+    clock: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`
+  };
+
+  function getScheduledTheme(){
+    const hour = new Date().getHours();
+    return (hour >= 6 && hour < 18) ? "light" : "dark";
+  }
+
+  function getStoredThemePref(){
+    try {
+      const saved = localStorage.getItem(THEME_STORAGE_KEY);
+      if (saved === "light" || saved === "dark" || saved === "auto") {
+        return saved;
+      }
+    } catch (_) {}
+    return "auto";
+  }
+
+  function updateThemeUI(pref, effectiveTheme){
+    const btn = $("themeToggleBtn");
+    const icon = $("themeBtnIcon");
+    if (!btn || !icon) return;
+
+    if (pref === "light") {
+      icon.innerHTML = THEME_ICONS.sun;
+      btn.title = "Giao diện: Sáng (Bấm để chuyển sang Tối)";
+      btn.setAttribute("aria-label", "Giao diện: Sáng (Bấm để chuyển sang Tối)");
+    } else if (pref === "dark") {
+      icon.innerHTML = THEME_ICONS.moon;
+      btn.title = "Giao diện: Tối (Bấm để chuyển sang Tự động)";
+      btn.setAttribute("aria-label", "Giao diện: Tối (Bấm để chuyển sang Tự động)");
+    } else {
+      icon.innerHTML = THEME_ICONS.clock;
+      const currentHint = effectiveTheme === "light" ? "Đang kích hoạt: Sáng" : "Đang kích hoạt: Tối";
+      btn.title = `Giao diện: Tự động (06:00-18:00 Sáng, 18:00-06:00 Tối · ${currentHint}) (Bấm để chuyển sang Sáng)`;
+      btn.setAttribute("aria-label", `Giao diện: Tự động (${currentHint})`);
+    }
+  }
+
+  function applyTheme(targetPref){
+    const pref = targetPref || getStoredThemePref();
+    let effectiveTheme;
+
+    if (pref === "light") {
+      effectiveTheme = "light";
+    } else if (pref === "dark") {
+      effectiveTheme = "dark";
+    } else {
+      effectiveTheme = getScheduledTheme();
+    }
+
+    if (effectiveTheme === "dark") {
+      document.documentElement.classList.add("dark");
+      document.body?.classList?.add("dark-mode");
+    } else {
+      document.documentElement.classList.remove("dark");
+      document.body?.classList?.remove("dark-mode");
+    }
+
+    updateThemeUI(pref, effectiveTheme);
+  }
+
+  function cycleTheme(){
+    const currentPref = getStoredThemePref();
+    let nextPref;
+    if (currentPref === "auto") {
+      nextPref = "light";
+    } else if (currentPref === "light") {
+      nextPref = "dark";
+    } else {
+      nextPref = "auto";
+    }
+
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, nextPref);
+    } catch (_) {}
+
+    applyTheme(nextPref);
+  }
 
   function isIOSDevice(){
     if (typeof navigator === "undefined") return false;
@@ -1803,7 +2279,7 @@
     let nvrMatch=null, nvrIndex=-1;
     for(let i=0;i<visibleVideos.length;i++){
       const v=visibleVideos[i], r=getVideoRange(v);
-      if(r&&date>=r.start&&date<r.end){
+      if(r&&date>=r.start&&date<=new Date(r.end.getTime()+2000)){
         if(!isNvrVideo(v)){
           return {video:v,index:i};
         }
@@ -1908,6 +2384,7 @@
     const el=$(targetId);
     if(!el)return;
     el.textContent="";
+    const frag=(typeof document.createDocumentFragment==="function")?document.createDocumentFragment():el;
     const fmtRulerHour=h=>`${pad(h)}:00`;
     for(let hour=0;hour<=48;hour+=1){
       const s=document.createElement("span");
@@ -1936,8 +2413,26 @@
       }else{
         s.textContent=fmtRulerHour(hour-24);
       }
-      el.appendChild(s);
+      frag.appendChild(s);
+
+      if(hour < 48){
+        const hStr=pad(hour < 24 ? hour : hour - 24);
+        for(let m=1;m<60;m+=1){
+          const minSpan=document.createElement("span");
+          const totalMin=hour*60 + m;
+          minSpan.style.left=`${(totalMin/2880)*100}%`;
+          if(m % 5 === 0){
+            minSpan.className="ruler-min-5";
+            minSpan.textContent=`${hStr}:${pad(m)}`;
+          }else{
+            minSpan.className="ruler-min-1";
+            minSpan.textContent=`${hStr}:${pad(m)}`;
+          }
+          frag.appendChild(minSpan);
+        }
+      }
     }
+    if(frag!==el)el.appendChild(frag);
   }
 
   function clamp(value,min,max){return Math.min(max,Math.max(min,value));}
@@ -1960,8 +2455,34 @@
   function getPlayerProgress(player){const duration=getMediaDuration(player);return duration?clamp((Number(player?.currentTime)||0)/duration,0,1):0;}
   function getTimelineProgressForPlayer(player){const base=getPlayerBaseDate(player);if(!base)return timelineStates[getTimelineContext(player)]?.progress??0;return getTimelineProgressForDate(new Date(base.getTime()+(Number(player?.currentTime)||0)*1000));}
   function getTimelineProgressAt(context,clientX){const state=timelineStates[context],viewport=$(state.viewportId);if(!viewport)return 0;const rect=viewport.getBoundingClientRect(),width=Math.max(1,rect.width),trackWidth=width*state.zoom;return clamp((clientX-rect.left-state.offset)/trackWidth,0,1);}
-  function renderTimeline(context,progress=null){const state=timelineStates[context],track=$(state.trackId),viewport=$(state.viewportId),hit=$(state.hitId);if(!state||!track||!viewport)return;const resolved=clamp(progress==null?state.progress:progress,0,1),width=Math.max(0,viewport.getBoundingClientRect().width),trackWidth=width*state.zoom;state.progress=resolved;state.offset=width/2-resolved*trackWidth;track.style.width=`${Math.max(1,state.zoom*100)}%`;track.style.transform=`translate3d(${state.offset}px,0,0)`;const bubble=$(state.bubbleId);if(bubble)bubble.textContent=formatBubbleTime(getTimelineDateAtProgress(resolved));if(hit){hit.setAttribute("aria-valuenow",String(Math.round(resolved*100)));hit.setAttribute("aria-valuetext",formatBubbleTime(getTimelineDateAtProgress(resolved)));}}
-  function syncTimelineForPlayer(context,player){if(!currentVideo)return;let prog=getTimelineProgressForPlayer(player);if(context==="cut"&&clipStartAt&&clipEndAt)prog=clamp(prog,getTimelineProgressForDate(clipStartAt),getTimelineProgressForDate(clipEndAt));renderTimeline(context,prog);}
+  function renderTimeline(context,progress=null){
+    const state=timelineStates[context],track=$(state.trackId),viewport=$(state.viewportId),hit=$(state.hitId);
+    if(!state||!track||!viewport)return;
+    const card=$(context==="cut"?"cutTimelineCard":"timelineCard");
+    if(card){
+      card.classList.toggle("is-zoom-30m", state.zoom >= 90);
+      card.classList.toggle("is-zoom-10m", state.zoom >= 180);
+    }
+    const resolved=clamp(progress==null?state.progress:progress,0,1),width=Math.max(0,viewport.getBoundingClientRect().width),trackWidth=width*state.zoom;
+    state.progress=resolved;
+    state.offset=width/2-resolved*trackWidth;
+    track.style.width=`${Math.max(1,state.zoom*100)}%`;
+    track.style.transform=`translate3d(${state.offset}px,0,0)`;
+    const bubble=$(state.bubbleId);
+    if(bubble)bubble.textContent=formatBubbleTime(getTimelineDateAtProgress(resolved));
+    if(hit){
+      hit.setAttribute("aria-valuenow",String(Math.round(resolved*100)));
+      hit.setAttribute("aria-valuetext",formatBubbleTime(getTimelineDateAtProgress(resolved)));
+    }
+  }
+  function syncTimelineForPlayer(context,player){
+    if(!currentVideo)return;
+    if(timelineDrag && timelineDrag.mode==="seek")return;
+    if(player?.seeking)return;
+    let prog=getTimelineProgressForPlayer(player);
+    if(context==="cut"&&clipStartAt&&clipEndAt)prog=clamp(prog,getTimelineProgressForDate(clipStartAt),getTimelineProgressForDate(clipEndAt));
+    renderTimeline(context,prog);
+  }
   function setAnchor(anchor,url,name){ if(!anchor)return; if(!url){anchor.href="#";anchor.setAttribute("aria-disabled","true");anchor.removeAttribute("download");anchor.tabIndex=-1;return;} anchor.href=url;anchor.setAttribute("download",name||"");anchor.setAttribute("aria-disabled","false");anchor.tabIndex=0; }
   function getPlaybackState(player){let state=playbackStates.get(player);if(!state){state={direction:"forward",rate:1,reverseTimer:null};playbackStates.set(player,state);}return state;}
   function getPlaybackRateButton(context,rate=1){
@@ -2134,11 +2655,21 @@
     const range=getVideoRange(v),targetSec=Number.isFinite(Number(seekSec))?Math.max(0,Number(seekSec)):0;
     const targetDate=range?new Date(range.start.getTime()+targetSec*1000):getTimelineDateAtProgress(timelineStates.replay.progress);
     const loadSerial=loadPlayer($("videoPlayer"),v,targetDate);
-    const cutPlayer=$("cutPlayer");if(cutPlayer){stopPlayback(cutPlayer,"cut");cutPlayer.pause();cutPlayer.removeAttribute("src");cutPlayer.dataset.baseAt=formatLocalSecond(targetDate);cutPlayer.load();}
+    const cutPlayer=$("cutPlayer");if(cutPlayer&&activeScreen==="cut"){stopPlayback(cutPlayer,"cut");cutPlayer.pause();cutPlayer.removeAttribute("src");cutPlayer.dataset.baseAt=formatLocalSecond(targetDate);cutPlayer.load();}
     let downloadUrl=getDownloadUrl(v);if(isNvrVideo(v)&&targetDate)downloadUrl=appendQueryParam(downloadUrl,"at",formatLocalSecond(targetDate));
     $("cutButton").disabled=false;$("watchError").hidden=true;
     if(range){updateRuler("ruler");updateRuler("cutRuler");}
-    if(seekSec!==null&&!isNvrVideo(v)){const player=$("videoPlayer"),apply=()=>{if(!isCurrentPlayerRequest(player,loadSerial))return;const max=getMediaDuration(player);player.currentTime=clamp(targetSec,0,max);};if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});}
+    if(seekSec!==null&&!isNvrVideo(v)){
+      const player=$("videoPlayer");
+      const apply=()=>{
+        if(!isCurrentPlayerRequest(player,loadSerial))return;
+        const max=getMediaDuration(player);
+        player.currentTime=clamp(targetSec,0,max);
+      };
+      if(player.readyState>=1)apply();
+      else player.addEventListener("loadedmetadata",apply,{once:true});
+      player.addEventListener("canplay",apply,{once:true});
+    }
     configureClipRange(targetDate);const dayProgress=getTimelineProgressForDate(targetDate);renderTimeline("replay",dayProgress);renderTimeline("cut",dayProgress);checkCodec(v);if(autoplay)playPlayerWhenReady($("videoPlayer"),loadSerial);return loadSerial;
   }
 
@@ -2196,21 +2727,40 @@
     if(context==="replay"){$("cutButton").disabled=false;$("watchError").hidden=true;}
     const range=getVideoRange(match.video),sec=range?Math.max(0,(targetDate-range.start)/1000):0,same=currentVideo&&getVideoName(currentVideo)===getVideoName(match.video);
     if(!same){
-      if(context==="cut"){currentVideo=match.video;currentVideoIndex=match.index;const loadSerial=loadPlayer($("cutPlayer"),match.video,targetDate);checkCodec(match.video);if(autoplay)playPlayerWhenReady($("cutPlayer"),loadSerial);return;}
-      const loadSerial=selectVideo(match.video,match.index,false,sec);if(autoplay)playPlayerWhenReady(getTimelinePlayer(context),loadSerial);return;
+      if(context==="cut"){
+        currentVideo=match.video;currentVideoIndex=match.index;
+        const loadSerial=loadPlayer($("cutPlayer"),match.video,targetDate);
+        checkCodec(match.video);
+        if(!isNvrVideo(match.video)){
+          const cp=$("cutPlayer"),applyCut=()=>{
+            if(!isCurrentPlayerRequest(cp,loadSerial))return;
+            const max=getMediaDuration(cp);
+            cp.currentTime=clamp(sec,0,max);
+          };
+          if(cp.readyState>=1)applyCut();
+          else cp.addEventListener("loadedmetadata",applyCut,{once:true});
+          cp.addEventListener("canplay",applyCut,{once:true});
+        }
+        if(autoplay)playPlayerWhenReady($("cutPlayer"),loadSerial);
+        return;
+      }
+      selectVideo(match.video,match.index,autoplay,sec);
+      return;
     }
     if(isNvrVideo(match.video)){const loadSerial=loadPlayer(player,match.video,targetDate);syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));if(autoplay)playPlayerWhenReady(player,loadSerial);return;}
     const apply=()=>{if(!isCurrentPlayerRequest(player,requestSerial))return;const max=getMediaDuration(player);player.currentTime=clamp(sec,0,max);syncPlayerUi(player,context,$(context==="cut"?"cutPlayerTime":"playerTime"));};
-    if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});if(autoplay)playPlayerWhenReady(player,requestSerial);
+    if(player.readyState>=1)apply();else player.addEventListener("loadedmetadata",apply,{once:true});
+    player.addEventListener("canplay",apply,{once:true});
+    if(autoplay)playPlayerWhenReady(player,requestSerial);
   }
   function updateCutFromPointer(context,clientX){
     if(!timelineDrag||!clipStartAt||!clipEndAt)return;
     const day=getTimelineDayBounds(),maxEndMs=getMaxClipEndTime(day),progress=getTimelineProgressAt(context,clientX),targetDate=getTimelineDateAtProgress(progress),maxMs=MAX_MERGE_SECONDS*1000;
     if(timelineDrag.mode==="start"){
-      const latestStart=new Date(clipEndAt.getTime()-1000),earliestStart=new Date(Math.max(day.start.getTime(),clipEndAt.getTime()-maxMs));
+      const latestStart=new Date(clipEndAt.getTime()-MIN_MERGE_MS),earliestStart=new Date(Math.max(day.start.getTime(),clipEndAt.getTime()-maxMs));
       clipStartAt=new Date(clamp(targetDate.getTime(),earliestStart.getTime(),latestStart.getTime()));
     }else if(timelineDrag.mode==="end"){
-      const earliestEnd=new Date(clipStartAt.getTime()+1000),latestEnd=new Date(Math.min(maxEndMs,clipStartAt.getTime()+maxMs));
+      const earliestEnd=new Date(clipStartAt.getTime()+MIN_MERGE_MS),latestEnd=new Date(Math.min(maxEndMs,clipStartAt.getTime()+maxMs));
       clipEndAt=new Date(clamp(targetDate.getTime(),earliestEnd.getTime(),latestEnd.getTime()));
     }else if(timelineDrag.mode==="selection"){
       const width=timelineDrag.selectionWidthMs,rawStart=targetDate.getTime()-timelineDrag.grabOffsetMs;
@@ -2320,7 +2870,7 @@
         const [p1, p2] = [...activePointers.values()];
         const dist = Math.max(10, Math.hypot(p1.x - p2.x, p1.y - p2.y));
         const ratio = dist / pinchGesture.startDist;
-        const newZoom = clamp(+(pinchGesture.startZoom * ratio).toFixed(2), 1, 96);
+        const newZoom = clamp(+(pinchGesture.startZoom * ratio).toFixed(2), 1, 288);
         if(newZoom !== timelineStates[context].zoom){
           timelineStates[context].zoom = newZoom;
           renderTimeline(context, timelineStates[context].progress);
@@ -2341,10 +2891,13 @@
           timelineDrag.pendingProgress=rawProgress;
         }
         renderTimeline(context,next);
+        const curDate=getTimelineDateAtProgress(timelineDrag.pendingProgress??next);
         const bubble=$(timelineStates[context].bubbleId);
         if(bubble){
-          bubble.textContent=formatBubbleTime(getTimelineDateAtProgress(timelineDrag.pendingProgress??next));
+          bubble.textContent=formatBubbleTime(curDate);
         }
+        const tsEl=$(context==="cut"?"cutPlayerTimestamp":"playerTimestamp");
+        if(tsEl&&curDate)tsEl.textContent=fmtFullDateTime(curDate);
       }else if(cut)updateCutFromPointer(context,ev.clientX);
     };
     if(hit){
@@ -2412,7 +2965,7 @@
   function setTimelineZoom(context,delta){
     const state=timelineStates[context],viewport=$(state.viewportId);
     if(!state||!viewport)return;
-    const next=delta>0?Math.min(96,+(state.zoom*1.5).toFixed(2)):Math.max(1,+(state.zoom/1.5).toFixed(2));
+    const next=delta>0?Math.min(288,+(state.zoom*1.5).toFixed(2)):Math.max(1,+(state.zoom/1.5).toFixed(2));
     if(next===state.zoom)return;
     state.zoom=next;
     renderTimeline(context,state.progress);
@@ -2430,16 +2983,16 @@
   }
 
   function configureClipRange(targetDate=null){
-    const day=getTimelineDayBounds(), maxEndMs=getMaxClipEndTime(day), focus=parseDate(targetDate)||getTimelineDateAtProgress(timelineStates.replay.progress), defaultMs=DEFAULT_CLIP_SECONDS*1000;
+    const day=getTimelineDayBounds(), maxEndMs=getMaxClipEndTime(day), focus=parseDate(targetDate)||getTimelineDateAtProgress(timelineStates.replay.progress), defaultMs=Math.max(MIN_MERGE_MS, DEFAULT_CLIP_SECONDS*1000);
     let endMs = Math.min(maxEndMs, focus.getTime() + defaultMs);
     let startMs = Math.max(day.start.getTime(), endMs - defaultMs);
-    if(focus.getTime() <= maxEndMs - 1000){
-      startMs = clamp(focus.getTime(), day.start.getTime(), maxEndMs - 1000);
+    if(focus.getTime() <= maxEndMs - MIN_MERGE_MS){
+      startMs = clamp(focus.getTime(), day.start.getTime(), maxEndMs - MIN_MERGE_MS);
       endMs = Math.min(maxEndMs, startMs + defaultMs);
     }
-    if(endMs - startMs < defaultMs){
-      endMs = Math.min(maxEndMs, startMs + defaultMs);
-      startMs = Math.max(day.start.getTime(), endMs - defaultMs);
+    if(endMs - startMs < MIN_MERGE_MS){
+      endMs = Math.min(maxEndMs, startMs + MIN_MERGE_MS);
+      startMs = Math.max(day.start.getTime(), endMs - MIN_MERGE_MS);
     }
     clipStartAt=new Date(startMs);clipEndAt=new Date(endMs);updateClipVisual();
   }
@@ -2449,7 +3002,7 @@
   }
   function updateClipVisual(){
     if(!clipStartAt||!clipEndAt)return;
-    const day=getTimelineDayBounds(), maxEndMs=getMaxClipEndTime(day), startMs=clamp(clipStartAt.getTime(),day.start.getTime(),maxEndMs-1000), maxEnd=Math.min(maxEndMs,startMs+MAX_MERGE_SECONDS*1000), endMs=clamp(clipEndAt.getTime(),startMs+1000,maxEnd);
+    const day=getTimelineDayBounds(), maxEndMs=getMaxClipEndTime(day), startMs=clamp(clipStartAt.getTime(),day.start.getTime(),maxEndMs-MIN_MERGE_MS), maxEnd=Math.min(maxEndMs,startMs+MAX_MERGE_SECONDS*1000), endMs=clamp(clipEndAt.getTime(),startMs+MIN_MERGE_MS,maxEnd);
     clipStartAt=new Date(startMs);clipEndAt=new Date(endMs);
     const left=getTimelineProgressForDate(clipStartAt)*100,right=getTimelineProgressForDate(clipEndAt)*100;
     $("clipStartLabel").textContent=formatClipTime(clipStartAt);$("clipEndLabel").textContent=formatClipTime(clipEndAt);
@@ -2629,7 +3182,18 @@
     activeScreen="cut";
     stopPlayback($("videoPlayer"),"replay");
     $("videoPlayer").pause();
-    loadPlayer($("cutPlayer"),currentVideo,targetDate);
+    const loadSerial=loadPlayer($("cutPlayer"),currentVideo,targetDate);
+    const range=getVideoRange(currentVideo),sec=range?Math.max(0,(targetDate-range.start)/1000):0;
+    if(!isNvrVideo(currentVideo)){
+      const cp=$("cutPlayer"),applyCut=()=>{
+        if(!isCurrentPlayerRequest(cp,loadSerial))return;
+        const max=getMediaDuration(cp);
+        cp.currentTime=clamp(sec,0,max);
+      };
+      if(cp.readyState>=1)applyCut();
+      else cp.addEventListener("loadedmetadata",applyCut,{once:true});
+      cp.addEventListener("canplay",applyCut,{once:true});
+    }
     configureClipRange(targetDate);
     timelineStates.cut.zoom = 48 / 1;
     requestAnimationFrame(()=>{
@@ -2700,7 +3264,7 @@
     start.setMilliseconds(0);end.setMilliseconds(0);
     const day=getTimelineDayBounds(),maxEndMs=getMaxClipEndTime(day);
     if(end.getTime()>maxEndMs) end.setTime(maxEndMs);
-    if(end<=start)end.setTime(start.getTime()+1000);
+    if(end<=start)end.setTime(start.getTime()+MIN_MERGE_MS);
     return{start,end,duration:(end-start)/1000};
   }
 
@@ -2722,6 +3286,11 @@
     if(!currentVideo)return;
     const bounds=getMergeBounds();
     if(!bounds)return;
+    if(bounds.duration < MIN_MERGE_SECONDS){
+      $("cutError").textContent="Đoạn cắt phải dài ít nhất 2 phút.";
+      $("cutError").hidden=false;
+      return;
+    }
     if(bounds.duration>MAX_MERGE_SECONDS){
       $("cutError").textContent=`Đoạn cắt không được dài hơn ${MAX_MERGE_MINUTES} phút.`;
       $("cutError").hidden=false;
@@ -2889,6 +3458,7 @@
     });
     $("navRefreshBtn")?.addEventListener("click",()=>window.location.reload());
     $("navSearchBtn")?.addEventListener("click",()=>window.location.href="/");
+    $("themeToggleBtn")?.addEventListener("click",cycleTheme);
 
     // Replay & Cut Live toggles
     $("liveButton")?.addEventListener("click",()=>toggleLive("replay"));
@@ -2943,6 +3513,14 @@
     // Initial state: start in Live mode
     setScreenLive("replay",true);
     fetchVideos();
+
+    // Theme initialization & schedule check (Hoàng hôn / Bình minh)
+    applyTheme();
+    setInterval(()=>{
+      if(getStoredThemePref()==="auto"){
+        applyTheme("auto");
+      }
+    },60000);
   });
   window.addEventListener("beforeunload",()=>mergeEventSource?.close());
 </script>

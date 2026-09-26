@@ -1,45 +1,777 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" data-theme="dark">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Xem trực tiếp · {{ site.name }}</title>
+  <script>
+    /* Ngăn hiện tượng nhấp nháy giao diện khi tải trang (FOUC) */
+    (function() {
+      try {
+        var mode = localStorage.getItem('cambida_live_theme') || 'auto';
+        var isLight = false;
+        if (mode === 'light') {
+          isLight = true;
+        } else if (mode === 'dark') {
+          isLight = false;
+        } else {
+          var hour = new Date().getHours();
+          isLight = (hour >= 6 && hour < 18);
+        }
+        document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+      } catch (e) {}
+    })();
+  </script>
   <style>
-    :root { --bg: {{ site.theme.background }}; --surface: {{ site.theme.surface }}; --primary: {{ site.theme.primary }}; --accent: {{ site.theme.accent }}; --text: {{ site.theme.text }}; }
-    * { box-sizing:border-box; }
-    body { margin:0; min-height:100vh; color:var(--text); font-family:Arial,sans-serif; background:var(--bg); }
-    header { position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; padding:14px 20px; background:color-mix(in srgb,var(--bg) 92%,black); border-bottom:1px solid color-mix(in srgb,var(--text) 20%,transparent); }
-    h1 { margin:0; font-size:1.12rem; color:var(--accent); } .actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    a, button, select { font:inherit; } .back { color:var(--text); text-decoration:none; opacity:.88; }
-    button, select { border:1px solid color-mix(in srgb,var(--accent) 60%,transparent); border-radius:8px; padding:7px 10px; color:var(--text); background:var(--surface); cursor:pointer; }
-    button:hover { filter:brightness(1.15); } .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; padding:14px; }
-    .camera { min-width:0; overflow:hidden; border:1px solid color-mix(in srgb,var(--accent) 42%,transparent); border-radius:12px; background:#101010; box-shadow:0 8px 22px rgba(0,0,0,.24); }
-    .camera.fullscreen { width:100%; height:100%; border:0; border-radius:0; display:flex; flex-direction:column; background:#000; }
-    .camera.fullscreen .frame { flex:1; min-height:0; } .camera.fullscreen img { max-height:none; height:100%; object-fit:contain; }
-    .bar { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; background:var(--surface); }
-    .bar strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .bar-controls { display:flex; gap:6px; align-items:center; } .bar button { padding:5px 7px; font-size:.82rem; } .preview-label { color:color-mix(in srgb,var(--text) 68%,transparent); font-size:.76rem; white-space:nowrap; }
-    .frame { position:relative; aspect-ratio:16/9; background:#050505; } .frame img { display:block; width:100%; height:100%; object-fit:contain; }
-    .off { display:flex; align-items:center; justify-content:center; height:100%; color:#bbb; background:#171717; } .hidden { display:none !important; }
-    @media (max-width:600px) { header { padding:11px 12px; } .grid { grid-template-columns:1fr; padding:10px; } }
+    :root {
+      --primary: {{ site.theme.primary or '#0ea5e9' }};
+      --accent: {{ site.theme.accent or '#f59e0b' }};
+      --font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    /* Dark Mode: Nền tối sâu #090d16, thẻ video đen bóng #000000, viền tinh tế */
+    html[data-theme="dark"] {
+      --bg: #090d16;
+      --surface: #111827;
+      --card-bg: #0b111e;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-hover-border: rgba(14, 165, 233, 0.45);
+      --card-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.6);
+      --card-hover-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.8);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --header-bg: rgba(15, 23, 42, 0.75);
+      --header-border: rgba(255, 255, 255, 0.1);
+      --header-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.45);
+      --btn-bg: rgba(30, 41, 59, 0.8);
+      --btn-border: rgba(255, 255, 255, 0.12);
+      --btn-text: #f1f5f9;
+      --btn-hover-bg: rgba(51, 65, 85, 0.95);
+      --btn-hover-border: rgba(255, 255, 255, 0.25);
+      --switcher-bg: rgba(15, 23, 42, 0.85);
+      --switcher-border: rgba(255, 255, 255, 0.1);
+      --switcher-active-bg: #0ea5e9;
+      --switcher-active-text: #ffffff;
+      --video-bg: #000000;
+      --bar-bg: rgba(17, 24, 39, 0.95);
+      --bar-border: rgba(255, 255, 255, 0.07);
+      --badge-bg: rgba(239, 68, 68, 0.18);
+      --badge-border: rgba(239, 68, 68, 0.35);
+      --badge-text: #f87171;
+      --badge-dot: #ef4444;
+      --glow-gradient: radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.15) 0%, transparent 65%);
+      color-scheme: dark;
+    }
+
+    /* Light Mode: Nền sáng #f1f5f9, thẻ camera viền sáng #e2e8f0, chữ sắc nét */
+    html[data-theme="light"] {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --card-bg: #ffffff;
+      --card-border: #e2e8f0;
+      --card-hover-border: #0ea5e9;
+      --card-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.08);
+      --card-hover-shadow: 0 14px 32px -4px rgba(15, 23, 42, 0.14);
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --header-bg: rgba(255, 255, 255, 0.85);
+      --header-border: rgba(226, 232, 240, 0.9);
+      --header-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);
+      --btn-bg: #ffffff;
+      --btn-border: #cbd5e1;
+      --btn-text: #1e293b;
+      --btn-hover-bg: #f8fafc;
+      --btn-hover-border: #94a3b8;
+      --switcher-bg: #e2e8f0;
+      --switcher-border: #cbd5e1;
+      --switcher-active-bg: #ffffff;
+      --switcher-active-text: #0ea5e9;
+      --video-bg: #000000;
+      --bar-bg: #ffffff;
+      --bar-border: #f1f5f9;
+      --badge-bg: rgba(239, 68, 68, 0.12);
+      --badge-border: rgba(239, 68, 68, 0.28);
+      --badge-text: #dc2626;
+      --badge-dot: #ef4444;
+      --glow-gradient: radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.08) 0%, transparent 60%);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: var(--font-family);
+      background-color: var(--bg);
+      background-image: var(--glow-gradient);
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color .28s ease, color .28s ease;
+    }
+
+    /* 1. Header Glassmorphism bo góc */
+    header {
+      position: sticky;
+      top: 14px;
+      z-index: 50;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 22px;
+      margin: 12px 20px 22px;
+      background: var(--header-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--header-border);
+      border-radius: 20px;
+      box-shadow: var(--header-shadow);
+      transition: background-color .28s ease, border-color .28s ease, box-shadow .28s ease;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, var(--primary) 0%, #3b82f6 50%, #6366f1 100%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
+      flex-shrink: 0;
+      user-select: none;
+      color: #ffffff;
+    }
+
+    .brand-logo svg {
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+
+    .brand-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.22rem;
+      font-weight: 800;
+      letter-spacing: .02em;
+      color: var(--text);
+      line-height: 1.25;
+    }
+
+    .brand-sub {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .brand-sub svg {
+      pointer-events: none;
+      flex-shrink: 0;
+      opacity: 0.85;
+    }
+
+    /* Các nút điều khiển bo tròn mềm mại */
+    .actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      text-decoration: none;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+      transition: all .18s ease;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .btn svg {
+      flex-shrink: 0;
+      pointer-events: none;
+    }
+
+    .btn:hover {
+      background: var(--btn-hover-bg);
+      border-color: var(--btn-hover-border);
+      color: var(--text);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-action-open {
+      color: #38bdf8;
+    }
+    html[data-theme="light"] .btn-action-open {
+      color: #0284c7;
+    }
+
+    .btn-action-close {
+      color: #f87171;
+    }
+    html[data-theme="light"] .btn-action-close {
+      color: #dc2626;
+    }
+
+    .back {
+      color: var(--text-muted);
+    }
+    .back:hover {
+      color: var(--text);
+    }
+
+    /* Segmented Switcher Theme: Sáng (Sun) / Tối (Moon) / Tự động (Clock) */
+    .theme-switcher {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px;
+      border-radius: 14px;
+      background: var(--switcher-bg);
+      border: 1px solid var(--switcher-border);
+      gap: 3px;
+      user-select: none;
+    }
+
+    .theme-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all .18s ease;
+      padding: 0;
+    }
+
+    .theme-btn svg {
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+
+    .theme-btn:hover {
+      color: var(--text);
+      transform: scale(1.08);
+    }
+
+    .theme-btn.active {
+      background: var(--switcher-active-bg);
+      color: var(--switcher-active-text);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+    }
+
+    /* Grid danh sách camera */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+      padding: 0 20px 32px;
+    }
+
+    /* Thẻ camera hiện đại */
+    .camera {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      background: var(--card-bg);
+      box-shadow: var(--card-shadow);
+      transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background-color .28s ease;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .camera:hover {
+      border-color: var(--card-hover-border);
+      box-shadow: var(--card-hover-shadow);
+      transform: translateY(-2px);
+    }
+
+    /* Thanh thông tin trên thẻ camera */
+    .bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--bar-bg);
+      border-bottom: 1px solid var(--bar-border);
+      transition: background-color .28s ease;
+    }
+
+    .bar strong {
+      font-size: 0.94rem;
+      font-weight: 700;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bar-controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    /* Badge "LIVE SUBSTREAM" hiện đại */
+    .badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: .04em;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--badge-bg);
+      border: 1px solid var(--badge-border);
+      color: var(--badge-text);
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--badge-dot);
+      box-shadow: 0 0 6px var(--badge-dot);
+      animation: livePulse 1.6s infinite ease-in-out;
+    }
+
+    @keyframes livePulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    /* Nút Đóng/Mở & Toàn màn hình trong thẻ */
+    .bar button {
+      font-family: inherit;
+      padding: 5px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all .16s ease;
+      line-height: 1;
+      user-select: none;
+    }
+
+    .bar button:hover {
+      background: var(--btn-hover-bg);
+      color: var(--text);
+      border-color: var(--btn-hover-border);
+    }
+
+    .bar button.toggle {
+      padding: 6px 12px;
+      min-width: 52px;
+      letter-spacing: 0.01em;
+    }
+
+    /* Style tối giản thanh lịch cho nút Đóng / Mở theo trạng thái */
+    .camera[data-open="yes"] .bar .toggle {
+      background: rgba(239, 68, 68, 0.08);
+      border-color: rgba(239, 68, 68, 0.28);
+      color: #f87171;
+    }
+    .camera[data-open="yes"] .bar .toggle:hover {
+      background: rgba(239, 68, 68, 0.18);
+      border-color: rgba(239, 68, 68, 0.45);
+      color: #ef4444;
+    }
+    html[data-theme="light"] .camera[data-open="yes"] .bar .toggle {
+      background: rgba(239, 68, 68, 0.08);
+      border-color: rgba(239, 68, 68, 0.25);
+      color: #dc2626;
+    }
+    html[data-theme="light"] .camera[data-open="yes"] .bar .toggle:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #b91c1c;
+    }
+
+    .camera[data-open="no"] .bar .toggle {
+      background: rgba(14, 165, 233, 0.1);
+      border-color: rgba(14, 165, 233, 0.3);
+      color: #38bdf8;
+    }
+    .camera[data-open="no"] .bar .toggle:hover {
+      background: rgba(14, 165, 233, 0.2);
+      border-color: rgba(14, 165, 233, 0.5);
+      color: #0ea5e9;
+    }
+    html[data-theme="light"] .camera[data-open="no"] .bar .toggle {
+      background: rgba(14, 165, 233, 0.08);
+      border-color: rgba(14, 165, 233, 0.3);
+      color: #0284c7;
+    }
+    html[data-theme="light"] .camera[data-open="no"] .bar .toggle:hover {
+      background: rgba(14, 165, 233, 0.16);
+      border-color: rgba(14, 165, 233, 0.5);
+      color: #0369a1;
+    }
+
+    .bar button.fullscreen {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      color: var(--text-muted);
+    }
+    .bar button.fullscreen:hover {
+      color: var(--text);
+    }
+    .bar button.fullscreen svg {
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+
+    /* Khung video đen bóng */
+    .frame {
+      position: relative;
+      aspect-ratio: 16/9;
+      background: var(--video-bg);
+      overflow: hidden;
+    }
+
+    .frame img.feed {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .off {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--text-muted);
+      background: #090e18;
+      font-size: 0.88rem;
+      user-select: none;
+    }
+
+    .off-icon {
+      opacity: .6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .off-icon svg {
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Chế độ Toàn màn hình */
+    .camera.fullscreen {
+      width: 100% !important;
+      height: 100% !important;
+      border: 0;
+      border-radius: 0;
+      display: flex;
+      flex-direction: column;
+      background: #000000;
+      transform: none !important;
+    }
+
+    .camera.fullscreen .bar {
+      background: rgba(10, 15, 25, 0.88);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      color: #ffffff;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 8px 16px;
+      z-index: 10;
+    }
+
+    .camera.fullscreen .bar strong {
+      color: #ffffff;
+    }
+
+    .camera.fullscreen .frame {
+      flex: 1;
+      min-height: 0;
+      aspect-ratio: auto;
+    }
+
+    .camera.fullscreen img.feed {
+      max-height: none;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    /* Tương thích màn hình nhỏ */
+    @media (max-width: 768px) {
+      header {
+        margin: 8px 10px 16px;
+        padding: 10px 14px;
+        border-radius: 16px;
+      }
+      .brand-wrap {
+        gap: 10px;
+      }
+      .brand-logo {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+      }
+      .brand-logo svg {
+        width: 19px;
+        height: 19px;
+      }
+      h1 {
+        font-size: 1.05rem;
+      }
+      .grid {
+        grid-template-columns: 1fr;
+        padding: 0 10px 24px;
+        gap: 12px;
+      }
+    }
   </style>
 </head>
 <body>
   <header>
-    <div><h1>📺 Xem trực tiếp · {{ site.name }}</h1></div>
-    <div class="actions"><button id="openAll" type="button">Mở tất cả</button><button id="closeAll" type="button">Đóng tất cả</button><a class="back" href="/">← Danh sách camera</a></div>
+    <a href="/" class="brand-wrap">
+      <div class="brand-logo" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="7" height="7" x="3" y="3" rx="1.5"/>
+          <rect width="7" height="7" x="14" y="3" rx="1.5"/>
+          <rect width="7" height="7" x="14" y="14" rx="1.5"/>
+          <rect width="7" height="7" x="3" y="14" rx="1.5"/>
+        </svg>
+      </div>
+      <div class="brand-info">
+        <h1>{{ site.name }}</h1>
+        <span class="brand-sub">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m22 8-6 4 6 4V8Z"/>
+            <rect width="14" height="12" x="2" y="6" rx="2" ry="2"/>
+          </svg>
+          <span>Xem trực tiếp · Toàn bộ bàn</span>
+        </span>
+      </div>
+    </a>
+    <div class="actions">
+      <button id="openAll" class="btn btn-action-open" type="button" title="Mở tất cả camera">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polygon points="6 3 20 12 6 21 6 3"/>
+        </svg>
+        <span>Mở tất cả</span>
+      </button>
+      <button id="closeAll" class="btn btn-action-close" type="button" title="Đóng tất cả camera">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect width="16" height="16" x="4" y="4" rx="2.5"/>
+        </svg>
+        <span>Đóng tất cả</span>
+      </button>
+      <div class="theme-switcher" role="group" aria-label="Giao diện hiển thị">
+        <button class="theme-btn" id="themeLight" type="button" data-theme-val="light" title="Chế độ Sáng (Bình minh)" aria-label="Chế độ Sáng">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2"/>
+            <path d="M12 20v2"/>
+            <path d="m4.93 4.93 1.41 1.41"/>
+            <path d="m17.66 17.66 1.41 1.41"/>
+            <path d="M2 12h2"/>
+            <path d="M20 12h2"/>
+            <path d="m6.34 17.66-1.41 1.41"/>
+            <path d="m19.07 4.93-1.41 1.41"/>
+          </svg>
+        </button>
+        <button class="theme-btn" id="themeDark" type="button" data-theme-val="dark" title="Chế độ Tối (Hoàng hôn)" aria-label="Chế độ Tối">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+          </svg>
+        </button>
+        <button class="theme-btn" id="themeAuto" type="button" data-theme-val="auto" title="Tự động (06:00 - 18:00 Sáng, 18:00 - 06:00 Tối)" aria-label="Chế độ Tự động">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </button>
+      </div>
+      <a class="btn back" href="/" title="Danh sách camera">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m12 19-7-7 7-7"/>
+          <path d="M19 12H5"/>
+        </svg>
+        <span>Danh sách camera</span>
+      </a>
+    </div>
   </header>
   <main class="grid" id="cameraGrid">
     {% for camera in cameras %}
     <section class="camera" data-camera-id="{{ camera.id }}">
-      <div class="bar"><strong>{{ camera.name }}</strong><div class="bar-controls"><span class="preview-label">Luồng phụ · độ trễ thấp</span><button class="toggle" type="button">Đóng</button><button class="fullscreen" type="button" title="Toàn màn hình">⛶</button></div></div>
-      <div class="frame"><img alt="{{ camera.name }}" class="feed"><div class="off hidden">Camera đang tắt</div></div>
+      <div class="bar">
+        <strong>{{ camera.name }}</strong>
+        <div class="bar-controls">
+          <span class="badge-live" title="Luồng phụ · độ trễ thấp"><span class="live-dot"></span>LIVE SUBSTREAM</span>
+          <button class="toggle" type="button">Đóng</button>
+          <button class="fullscreen" type="button" title="Toàn màn hình" aria-label="Toàn màn hình">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="frame">
+        <img alt="{{ camera.name }}" class="feed">
+        <div class="off hidden">
+          <div class="off-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+              <circle cx="12" cy="13" r="3"/>
+            </svg>
+          </div>
+          <div>Camera đang tắt</div>
+        </div>
+      </div>
     </section>
     {% endfor %}
   </main>
   <script>
+    // Theme Management Logic (Dual Theme & Tự động Bình minh / Hoàng hôn)
+    const THEME_STORAGE_KEY = 'cambida_live_theme';
+    const themeButtons = {
+      light: document.getElementById('themeLight'),
+      dark: document.getElementById('themeDark'),
+      auto: document.getElementById('themeAuto')
+    };
+
+    function isDayTime() {
+      const hour = new Date().getHours();
+      return hour >= 6 && hour < 18; // 06:00 - 18:00 = Light Mode; 18:00 - 06:00 = Dark Mode
+    }
+
+    function applyTheme(preference) {
+      let effectiveTheme = preference;
+      if (preference === 'auto') {
+        effectiveTheme = isDayTime() ? 'light' : 'dark';
+      }
+      document.documentElement.setAttribute('data-theme', effectiveTheme);
+
+      // Cập nhật trạng thái active cho nút bấm
+      Object.keys(themeButtons).forEach(key => {
+        const btn = themeButtons[key];
+        if (btn) {
+          btn.classList.toggle('active', key === preference);
+        }
+      });
+    }
+
+    function setThemePreference(preference) {
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, preference);
+      } catch (e) {}
+      applyTheme(preference);
+    }
+
+    // Khởi tạo Theme
+    let savedTheme = 'auto';
+    try {
+      savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'auto';
+    } catch (e) {}
+    applyTheme(savedTheme);
+
+    // Lắng nghe sự kiện chuyển đổi theme
+    if (themeButtons.light) {
+      themeButtons.light.addEventListener('click', () => setThemePreference('light'));
+    }
+    if (themeButtons.dark) {
+      themeButtons.dark.addEventListener('click', () => setThemePreference('dark'));
+    }
+    if (themeButtons.auto) {
+      themeButtons.auto.addEventListener('click', () => setThemePreference('auto'));
+    }
+
+    // Tự động chuyển đổi nếu đang ở chế độ 'auto' khi đến mốc 06:00 hoặc 18:00
+    setInterval(() => {
+      try {
+        const currentPref = localStorage.getItem(THEME_STORAGE_KEY) || 'auto';
+        if (currentPref === 'auto') {
+          applyTheme('auto');
+        }
+      } catch (e) {}
+    }, 60000);
+
+    // Logic Phát Live (Bảo toàn 100%)
     const feedUrl = (card) => `/cam${card.dataset.cameraId}?stream=sub&view=live_preview&_=${Date.now()}`;
-    function openCamera(card) { const image=card.querySelector('.feed'), off=card.querySelector('.off'), toggle=card.querySelector('.toggle'); image.src=feedUrl(card); image.classList.remove('hidden'); off.classList.add('hidden'); toggle.textContent='Đóng'; card.dataset.open='yes'; }
-    function closeCamera(card) { const image=card.querySelector('.feed'), off=card.querySelector('.off'), toggle=card.querySelector('.toggle'); image.removeAttribute('src'); image.classList.add('hidden'); off.classList.remove('hidden'); toggle.textContent='Mở'; card.dataset.open='no'; }
+    function openCamera(card) {
+      const image = card.querySelector('.feed'),
+            off = card.querySelector('.off'),
+            toggle = card.querySelector('.toggle');
+      image.src = feedUrl(card);
+      image.classList.remove('hidden');
+      off.classList.add('hidden');
+      if (toggle) toggle.textContent = 'Đóng';
+      card.dataset.open = 'yes';
+    }
+    function closeCamera(card) {
+      const image = card.querySelector('.feed'),
+            off = card.querySelector('.off'),
+            toggle = card.querySelector('.toggle');
+      image.removeAttribute('src');
+      image.classList.add('hidden');
+      off.classList.remove('hidden');
+      if (toggle) toggle.textContent = 'Mở';
+      card.dataset.open = 'no';
+    }
     document.querySelectorAll('.camera').forEach(card => {
       card.querySelector('.toggle').addEventListener('click', () => card.dataset.open === 'yes' ? closeCamera(card) : openCamera(card));
       card.querySelector('.fullscreen').addEventListener('click', () => {
