@@ -28,7 +28,6 @@ PROTECTED_DIRS = {
 }
 
 OBSOLETE_ITEMS = [
-    "Chay_CCTV.cmd",
     "run.cmd",
     "updater.cmd",
     "native_updater.ps1",

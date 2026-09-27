@@ -39,6 +39,7 @@ SIDECARS = [
     "timeline.html",
     "ffmpeg.exe",
     "cloudflared.exe",
+    "Chay_CCTV.cmd",
     "RELEASE_VERSION.txt",
 ]
 
@@ -50,7 +51,6 @@ FORBIDDEN_ITEMS = {
     "cctv_videos",
     "nvr_cache",
     "run.cmd",
-    "Chay_CCTV.cmd",
     "updater.cmd",
     "native_updater.ps1",
     "cloudflared_setup",

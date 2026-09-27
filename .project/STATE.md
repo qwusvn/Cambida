@@ -6,9 +6,9 @@ Cập nhật: 2026-09-27 +07
 - Workspace: D:\\1\\cambida, branch main.
 - Phiên bản phát hành hiện tại: **2.2.3** (camhl.exe Host Loader, updater.exe, setup_cloudflare.exe, _internal/app.pyc, release/2.2.3.zip).
 - Kiến trúc lõi: **Host Loader (camhl.exe) + Bytecode (_internal/app.pyc)**. camhl.exe đóng vai trò file mồi nhúng runtime Dahua NetSDK, tự động nạp logic backend app.pyc (biên dịch 0.1s qua py_compile từ 1.py).
-- ZIP SHA-256: `94241f2e61fd51b6e75e6a01455e8d05f0b590b129b086e2c0e37fa328c514ad` (215,291,362 bytes)
+- ZIP SHA-256: `2dd29795dd73f16ab36f3bf60c1d24142d349950cf6a34b27df78b3e2ee707e0` (215,292,706 bytes)
 - camhl.exe SHA-256: `bb3ddeb7f09e370a5efc668d590ff81e00ce1bc9da026cf177a4d4bb442026dc`
-- updater.exe SHA-256: `37854ee5b0b52297be785171ff0e5cfaafbf3c77e3108de9bf484edcd86d198e`
+- updater.exe SHA-256: `c02ad706be32301f8327875e367b1f79d84b0723a6744f6aed62cdd5579a6a1d`
 - setup_cloudflare.exe SHA-256: `dffe057114cfe4df22847eba7c211f5177455f1de0a7054de65bd7f6e6225491`
 - Đồng bộ Root Test: Toàn bộ cấu trúc runtime 2.2.3 đã được đồng bộ vào thư mục gốc `D:\1\cambida\`. Đã kiểm thử runtime xác nhận: `/api/ping` (200 OK), UI HTML sidecars (`/`, 200 OK), `/api/license/status` (200 OK), `/api/tables` (200 OK). Zero Config Pollution Audit: 100% PASS.
 
