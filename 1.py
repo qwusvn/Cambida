@@ -16,6 +16,10 @@ import ipaddress
 import logging
 import math
 import os
+try:
+    import psutil
+except ImportError:
+    psutil = None
 import re
 import secrets
 import shutil
@@ -529,8 +533,8 @@ if not os.path.exists(FFMPEG_PATH):
 
 
 DEFAULT_SITE = {
-    "name": "HỆ THỐNG CCTV",
-    "tagline": "Xem lại camera",
+    "name": "Camera Highlight",
+    "tagline": "Xem lại và cắt video highlight bàn bida tự động",
     "theme": {
         "background": "#2c0b0b",
         "surface": "#660000",
@@ -3670,21 +3674,29 @@ def apply_github_update(download_url, new_version, token=None):
     except Exception as exc:
         logger.warning("[AutoUpdate] Không thể tạo file marker thông báo: %s", exc)
 
-    # Run the validated updater from the payload for full upgrades; for a delta
-    # without updater changes, use the already installed updater.
+    updater_exe = os.path.join(extract_dir, "updater.exe")
+    if not os.path.isfile(updater_exe):
+        updater_exe = os.path.join(BASE_DIR, "updater.exe")
     updater_cmd = os.path.join(extract_dir, "updater.cmd")
-    if not os.path.isfile(updater_cmd) or not os.path.isfile(os.path.join(extract_dir, "native_updater.ps1")):
-        updater_cmd = os.path.join(BASE_DIR, "updater.cmd")
     if not os.path.isfile(updater_cmd):
-        logger.error("[AutoUpdate] Không tìm thấy updater.cmd tại %s", updater_cmd)
+        updater_cmd = os.path.join(BASE_DIR, "updater.cmd")
+
+    updater_bin = updater_exe if os.path.isfile(updater_exe) else (updater_cmd if os.path.isfile(updater_cmd) else None)
+    if not updater_bin:
+        logger.error("[AutoUpdate] Không tìm thấy updater.exe hoặc updater.cmd")
         return False
 
-    # Dừng các tiến trình ghi hình camera và giải phóng mutex trước khi chạy updater
-    logger.info("[AutoUpdate] Đang dừng tất cả tiến trình ghi hình camera...")
+    # Dừng các tiến trình ghi hình camera, tunnel và giải phóng mutex trước khi chạy updater
+    logger.info("[AutoUpdate] Đang dừng tất cả tiến trình ghi hình camera và tunnel...")
     try:
         _stop_all_recordings()
     except Exception as exc:
         logger.warning("[AutoUpdate] Lỗi khi dừng ghi hình: %s", exc)
+
+    try:
+        stop_cloudflared_tunnel()
+    except Exception:
+        pass
 
     try:
         _release_single_instance()
@@ -3692,13 +3704,20 @@ def apply_github_update(download_url, new_version, token=None):
         pass
 
     current_pid = os.getpid()
-    logger.info("[AutoUpdate] Kích hoạt updater.cmd (PID: %s)...", current_pid)
+    logger.info("[AutoUpdate] Kích hoạt updater (PID: %s): %s...", current_pid, updater_bin)
     flags = subprocess.CREATE_NEW_PROCESS_GROUP
     if hasattr(subprocess, "DETACHED_PROCESS"):
         flags |= subprocess.DETACHED_PROCESS
+    if hasattr(subprocess, "CREATE_NO_WINDOW"):
+        flags |= subprocess.CREATE_NO_WINDOW
+
+    if updater_bin.lower().endswith(".exe"):
+        run_cmd = [updater_bin, str(current_pid), extract_dir, BASE_DIR]
+    else:
+        run_cmd = ["cmd.exe", "/c", updater_bin, str(current_pid), extract_dir, BASE_DIR]
 
     subprocess.Popen(
-        ["cmd.exe", "/c", updater_cmd, str(current_pid), extract_dir, BASE_DIR],
+        run_cmd,
         creationflags=flags,
         close_fds=True,
     )
@@ -4302,6 +4321,119 @@ def gen_frames(rtsp_url):
 _TUNNEL_ONLINE = True
 _TUNNEL_LAST_CHECK = 0
 _TUNNEL_CHECK_INTERVAL = 15
+_cloudflared_proc = None
+
+
+def start_cloudflared_tunnel():
+    global _cloudflared_proc
+    if _cloudflared_proc and _cloudflared_proc.poll() is None:
+        return
+    if psutil:
+        try:
+            for p in psutil.process_iter(["name"]):
+                if "cloudflared" in (p.info["name"] or "").lower():
+                    return
+        except Exception:
+            pass
+
+    cf_candidates = [
+        os.path.join(BASE_DIR, "cloudflared.exe"),
+        os.path.join(BUNDLE_DIR, "cloudflared.exe"),
+        "cloudflared.exe",
+    ]
+    cf_bin = next((p for p in cf_candidates if os.path.isfile(p)), None)
+    if not cf_bin:
+        return
+
+    token = None
+    tunnel_cfg = CONFIG.get("cloudflare_tunnel", {})
+    if isinstance(tunnel_cfg, dict) and tunnel_cfg.get("token"):
+        token = str(tunnel_cfg["token"]).strip()
+    if not token:
+        for t_file in [os.path.join(BASE_DIR, "tunnel_token.txt"), os.path.join(BASE_DIR, "cloudflared_setup", "tunnel_token.txt")]:
+            if os.path.isfile(t_file):
+                try:
+                    with open(t_file, "r", encoding="utf-8") as f:
+                        t_val = f.read().strip()
+                        if t_val:
+                            token = t_val
+                            break
+                except Exception:
+                    pass
+
+    port = int(CONFIG.get("server_port") or 8004)
+    if token:
+        cmd = [cf_bin, "tunnel", "run", "--token", token]
+    else:
+        cmd = [cf_bin, "tunnel", "--url", f"http://127.0.0.1:{port}"]
+
+    flags = 0
+    if sys.platform == "win32":
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+
+    try:
+        if not token:
+            _cloudflared_proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                creationflags=flags
+            )
+            def _watch_trycloudflare():
+                global _TUNNEL_ONLINE
+                pattern = re.compile(r"https://[-a-zA-Z0-9]+\.trycloudflare\.com")
+                try:
+                    for line in iter(_cloudflared_proc.stdout.readline, ""):
+                        if not line:
+                            break
+                        match = pattern.search(line)
+                        if match:
+                            found_url = match.group(0)
+                            logger.info(f"[Tunnel] Cloudflare cấp URL: {found_url}")
+                            if CONFIG.get("public_base_url") != found_url:
+                                CONFIG["public_base_url"] = found_url
+                                _TUNNEL_ONLINE = True
+                                try:
+                                    if os.path.isfile(CONFIG_FILE):
+                                        with open(CONFIG_FILE, "r", encoding="utf-8-sig") as f:
+                                            data = json.load(f)
+                                        data["public_base_url"] = found_url
+                                        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+                                            json.dump(data, f, indent=2, ensure_ascii=False)
+                                except Exception as e:
+                                    logger.warning(f"[Tunnel] Không thể lưu public_base_url: {e}")
+                            break
+                except Exception:
+                    pass
+            threading.Thread(target=_watch_trycloudflare, daemon=True, name="CloudflareWatcher").start()
+        else:
+            _cloudflared_proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=flags
+            )
+        logger.info(f"[Tunnel] Đã tự động kích hoạt cloudflared ngầm (PID: {_cloudflared_proc.pid})")
+    except Exception as exc:
+        logger.warning(f"[Tunnel] Không thể khởi động cloudflared: {exc}")
+
+
+def stop_cloudflared_tunnel():
+    global _cloudflared_proc
+    if _cloudflared_proc:
+        try:
+            _cloudflared_proc.terminate()
+            _cloudflared_proc.wait(timeout=2.0)
+        except Exception:
+            try:
+                _cloudflared_proc.kill()
+            except Exception:
+                pass
+        _cloudflared_proc = None
 
 
 @app.route("/api/ping")
@@ -5610,6 +5742,65 @@ def api_admin_reconcile():
     return jsonify({"ok": True, "message": "Đã hoàn thành kiểm tra toàn bộ video."})
 
 
+@app.route("/api/admin/tunnel-status")
+@admin_required
+def api_admin_tunnel_status():
+    global _TUNNEL_ONLINE
+    is_proc_running = False
+    if _cloudflared_proc and _cloudflared_proc.poll() is None:
+        is_proc_running = True
+    elif psutil:
+        try:
+            for p in psutil.process_iter(["name"]):
+                if "cloudflared" in (p.info["name"] or "").lower():
+                    is_proc_running = True
+                    break
+        except Exception:
+            pass
+
+    pub_url = get_public_base_url()
+    online = is_tunnel_online()
+    tunnel_cfg = CONFIG.get("cloudflare_tunnel", {})
+    enabled = bool(tunnel_cfg.get("enabled", False))
+
+    if online:
+        status = "online"
+        msg = "Đã kết nối thành công với Cloudflare Tunnel"
+    elif is_proc_running:
+        status = "connecting"
+        msg = "Tiến trình cloudflared đang chạy, đang kết nối Cloudflare..."
+    else:
+        status = "offline"
+        msg = "Chưa kết nối (Tiến trình cloudflared chưa chạy)"
+
+    return jsonify({
+        "ok": True,
+        "status": status,
+        "online": online,
+        "process_running": is_proc_running,
+        "enabled": enabled,
+        "public_url": pub_url,
+        "message": msg,
+    })
+
+
+@app.route("/api/admin/tunnel-check", methods=["POST"])
+@admin_required
+def api_admin_tunnel_check():
+    global _TUNNEL_ONLINE, _TUNNEL_LAST_CHECK
+    pub_url = get_public_base_url()
+    if pub_url:
+        try:
+            resp = requests.get(f"{pub_url}/api/ping", timeout=3.0)
+            _TUNNEL_ONLINE = (resp.status_code == 200)
+        except Exception:
+            _TUNNEL_ONLINE = False
+    else:
+        _TUNNEL_ONLINE = False
+    _TUNNEL_LAST_CHECK = time.time()
+    return api_admin_tunnel_status()
+
+
 @app.route("/qr/table/<table_id>.png")
 @admin_required
 def table_qr(table_id):
@@ -6723,17 +6914,28 @@ def set_autostart(enable=True):
             winreg.KEY_SET_VALUE,
         )
         if enable:
-            target_exe = sys.executable if getattr(sys, "frozen", False) else os.path.abspath(sys.argv[0])
+            run_cmd = os.path.join(BASE_DIR, "run.cmd")
+            if os.path.isfile(run_cmd):
+                cmd_target = f'"{run_cmd}" --hidden --no-browser'
+            else:
+                target_exe = sys.executable if getattr(sys, "frozen", False) else os.path.abspath(sys.argv[0])
+                cmd_target = f'"{target_exe}"'
             winreg.SetValueEx(
                 key,
-                "CCTV_System",
+                "CameraHighlight",
                 0,
                 winreg.REG_SZ,
-                f'"{target_exe}"',
+                cmd_target,
             )
         else:
             try:
-                winreg.DeleteValue(key, "CCTV_System")
+                winreg.DeleteValue(key, "CameraHighlight")
+            except Exception:
+                pass
+        # Dọn dẹp các khóa cũ
+        for legacy_key in ("CCTV_System", "CambidaCCTV"):
+            try:
+                winreg.DeleteValue(key, legacy_key)
             except Exception:
                 pass
         winreg.CloseKey(key)
@@ -6749,17 +6951,29 @@ def create_tray_icon():
 
 def on_quit(icon, item):
     icon.stop()
+    try:
+        _stop_all_recordings()
+    except Exception:
+        pass
+    try:
+        stop_cloudflared_tunnel()
+    except Exception:
+        pass
+    try:
+        _release_single_instance()
+    except Exception:
+        pass
     os._exit(0)
 
 
 def setup_tray():
     port = int(CONFIG.get("server_port", 8000))
     pystray.Icon(
-        "CCTV",
+        "CameraHighlight",
         create_tray_icon(),
-        "Hệ thống CCTV",
+        "Camera Highlight",
         pystray.Menu(
-            pystray.MenuItem("Mở Cambida", lambda icon, item: _open_server_page(port), default=True),
+            pystray.MenuItem("Mở Camera Highlight", lambda icon, item: _open_server_page(port), default=True),
             pystray.MenuItem("Thoát", on_quit),
         ),
     ).run()
@@ -6838,6 +7052,7 @@ def main():
     threading.Thread(
         target=tunnel_health_loop, daemon=True, name="TunnelHealth"
     ).start()
+    start_cloudflared_tunnel()
     check_and_notify_pending_update()
     start_github_update_worker()
     if license_active:
@@ -6856,9 +7071,18 @@ def main():
 
     run_startup = CONFIG.get("run_on_startup", "no").lower() == "yes"
     run_tray = CONFIG.get("run_in_tray", "no").lower() == "yes"
+    if getattr(sys, "frozen", False):
+        run_tray = True
+        run_startup = True
     set_autostart(run_startup)
     server_port = int(CONFIG.get("server_port", 8000))
     logger.info(f"🌐 Máy chủ web đang chạy tại http://0.0.0.0:{server_port}")
+
+    if not any(arg in sys.argv for arg in ("--no-browser", "--hidden", "--headless", "/hidden")):
+        def _delayed_open():
+            time.sleep(1.2)
+            _open_server_page(server_port)
+        threading.Thread(target=_delayed_open, daemon=True).start()
 
     def run_server():
         for attempt in range(20):

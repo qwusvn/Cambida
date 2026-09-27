@@ -1,0 +1,520 @@
+"""Trình cài đặt và quản lý Cloudflare Tunnel độc lập cho Cambida / Camera Highlight.
+
+Được đóng gói thành setup_cloudflare.exe (onefile).
+Hỗ trợ:
+- Tự động nhận diện config.json và cloudflared.exe
+- Tự động dò tìm cổng máy chủ (8004, 8000, hoặc cổng đang chạy thực tế của camhl.exe)
+- Khởi động Cloudflare Quick Tunnel, bắt URL https://xxxx.trycloudflare.com
+- Tự động cập nhật public_base_url vào config.json
+- Tự động kiểm tra độ thông mạng qua /api/ping
+- Quản lý tự khởi động cùng Windows (chạy ngầm, không hiện cửa sổ cmd)
+"""
+import argparse
+import ctypes
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+
+# Thiết lập encoding UTF-8 cho Windows console
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
+
+def get_base_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    script_dir = Path(__file__).resolve().parent
+    if (script_dir.parent / "cloudflared.exe").is_file():
+        return script_dir.parent
+    return script_dir
+
+
+BASE_DIR = get_base_dir()
+CONFIG_FILE = BASE_DIR / "config.json"
+CLOUDFLARED_EXE = BASE_DIR / "cloudflared.exe"
+LOG_DIR = BASE_DIR / "logs"
+
+
+def set_console_title(title: str):
+    if sys.platform == "win32":
+        try:
+            ctypes.windll.kernel32.SetConsoleTitleW(title)
+        except Exception:
+            pass
+
+
+def hide_console():
+    if sys.platform == "win32":
+        try:
+            hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 0)  # SW_HIDE
+        except Exception:
+            pass
+
+
+def read_config() -> dict:
+    if not CONFIG_FILE.is_file():
+        # Thử tìm config.release.json trong _internal
+        seed_cfg = BASE_DIR / "_internal" / "config.release.json"
+        if seed_cfg.is_file():
+            try:
+                with open(seed_cfg, "r", encoding="utf-8-sig") as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {}
+    try:
+        with open(CONFIG_FILE, "r", encoding="utf-8-sig") as f:
+            return json.load(f)
+    except Exception as exc:
+        print(f"[!] Lỗi đọc config.json: {exc}", flush=True)
+        return {}
+
+
+def write_config(cfg: dict) -> bool:
+    try:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        return True
+    except Exception as exc:
+        print(f"[!] Lỗi ghi config.json: {exc}", flush=True)
+        return False
+
+
+def ping_port(port: int, timeout: float = 1.2) -> bool:
+    """Kiểm tra xem cổng có đang chạy máy chủ Cambida (phản hồi /api/ping) không."""
+    try:
+        url = f"http://127.0.0.1:{port}/api/ping"
+        req = urllib.request.Request(url, headers={"User-Agent": "SetupCloudflare"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status == 200:
+                raw = resp.read().decode("utf-8", "ignore")
+                return "ok" in raw.lower()
+    except Exception:
+        pass
+    return False
+
+
+def detect_server_port(cfg: dict) -> int:
+    """Tự động phát hiện cổng máy chủ đang chạy hoặc từ cấu hình."""
+    cfg_port = cfg.get("server_port")
+    try:
+        if cfg_port:
+            cfg_port = int(cfg_port)
+    except (ValueError, TypeError):
+        cfg_port = None
+
+    # 1. Thử ping cổng trong config
+    if cfg_port and ping_port(cfg_port):
+        return cfg_port
+
+    # 2. Quét cổng TCP đang lắng nghe của camhl.exe qua psutil
+    if psutil:
+        try:
+            for p in psutil.process_iter(["name", "pid"]):
+                name = (p.info["name"] or "").lower()
+                if "camhl" in name or "cambida" in name:
+                    try:
+                        for conn in p.net_connections(kind="tcp"):
+                            if conn.status == psutil.CONN_LISTEN and conn.laddr:
+                                port = conn.laddr.port
+                                if ping_port(port):
+                                    return port
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    # 3. Thử các cổng ứng viên thông dụng
+    candidates = [8004, 8000, 8080, 8888]
+    if cfg_port and cfg_port not in candidates:
+        candidates.insert(0, cfg_port)
+    for c_port in candidates:
+        if ping_port(c_port):
+            return c_port
+
+    # 4. Fallback về cổng cấu hình hoặc 8004
+    return cfg_port or 8004
+
+
+def stop_cloudflared_processes():
+    """Dừng triệt để tất cả tiến trình cloudflared cũ."""
+    if sys.platform == "win32":
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/IM", "cloudflared.exe"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=3,
+            )
+        except Exception:
+            pass
+    if psutil:
+        try:
+            for p in psutil.process_iter(["name"]):
+                if "cloudflared" in (p.info["name"] or "").lower():
+                    try:
+                        p.kill()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+    time.sleep(1)
+
+
+def is_cloudflared_running() -> bool:
+    if psutil:
+        try:
+            for p in psutil.process_iter(["name"]):
+                if "cloudflared" in (p.info["name"] or "").lower():
+                    return True
+        except Exception:
+            pass
+    return False
+
+
+def get_startup_shortcut_path() -> Path:
+    appdata = os.environ.get("APPDATA", "")
+    if appdata:
+        return Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "Cambida_Cloudflared_Tunnel.lnk"
+    return Path.home() / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "Cambida_Cloudflared_Tunnel.lnk"
+
+
+def check_autostart_status() -> bool:
+    shortcut = get_startup_shortcut_path()
+    return shortcut.is_file()
+
+
+def toggle_autostart(enable: bool, port: int) -> bool:
+    shortcut_path = get_startup_shortcut_path()
+    if not enable:
+        try:
+            if shortcut_path.is_file():
+                shortcut_path.unlink()
+            return True
+        except Exception as exc:
+            print(f"[!] Không thể xóa shortcut tự khởi động: {exc}", flush=True)
+            return False
+
+    # Tạo shortcut qua PowerShell WScript.Shell
+    try:
+        exe_path = sys.executable if getattr(sys, "frozen", False) else CLOUDFLARED_EXE
+        if getattr(sys, "frozen", False):
+            target = str(Path(sys.executable).resolve())
+            args = f"--daemon --port {port}"
+            work_dir = str(BASE_DIR)
+        else:
+            target = str(CLOUDFLARED_EXE)
+            args = f"tunnel --url http://127.0.0.1:{port} --no-autoupdate"
+            work_dir = str(BASE_DIR)
+
+        ps_script = f"""
+$WshShell = New-Object -ComObject WScript.Shell
+$Shortcut = $WshShell.CreateShortcut('{str(shortcut_path)}')
+$Shortcut.TargetPath = '{target}'
+$Shortcut.Arguments = '{args}'
+$Shortcut.WorkingDirectory = '{work_dir}'
+$Shortcut.Description = 'Tự động chạy Cloudflare Tunnel cho Cambida'
+$Shortcut.WindowStyle = 7
+$Shortcut.Save()
+"""
+        res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, text=True)
+        return res.returncode == 0
+    except Exception as exc:
+        print(f"[!] Lỗi khi đăng ký khởi động cùng Windows: {exc}", flush=True)
+        return False
+
+
+def run_quick_tunnel(port: int, wait_timeout: int = 35) -> str:
+    """Khởi động cloudflared tunnel và bắt URL https://xxxx.trycloudflare.com."""
+    if not CLOUDFLARED_EXE.is_file():
+        print(f"[!] Không tìm thấy file {CLOUDFLARED_EXE.name} trong thư mục:", flush=True)
+        print(f"    {BASE_DIR}", flush=True)
+        return ""
+
+    stop_cloudflared_processes()
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_file = LOG_DIR / "cloudflared.log"
+
+    print(f"[*] Đang khởi tạo Cloudflare Tunnel kết nối tới http://127.0.0.1:{port}...", flush=True)
+
+    flags = 0
+    if sys.platform == "win32":
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+
+    cmd = [
+        str(CLOUDFLARED_EXE),
+        "tunnel",
+        "--url",
+        f"http://127.0.0.1:{port}",
+        "--no-autoupdate",
+    ]
+
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            creationflags=flags,
+        )
+    except Exception as exc:
+        print(f"[!] Không thể khởi động cloudflared.exe: {exc}", flush=True)
+        return ""
+
+    tunnel_url = ""
+    pattern = re.compile(r"https://[-a-zA-Z0-9]+\.trycloudflare\.com")
+
+    print("[*] Đang đợi Cloudflare cấp tên miền HTTPS", end="", flush=True)
+    start_t = time.time()
+
+    with open(log_file, "w", encoding="utf-8") as lf:
+        while time.time() - start_t < wait_timeout:
+            if proc.poll() is not None:
+                print("\n[!] Tiến trình cloudflared đã dừng đột ngột!", flush=True)
+                break
+            line = proc.stdout.readline()
+            if line:
+                lf.write(line)
+                lf.flush()
+                match = pattern.search(line)
+                if match:
+                    tunnel_url = match.group(0)
+                    break
+            print(".", end="", flush=True)
+            time.sleep(0.5)
+
+    print("", flush=True)
+
+    if not tunnel_url:
+        print("[!] Không bắt được URL Cloudflare sau 35 giây.", flush=True)
+        print(f"    Vui lòng kiểm tra nhật ký tại: {log_file}", flush=True)
+        return ""
+
+    return tunnel_url
+
+
+def test_public_url(url: str, timeout: float = 3.5) -> bool:
+    """Kiểm tra đường truyền internet qua URL công khai."""
+    try:
+        ping_url = f"{url.rstrip('/')}/api/ping"
+        req = urllib.request.Request(ping_url, headers={"User-Agent": "SetupCloudflareTest"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
+
+
+def action_setup(port_override: int = None, non_interactive: bool = False):
+    cfg = read_config()
+    detected_port = port_override or detect_server_port(cfg)
+
+    print("\n" + "=" * 60, flush=True)
+    print("  THIẾT LẬP CLOUDFLARE QUICK TUNNEL - CAMBIDA CCTV", flush=True)
+    print("=" * 60, flush=True)
+
+    is_running = ping_port(detected_port)
+    if is_running:
+        print(f"[+] Web Server Cambida đang HOẠT ĐỘNG tại cổng: {detected_port}", flush=True)
+    else:
+        print(f"[*] Chưa phát hiện Web Server phản hồi tại cổng: {detected_port}", flush=True)
+        print("    (Nếu máy chủ đang tắt, bạn có thể bật sau khi cài đặt tunnel)", flush=True)
+
+    target_port = detected_port
+    if not non_interactive:
+        prompt_val = input(f"\nNhập cổng máy chủ cần kết nối [Mặc định: {detected_port}]: ").strip()
+        if prompt_val:
+            try:
+                target_port = int(prompt_val)
+            except ValueError:
+                print(f"[!] Cổng không hợp lệ, giữ mặc định {detected_port}", flush=True)
+                target_port = detected_port
+
+    # Cập nhật cổng vào config nếu khác
+    if cfg.get("server_port") != target_port:
+        cfg["server_port"] = target_port
+
+    # Khởi chạy tunnel và bắt URL
+    tunnel_url = run_quick_tunnel(target_port)
+    if not tunnel_url:
+        print("[!] Quá trình thiết lập Cloudflare Tunnel thất bại.", flush=True)
+        return False
+
+    # Ghi vào config.json
+    cfg["public_base_url"] = tunnel_url
+    if write_config(cfg):
+        print(f"[+] Đã cập nhật public_base_url vào config.json thành công!", flush=True)
+    else:
+        print(f"[!] Cảnh báo: Không thể ghi URL vào config.json.", flush=True)
+
+    print("\n" + "=" * 60, flush=True)
+    print("  [THÀNH CÔNG] CLOUDFLARE HTTPS TUNNEL ĐÃ SẴN SÀNG!", flush=True)
+    print(f"  Link truy cập từ xa: {tunnel_url}", flush=True)
+    print("=" * 60, flush=True)
+
+    # Thử nghiệm ping internet
+    if is_running:
+        print("[*] Đang xác thực đường truyền từ Internet...", end="", flush=True)
+        time.sleep(1.5)
+        if test_public_url(tunnel_url):
+            print(" [OK - Đã thông mạng]", flush=True)
+        else:
+            print(" [Đang kết nối ngầm - vui lòng đợi vài giây]", flush=True)
+
+    # Cài đặt tự khởi động
+    if not non_interactive:
+        autostart_current = check_autostart_status()
+        status_str = "ĐANG BẬT" if autostart_current else "ĐANG TẮT"
+        ans = input(f"\nBạn có muốn Tunnel tự chạy ngầm cùng Windows không? (Y/N) [Hiện tại: {status_str}, Mặc định: Y]: ").strip().lower()
+        if ans in ("", "y", "yes"):
+            if toggle_autostart(True, target_port):
+                print("[+] Đã tạo shortcut khởi động cùng Windows thành công!", flush=True)
+            else:
+                print("[!] Chưa thể đăng ký tự khởi động.", flush=True)
+        elif ans in ("n", "no"):
+            toggle_autostart(False, target_port)
+            print("[+] Đã tắt tự khởi động cùng Windows.", flush=True)
+
+    print("\nKhách dùng iPhone khi quét mã QR sẽ tự động mở trang Lưu Video vào Thư viện Ảnh.")
+    print("Bạn có thể đóng cửa sổ này, tiến trình Cloudflared sẽ tiếp tục chạy ngầm.")
+    return True
+
+
+def action_status():
+    print("\n" + "=" * 60, flush=True)
+    print("  TRẠNG THÁI CLOUDFLARE TUNNEL", flush=True)
+    print("=" * 60, flush=True)
+    running = is_cloudflared_running()
+    print(f"- Tiến trình cloudflared.exe: {'🟢 ĐANG CHẠY' if running else '🔴 CHƯA CHẠY'}", flush=True)
+
+    cfg = read_config()
+    port = cfg.get("server_port", 8004)
+    server_running = ping_port(port)
+    print(f"- Web Server nội bộ (port {port}): {'🟢 HOẠT ĐỘNG' if server_running else '🔴 CHƯA PHẢN HỒI'}", flush=True)
+
+    pub_url = (cfg.get("public_base_url") or "").strip()
+    if pub_url:
+        print(f"- URL công khai: {pub_url}", flush=True)
+        if running and server_running:
+            online = test_public_url(pub_url)
+            print(f"- Tình trạng truy cập từ xa: {'🟢 ONLINE (Thông mạng)' if online else '🟡 ĐANG KẾT NỐI'}", flush=True)
+        else:
+            print("- Tình trạng truy cập từ xa: 🟡 Đang chờ máy chủ hoặc tunnel", flush=True)
+    else:
+        print("- URL công khai: (Chưa cấu hình)", flush=True)
+
+    autostart = check_autostart_status()
+    print(f"- Tự chạy cùng Windows: {'🟢 BẬT' if autostart else '⚪ TẮT'}", flush=True)
+    print("=" * 60 + "\n", flush=True)
+
+
+def action_stop():
+    print("\n[*] Đang dừng tất cả tiến trình cloudflared...", flush=True)
+    stop_cloudflared_processes()
+    print("[+] Đã dừng toàn bộ Cloudflare Tunnel.", flush=True)
+
+
+def daemon_mode(port: int):
+    """Chạy ngầm liên tục, bắt URL mới nếu tunnel khởi động lại và duy trì kết nối."""
+    hide_console()
+    while True:
+        try:
+            cfg = read_config()
+            act_port = port or detect_server_port(cfg)
+            tunnel_url = run_quick_tunnel(act_port, wait_timeout=45)
+            if tunnel_url:
+                cfg["public_base_url"] = tunnel_url
+                cfg["server_port"] = act_port
+                write_config(cfg)
+            # Theo dõi liveness
+            while is_cloudflared_running():
+                time.sleep(10)
+        except Exception:
+            pass
+        time.sleep(5)
+
+
+def main():
+    set_console_title("Cài đặt Cloudflare Tunnel - Cambida CCTV")
+
+    parser = argparse.ArgumentParser(description="Trình cài đặt và quản lý Cloudflare Tunnel cho Cambida CCTV")
+    parser.add_argument("--setup", action="store_true", help="Chạy cài đặt tự động không cần hỏi")
+    parser.add_argument("--status", action="store_true", help="Kiểm tra trạng thái tunnel")
+    parser.add_argument("--stop", action="store_true", help="Dừng tiến trình tunnel")
+    parser.add_argument("--port", type=int, default=None, help="Chỉ định cổng máy chủ")
+    parser.add_argument("--daemon", action="store_true", help="Chế độ chạy ngầm tự phục hồi")
+    args = parser.parse_args()
+
+    if args.daemon:
+        daemon_mode(args.port or 8004)
+        return
+
+    if args.status:
+        action_status()
+        return
+
+    if args.stop:
+        action_stop()
+        return
+
+    if args.setup:
+        action_setup(port_override=args.port, non_interactive=True)
+        return
+
+    # Giao diện menu tương tác nếu chạy trực tiếp
+    while True:
+        print("\n" + "=" * 60, flush=True)
+        print("   QUẢN LÝ CLOUDFLARE TUNNEL - CAMBIDA CCTV", flush=True)
+        print("=" * 60, flush=True)
+        print("  [1] Cài đặt / Cấp mới URL Cloudflare Quick Tunnel", flush=True)
+        print("  [2] Kiểm tra trạng thái kết nối Cloudflare", flush=True)
+        print("  [3] Dừng Cloudflare Tunnel", flush=True)
+        print("  [4] Bật / Tắt tự khởi động cùng Windows", flush=True)
+        print("  [5] Thoát", flush=True)
+        print("=" * 60, flush=True)
+
+        choice = input("Vui lòng chọn thao tác (1-5) [Mặc định: 1]: ").strip()
+        if choice in ("", "1"):
+            action_setup(port_override=args.port)
+            input("\nNhấn Enter để quay lại menu...")
+        elif choice == "2":
+            action_status()
+            input("Nhấn Enter để quay lại menu...")
+        elif choice == "3":
+            action_stop()
+            input("Nhấn Enter để quay lại menu...")
+        elif choice == "4":
+            cfg = read_config()
+            port = args.port or detect_server_port(cfg)
+            current = check_autostart_status()
+            target = not current
+            toggle_autostart(target, port)
+            print(f"[+] Đã {'BẬT' if target else 'TẮT'} tự khởi động cùng Windows.", flush=True)
+            input("Nhấn Enter để quay lại menu...")
+        elif choice in ("5", "q", "exit"):
+            print("Đang thoát...")
+            break
+        else:
+            print("[!] Lựa chọn không hợp lệ, vui lòng thử lại.", flush=True)
+
+
+if __name__ == "__main__":
+    main()

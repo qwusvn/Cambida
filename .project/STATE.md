@@ -1,8 +1,15 @@
 # STATE — Cambida
 
-Cập nhật: 2026-09-25 +07
+Cập nhật: 2026-09-27 +07
 
 ## Trạng thái hiện tại
+- Workspace: D:\\1\\cambida, branch main.
+- Phiên bản phát hành hiện tại: **2.2.2** (camhl.exe, updater.exe, setup_cloudflare.exe, release/2.2.2.zip).
+- ZIP SHA-256: 109bfaa9c3b2ea415309347a7b7996f8223387d4f19e629ed74bdf1d6655148d
+- camhl.exe SHA-256: 0fb518cf45dec6229457ee032fabb85bf95ff0d4402653d9b218a6bdc0042f25
+- updater.exe SHA-256: 5ec354e0d3f9bbc873d6af63679d774d74d97afce6b442a77e3d83fada57bc84
+- setup_cloudflare.exe SHA-256: 7f7372b54687f3dedc7bc7afb9b8688502230a3b200eec7cc18cfa658e7a1350
+
 - Workspace: D:\1\cambida, branch main (tracking origin/main tại https://github.com/qwusvn/Cambida).
 - Phiên bản phát triển và đóng gói hiện tại: **2.1.63** (RELEASE_VERSION.txt = 2.1.63, spec và launcher CCTV_2.1.63.spec, CCTV_2.1.63.launcher.cmd, Chay_CCTV.cmd, package_2.1.63.ps1). Gói phát hành đầy đủ chuẩn: `release/2.1.63.zip` (SHA-256: `944E63B59DD8EE7EECB8DDCA6E95DF2B4B93D4EC54AA6DCDA86570EAF648A51D`) bao gồm đầy đủ runtime, sidecars, launcher, hoàn toàn không kèm file 1.py bên ngoài. File thực thi onedir: `CCTV_2.1.63.exe` (SHA-256: `38E6348A0206DDE859693083730EF94215A93D7C8EE694B3022A688BAEBC9AD1`).
 - Tính năng phiên bản 2.1.63:
@@ -584,3 +591,24 @@ Cập nhật: 2026-09-25 +07
 - Preserved all 17 files in the resume snapshot without modification. User HTML changes remain unstaged; only native packaging changes are included in the task commit.
 - Build exit 0. Cached native modules were reused on the final packaging run. Executable launch, application behavior and delta application NOT TESTED.
 - Evidence: staging/native-build/release-verification.json and build-final.log.
+
+## 2026-09-27 — Đóng gói phát hành sạch Cambida 2.2.2 (Zero Config Pollution)
+- Yêu cầu người dùng: Đóng gói bản hiện tại vào bản 2.2.2, chỉ đưa những thứ cần thiết, tuyệt đối không đưa cấu hình cá nhân vào.
+- Trạng thái: COMPLETED.
+- Đã xuất bản hoàn chỉnh:
+  + Thư mục phát hành: `release/2.2.2/`
+  + File nén lưu trữ / auto-update: `release/2.2.2.zip` (198,491,853 bytes).
+  + SHA-256 ZIP: `f79a3c82c604efb4aef53c976989340d48a7412b53df9829b20d7d270e23c0cb`.
+- Cấu trúc đóng gói:
+  + File thực thi & Runtime: `Cambida.exe`, thư mục `_internal/` kèm runtime Python 3.13, 10 file DLL của Dahua NetSDK.
+  + Mã ứng dụng biên dịch Native: 13 module nhị phân Cython `.pyd` trong thư mục `modules/` (bao gồm `cambida_app.cp313-win_amd64.pyd`, `camera_modules/`, `dahua_37777`, `native_update`), hoàn toàn không lộ mã nguồn `.py` thô của ứng dụng.
+  + Giao diện HTML (Sidecars): `index.html`, `admin.html`, `admin_login.html`, `home.html`, `live_all.html`, `stats.html`, `timeline.html`.
+  + Sidecar nhị phân: `ffmpeg.exe`, `cloudflared.exe`.
+  + Thư mục công cụ: `cloudflared_setup/`.
+  + Launcher & Bộ cập nhật: `Chay_CCTV.cmd`, `updater.cmd`, `native_updater.ps1`, `README_RELEASE.md`.
+  + Kê khai kiểm định: `release_manifest.json`, `update.json`, `BUILD_INFO.json`, `RELEASE_VERSION.txt` = `2.2.2`.
+- Kiểm định loại bỏ cấu hình cá nhân (Zero Config Pollution):
+  + Tuyệt đối không có `config.json`, `analytics.db`, `device_id.key`, `logs/`, `cctv_videos/`, `nvr_cache/` trong thư mục release hay file zip.
+  + File cấu hình hạt giống duy nhất là template sạch `_internal/config.release.json` (rỗng camera, rỗng bàn, rỗng mật khẩu, rỗng token).
+  + Bảo toàn 100% cấu hình và video thực tế đang hoạt động ở root.
+

@@ -179,3 +179,20 @@
 - Native updater verifies payload hashes, waits for its owning application, preserves operational data and backs up changed files. It never mass-kills services. Runtime/ABI changes require full releases.
 - Build artifacts and cache remain on D:. Tests and device/runtime acceptance NOT RUN (not requested); build success is not runtime acceptance.
 - No live camera configuration, process, tunnel or service was changed. No GitHub publication or Telegram notification performed.
+
+## 2026-09-27 — Cấu trúc cây thư mục chuẩn vĩnh viễn (Standard Release Tree & Architecture)
+- Theo chỉ thị trực tiếp của người dùng: Cây thư mục bản phát hành 2.2.2 được chốt làm chuẩn cố định bắt buộc cho toàn bộ các phiên bản phát hành và cập nhật về sau của Cambida / Camera Highlight.
+- Quy chuẩn kiến trúc bắt buộc:
+  1. Tên file thực thi chính cố định: camhl.exe (Camera Highlight). Tuyệt đối không sinh file thực thi mang tên theo phiên bản (CCTV_x.x.x.exe) hay launcher phụ. Mọi shortcut, autostart và quản lý hệ thống luôn trỏ vào camhl.exe.
+  2. Trình cập nhật 100% nhị phân: updater.exe. Cấm dùng lại script .cmd / .ps1 để triệt tiêu lỗi mã hoá ANSI/CP1252/UTF-8 trên Windows và xung đột Execution Policy.
+  3. Bỏ hoàn toàn thư mục cloudflared_setup\\, bỏ run.cmd, Chay_CCTV.cmd: Trình thiết lập và quản lý Cloudflare Tunnel được chuẩn hóa thành 1 file thực thi nhị phân độc lập duy nhất setup_cloudflare.exe (onefile), triệt tiêu hoàn toàn các script rời rạc .bat/.ps1/.vbs. camhl.exe đồng thời tích hợp luồng tự động bắt URL ngầm và cập nhật config.json.
+  4. Cấu trúc cây thư mục phát hành chuẩn (Release Tree Baseline):
+     - camhl.exe
+     - updater.exe
+     - setup_cloudflare.exe
+     - ffmpeg.exe
+     - cloudflared.exe
+     - index.html, admin.html, admin_login.html, home.html, live_all.html, stats.html, timeline.html
+     - RELEASE_VERSION.txt, VERSION.txt, release_manifest.json, update.json
+     - _internal/ (Runtime, Dahua NetSDK DLLs, config.release.json)
+  5. Quy tắc Zero Config Pollution: Tuyệt đối không bao gồm config.json, analytics.db, device_id.key, tunnel_token.txt, logs/, cctv_videos/, nvr_cache/ hoặc tệp mã nguồn thô .py trong bất kỳ bản phát hành nào.

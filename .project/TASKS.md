@@ -1,6 +1,15 @@
 # TASKS — Cambida
 
 ## DONE
+- [x] 2026-09-27 — Tích hợp Cloudflare Tunnel thành 1 file EXE độc lập (`setup_cloudflare.exe`) & Đóng gói 2.2.2:
+  + Tạo công cụ độc lập `scripts/setup_cloudflare.py` biên dịch ra `setup_cloudflare.exe` (Onefile, console).
+  + Cơ chế nhận diện cổng linh hoạt 4 lớp (đọc `config.json`, quét cổng TCP LISTEN của `camhl.exe` qua `psutil`, ping `/api/ping`, tự động đồng bộ cổng).
+  + Nâng cấp `start_cloudflared_tunnel()` trong `1.py`: tự động bắt URL TryCloudflare trong luồng ngầm và ghi đè vào `public_base_url` trong `config.json`.
+  + Cập nhật `scripts/build_camhl_release.py`: tự động build bộ 3 EXE (`camhl.exe`, `updater.exe`, `setup_cloudflare.exe`), đối soát Zero Config Pollution 100% PASS, đóng gói `release/2.2.2/` và `release/2.2.2.zip`.
+  + SHA-256 ZIP: `109bfaa9c3b2ea415309347a7b7996f8223387d4f19e629ed74bdf1d6655148d`.
+  + SHA-256 CAMHL: `0fb518cf45dec6229457ee032fabb85bf95ff0d4402653d9b218a6bdc0042f25`.
+  + SHA-256 UPDATER: `5ec354e0d3f9bbc873d6af63679d774d74d97afce6b442a77e3d83fada57bc84`.
+  + SHA-256 SETUP_CF: `7f7372b54687f3dedc7bc7afb9b8688502230a3b200eec7cc18cfa658e7a1350`.
 - [x] Khôi phục replay UI từ HTML thật 1.3.42, giữ backend NVR hiện tại.
 - [x] Dùng một nguồn NVR đã cấu hình; bỏ Server 1/Server 2.
 - [x] Gỡ license gate khỏi replay/timeline/cut/download.
@@ -422,3 +431,13 @@ elease\2.1.0\index.html byte-identically with source index.html.
 - Preserved all 17 files in the resume snapshot without modification. User HTML changes remain unstaged; only native packaging changes are included in the task commit.
 - Build exit 0. Cached native modules were reused on the final packaging run. Executable launch, application behavior and delta application NOT TESTED.
 - Evidence: staging/native-build/release-verification.json and build-final.log.
+
+## 2026-09-27 — Đóng gói phát hành sạch Cambida 2.2.2 (Zero Config Pollution)
+- [x] Cập nhật số phiên bản `RELEASE_VERSION.txt` = `2.2.2` và `version_info_2_2_2.txt`.
+- [x] Chuẩn hóa module và khai báo `_cloudflared_proc`, `psutil` trong `1.py` cho tương thích trình biên dịch Cython.
+- [x] Tạo file hạt giống sạch `config.release.json` (rỗng camera, rỗng bàn, rỗng mật khẩu, rỗng token).
+- [x] Biên dịch native 13 module sang `.pyd` nhị phân trong `modules/`, hoàn toàn không kèm file `.py` thô.
+- [x] Đóng gói runtime sạch `Cambida.exe`, `_internal/` với DLL NetSDK, sidecar HTML, `ffmpeg.exe`, `cloudflared.exe` và `cloudflared_setup/`.
+- [x] Kiểm tra và xác nhận loại trừ 100% cấu hình cá nhân (`config.json`, `analytics.db`, `device_id.key`, `logs/`, `cctv_videos/`, `nvr_cache/`).
+- [x] Xuất bản hoàn chỉnh `release/2.2.2/` và nén file `release/2.2.2.zip` (SHA-256: `f79a3c82c604efb4aef53c976989340d48a7412b53df9829b20d7d270e23c0cb`). Status: COMPLETED.
+
