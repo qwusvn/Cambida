@@ -8,7 +8,7 @@ Phát triển và duy trì Cambida/CCTV hiện có, bảo toàn hành vi đã ch
 ## Thứ tự ưu tiên và nguồn sự thật
 - Yêu cầu mới nhất của người dùng > quy tắc riêng dự án > Source/Git > `.project` > CodeGraph > quy tắc điều phối toàn cục > bộ nhớ hội thoại.
 - Source/Git là nguồn sự thật kỹ thuật; `.project` là bộ nhớ vận hành; CodeGraph cung cấp ngữ cảnh, không tự ghi đè sự thật kỹ thuật.
-- Nguồn quy tắc điều phối hiện hành cho ChatGPT: `D:\1\gptagycodex.md`, `SPEC_VERSION=2026-09-22.1` tại thời điểm đồng bộ. Bản sao `D:\1\Cambida\gptagycodex.md` chỉ là tài liệu tham khảo do người dùng yêu cầu, không thay thế bản toàn cục.
+- Nguồn quy tắc điều phối cho phiên ChatGPT + YATO là `D:\1\gptagycodex.md`; luôn đọc trực tiếp bản hiện hành, không lưu bản sao trong dự án. AGY/Codex standalone dùng luật riêng của từng công cụ trong dự án.
 - Quy tắc này chỉ áp dụng khi người dùng làm việc qua ChatGPT. Các phiên AGY/Codex độc lập thực hiện theo chỉ thị trực tiếp của người dùng trong ứng dụng tương ứng.
 
 ## Ràng buộc riêng Cambida

@@ -1,6 +1,17 @@
 # TASKS — Cambida
 
 ## DONE
+- [x] 2026-09-27 — Kiến trúc Host Loader (camhl.exe) + Bytecode (_internal/app.pyc), đóng gói phát hành 2.2.3 & triển khai đồng bộ Root Test:
+  + Thiết kế và hiện thực Host Loader (`scripts/camhl_launcher.py`) đóng gói ra `camhl.exe`: File mồi cố định nạp Dahua NetSDK, tự động nạp logic backend `_internal/app.pyc` qua `runpy.run_path`, ghi log khởi động `logs/camhl_boot.log`.
+  + Tối ưu hóa AST dependency scanning trong `camhl.spec` tự động quét 100% stdlib submodules và thư viện phụ trợ, đảm bảo môi trường runtime hoàn chỉnh cho `app.pyc`.
+  + Biên dịch logic backend `1.py` ra `_internal/app.pyc` trong 0.1s qua `py_compile`.
+  + Đóng gói bộ 3 EXE chuẩn (`camhl.exe`, `updater.exe`, `setup_cloudflare.exe`) + sidecar HTMLs + `ffmpeg.exe` + `cloudflared.exe`.
+  + Đối soát Zero Config Pollution Audit: 100% PASS. Tạo `release/2.2.3/` và nén `release/2.2.3.zip` (215 MB).
+  + Đồng bộ toàn bộ cấu trúc phát hành 2.2.3 vào thư mục gốc `D:\1\cambida\` để chạy test trực tiếp; kiểm thử runtime xác nhận server hoạt động mượt mà, phản hồi 200 OK trên `/api/ping`, `/` (HTML sidecar), `/api/license/status`, `/api/tables`.
+  + SHA-256 ZIP: `3e0bdf5b02cd123441150370248bbd80400d85f4ed4a79076e5831cdde926887`.
+  + SHA-256 CAMHL: `bb3ddeb7f09e370a5efc668d590ff81e00ce1bc9da026cf177a4d4bb442026dc`.
+  + SHA-256 UPDATER: `37854ee5b0b52297be785171ff0e5cfaafbf3c77e3108de9bf484edcd86d198e`.
+  + SHA-256 SETUP_CF: `dffe057114cfe4df22847eba7c211f5177455f1de0a7054de65bd7f6e6225491`.
 - [x] 2026-09-27 — Tích hợp Cloudflare Tunnel thành 1 file EXE độc lập (`setup_cloudflare.exe`) & Đóng gói 2.2.2:
   + Tạo công cụ độc lập `scripts/setup_cloudflare.py` biên dịch ra `setup_cloudflare.exe` (Onefile, console).
   + Cơ chế nhận diện cổng linh hoạt 4 lớp (đọc `config.json`, quét cổng TCP LISTEN của `camhl.exe` qua `psutil`, ping `/api/ping`, tự động đồng bộ cổng).

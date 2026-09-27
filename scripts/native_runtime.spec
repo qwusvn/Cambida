@@ -14,7 +14,10 @@ a = Analysis(
     hookspath=[], runtime_hooks=[], noarchive=False, optimize=0,
 )
 pyz = PYZ(a.pure)
+version_file = os.environ.get('CAMBIDA_VERSION_FILE', 'version_info_2_2_2.txt')
+if not (root / version_file).exists():
+    version_file = 'version_info_2_2_0.txt'
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='Cambida',
           console=False, debug=False, strip=False, upx=False,
-          version=str(root / 'version_info_2_2_0.txt'))
+          version=str(root / version_file))
 coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name='Cambida')

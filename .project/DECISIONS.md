@@ -196,3 +196,14 @@
      - RELEASE_VERSION.txt, VERSION.txt, release_manifest.json, update.json
      - _internal/ (Runtime, Dahua NetSDK DLLs, config.release.json)
   5. Quy tắc Zero Config Pollution: Tuyệt đối không bao gồm config.json, analytics.db, device_id.key, tunnel_token.txt, logs/, cctv_videos/, nvr_cache/ hoặc tệp mã nguồn thô .py trong bất kỳ bản phát hành nào.
+
+## 2026-09-27 — Kiến trúc Host Loader & Phát hành 2.2.3 (Host Loader & Rapid Bytecode Update Architecture)
+- Theo chỉ thị trực tiếp của người dùng: Chốt chuẩn kiến trúc "EXE làm mồi" (Host Loader) từ phiên bản phát hành 2.2.3 trở đi.
+- Bản chất kiến trúc:
+  1. `camhl.exe` là Host Loader cố định (biên dịch từ `scripts/camhl_launcher.py`), khởi tạo môi trường Python runtime, nạp Dahua NetSDK DLLs và nạp thực thi phần ruột backend bên ngoài.
+  2. Phần ruột backend chính của ứng dụng được biên dịch thành bytecode nhị phân `_internal/app.pyc` từ `1.py` bằng `py_compile` (chỉ mất 0.1 giây, dung lượng ~180-380 KB, bảo vệ 100% mã nguồn/token).
+  3. Khi có bản cập nhật backend: Không cần build lại `camhl.exe` (không tốn thời gian PyInstaller ~40s, không phải tải lại gói 215MB), mà chỉ cần thay thế duy nhất file `_internal/app.pyc`.
+  4. Giao diện người dùng tiếp tục theo mô hình Sidecar HTML (`index.html`, `admin.html`...), chỉnh sửa là F5 nhận ngay lập tức (Hot-Reload).
+  5. Bộ ba thực thi nhị phân chuẩn gồm: `camhl.exe` (Host Loader), `updater.exe` (Trình cập nhật tự động), `setup_cloudflare.exe` (Trình thiết lập Cloudflare Tunnel).
+  6. Toàn bộ cấu trúc phát hành được đồng bộ trực tiếp vào thư mục gốc workspace để phục vụ kiểm thử runtime.
+

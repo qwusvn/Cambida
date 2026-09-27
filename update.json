@@ -1,0 +1,8 @@
+{
+  "schema": 2,
+  "version": "2.2.3",
+  "app_binary": "camhl.exe",
+  "updater_binary": "updater.exe",
+  "setup_cloudflare_binary": "setup_cloudflare.exe",
+  "kind": "full"
+}

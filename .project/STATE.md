@@ -4,11 +4,13 @@ Cập nhật: 2026-09-27 +07
 
 ## Trạng thái hiện tại
 - Workspace: D:\\1\\cambida, branch main.
-- Phiên bản phát hành hiện tại: **2.2.2** (camhl.exe, updater.exe, setup_cloudflare.exe, release/2.2.2.zip).
-- ZIP SHA-256: 109bfaa9c3b2ea415309347a7b7996f8223387d4f19e629ed74bdf1d6655148d
-- camhl.exe SHA-256: 0fb518cf45dec6229457ee032fabb85bf95ff0d4402653d9b218a6bdc0042f25
-- updater.exe SHA-256: 5ec354e0d3f9bbc873d6af63679d774d74d97afce6b442a77e3d83fada57bc84
-- setup_cloudflare.exe SHA-256: 7f7372b54687f3dedc7bc7afb9b8688502230a3b200eec7cc18cfa658e7a1350
+- Phiên bản phát hành hiện tại: **2.2.3** (camhl.exe Host Loader, updater.exe, setup_cloudflare.exe, _internal/app.pyc, release/2.2.3.zip).
+- Kiến trúc lõi: **Host Loader (camhl.exe) + Bytecode (_internal/app.pyc)**. camhl.exe đóng vai trò file mồi nhúng runtime Dahua NetSDK, tự động nạp logic backend app.pyc (biên dịch 0.1s qua py_compile từ 1.py).
+- ZIP SHA-256: `3e0bdf5b02cd123441150370248bbd80400d85f4ed4a79076e5831cdde926887` (215,291,381 bytes)
+- camhl.exe SHA-256: `bb3ddeb7f09e370a5efc668d590ff81e00ce1bc9da026cf177a4d4bb442026dc`
+- updater.exe SHA-256: `37854ee5b0b52297be785171ff0e5cfaafbf3c77e3108de9bf484edcd86d198e`
+- setup_cloudflare.exe SHA-256: `dffe057114cfe4df22847eba7c211f5177455f1de0a7054de65bd7f6e6225491`
+- Đồng bộ Root Test: Toàn bộ cấu trúc runtime 2.2.3 đã được đồng bộ vào thư mục gốc `D:\1\cambida\`. Đã kiểm thử runtime xác nhận: `/api/ping` (200 OK), UI HTML sidecars (`/`, 200 OK), `/api/license/status` (200 OK), `/api/tables` (200 OK). Zero Config Pollution Audit: 100% PASS.
 
 - Workspace: D:\1\cambida, branch main (tracking origin/main tại https://github.com/qwusvn/Cambida).
 - Phiên bản phát triển và đóng gói hiện tại: **2.1.63** (RELEASE_VERSION.txt = 2.1.63, spec và launcher CCTV_2.1.63.spec, CCTV_2.1.63.launcher.cmd, Chay_CCTV.cmd, package_2.1.63.ps1). Gói phát hành đầy đủ chuẩn: `release/2.1.63.zip` (SHA-256: `944E63B59DD8EE7EECB8DDCA6E95DF2B4B93D4EC54AA6DCDA86570EAF648A51D`) bao gồm đầy đủ runtime, sidecars, launcher, hoàn toàn không kèm file 1.py bên ngoài. File thực thi onedir: `CCTV_2.1.63.exe` (SHA-256: `38E6348A0206DDE859693083730EF94215A93D7C8EE694B3022A688BAEBC9AD1`).

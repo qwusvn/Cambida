@@ -19,7 +19,7 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "2.2.2"
+VERSION = "2.2.3"
 RELEASE_DIR = ROOT / "release" / VERSION
 RELEASE_ZIP = ROOT / "release" / f"{VERSION}.zip"
 DIST_CAMHL = ROOT / "dist-camhl"
@@ -233,6 +233,15 @@ def main():
     if not (RELEASE_DIR / "_internal" / "config.release.json").is_file():
         shutil.copy2(ROOT / "config.release.json", RELEASE_DIR / "_internal" / "config.release.json")
 
+    # Compile 1.py -> _internal/app.pyc (Ruột backend độc lập)
+    print("[*] Đang biên dịch ruột backend 1.py -> _internal/app.pyc...", flush=True)
+    import py_compile
+    app_pyc = RELEASE_DIR / "_internal" / "app.pyc"
+    py_compile.compile(str(ROOT / "1.py"), cfile=str(app_pyc), doraise=True)
+    if not app_pyc.is_file():
+        raise RuntimeError("Không tìm thấy output _internal/app.pyc sau khi biên dịch!")
+    print(f"[+] Biên dịch ruột backend hoàn tất: {app_pyc.stat().st_size:,} bytes", flush=True)
+
     # 5. Strict Zero Config Pollution & Cleanliness Audit
     print("[*] Đang đối soát bảo mật (Zero Config Pollution Audit)...", flush=True)
     found_forbidden = []
@@ -290,11 +299,23 @@ def main():
     updater_hash = sha256(RELEASE_DIR / "updater.exe")
     setup_cf_hash = sha256(RELEASE_DIR / "setup_cloudflare.exe")
 
+    # 8. Deploy to root workspace for testing
+    print("[*] Đang đồng bộ cấu trúc phát hành 2.2.3 vào thư mục gốc để chạy test...", flush=True)
+    protected_root_files = {"config.json", "analytics.db", "device_id.key", "tunnel_token.txt"}
+    for f in RELEASE_DIR.iterdir():
+        if f.is_file():
+            if f.name.lower() in protected_root_files:
+                continue
+            shutil.copy2(f, ROOT / f.name)
+        elif f.is_dir() and f.name == "_internal":
+            shutil.copytree(f, ROOT / "_internal", dirs_exist_ok=True)
+    print("[+] Đã đồng bộ cấu trúc vào thư mục gốc thành công!", flush=True)
+
     # Clean temporary build dirs
     clean_temp_dirs()
 
     print("=" * 60, flush=True)
-    print("ĐÓNG GÓI HOÀN TẤT THÀNH CÔNG!", flush=True)
+    print("ĐÓNG GÓI VÀ TRIỂN KHAI TEST HOÀN TẤT THÀNH CÔNG!", flush=True)
     print(f"RELEASE FOLDER: {RELEASE_DIR}", flush=True)
     print(f"RELEASE ZIP:    {RELEASE_ZIP} ({RELEASE_ZIP.stat().st_size:,} bytes)", flush=True)
     print(f"ZIP SHA-256:    {zip_hash}", flush=True)

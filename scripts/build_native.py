@@ -130,7 +130,7 @@ def compile_modules(modules):
     return entries
 
 
-def runtime(modules):
+def runtime(modules, version='2.2.0'):
     owned = set(modules)
     owned_roots = {name.split('.')[0] for name in owned}
     imports = {'pystray._win32', 'qrcode.image.pil', 'waitress', 'PIL.Image', 'PIL.ImageDraw'}
@@ -145,8 +145,12 @@ def runtime(modules):
     settings_file = BUILD / 'runtime-settings.json'
     write_json(settings_file, settings)
     # Runtime changes only with loader, Python, dependencies, SDK, or seed config.
+    ver_tag = version.replace('.', '_')
+    ver_file = ROOT / f'version_info_{ver_tag}.txt'
+    if not ver_file.exists():
+        ver_file = ROOT / 'version_info_2_2_0.txt'
     inputs = [ROOT / 'scripts/native_launcher.py', ROOT / 'scripts/native_runtime.spec',
-              ROOT / 'version_info_2_2_0.txt', ROOT / 'config.release.json',
+              ver_file, ROOT / 'config.release.json',
               *sorted((ROOT / 'vendor/dahua_netsdk').glob('*.dll'))]
     fingerprint = key({'settings': settings, 'python': sys.version,
                        'dependencies': sorted((d.metadata['Name'], d.version)
@@ -158,7 +162,8 @@ def runtime(modules):
     cache_valid = cache.get('input') == fingerprint and bool(runtime_files) and all(
         (out / p).is_file() and digest(out / p) == checksum for p, checksum in runtime_files.items())
     if not cache_valid:
-        env = dict(os.environ, CAMBIDA_BUILD_ROOT=str(ROOT), CAMBIDA_RUNTIME_SETTINGS=str(settings_file))
+        env = dict(os.environ, CAMBIDA_BUILD_ROOT=str(ROOT), CAMBIDA_RUNTIME_SETTINGS=str(settings_file),
+                   CAMBIDA_VERSION_FILE=ver_file.name)
         run([sys.executable, '-m', 'PyInstaller', '--noconfirm', '--distpath', str(out.parent),
              '--workpath', str(BUILD / 'runtime-work'), str(ROOT / 'scripts/native_runtime.spec')], env=env)
         # PyInstaller's analysis TOCs must contain no private application bytecode.
@@ -204,7 +209,7 @@ def main():
                'scripts/release_launcher.cmd', 'config.release.json', 'NATIVE_RELEASE.md')]
     snapshot = {str(p.relative_to(ROOT)): digest(p) for p in inputs}
     entries = compile_modules(modules)
-    runtime_dir, runtime_id = runtime(modules)
+    runtime_dir, runtime_id = runtime(modules, version=args.version)
     release.mkdir(parents=True)
     shutil.copytree(runtime_dir, release, dirs_exist_ok=True)
     for entry in entries.values():

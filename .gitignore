@@ -13,6 +13,9 @@ backup/
 release/
 build/
 dist/
+dist-*/
+work-*/
+_internal/
 staging/
 .pytest_cache/
 
