@@ -3018,19 +3018,22 @@ def telegram_command_help():
     )
 
 
-def send_telegram_alert(message, target_chat_id=None, token_override=None):
-    token = token_override or LICENSE_TELEGRAM_TOKEN or CONFIG.get("telegram_token")
+def send_telegram_alert(message, target_chat_id=None, token_override=None, message_thread_id=None):
+    token = token_override or CONFIG.get("telegram_token") or LICENSE_TELEGRAM_TOKEN
     chat_id = target_chat_id or CONFIG.get("telegram_chat_id")
     if not token or not chat_id:
         return
     try:
+        payload = {
+            "chat_id": chat_id,
+            "text": site_prefix() + message,
+            "parse_mode": "Markdown",
+        }
+        if message_thread_id:
+            payload["message_thread_id"] = message_thread_id
         requests.post(
             f"https://api.telegram.org/bot{token}/sendMessage",
-            data={
-                "chat_id": chat_id,
-                "text": site_prefix() + message,
-                "parse_mode": "Markdown",
-            },
+            data=payload,
             timeout=5,
         )
     except Exception as e:
@@ -3806,6 +3809,8 @@ def monitor_telegram_commands():
                     chat_obj = message.get("chat", {})
                     chat_id = str(chat_obj.get("id", ""))
                     chat_title = str(chat_obj.get("title", ""))
+                    sender_id = str(message.get("from", {}).get("id", ""))
+                    thread_id = message.get("message_thread_id")
                     msg_date = message.get("date", 0)
                     if msg_date < BOT_START_TIME:
                         continue
@@ -3814,10 +3819,10 @@ def monitor_telegram_commands():
                         allowed_chat_ids.add(chat_id)
                         LICENSE_TELEGRAM_CHAT_ID = chat_id
 
-                    if chat_id not in allowed_chat_ids:
+                    if chat_id not in allowed_chat_ids and sender_id != admin_id:
                         continue
                     if re.fullmatch(r"/list(?:@\w+)?", text):
-                        send_telegram_alert(telegram_command_help(), target_chat_id=chat_id)
+                        send_telegram_alert(telegram_command_help(), target_chat_id=chat_id, message_thread_id=thread_id)
                         continue
                     if re.fullmatch(r"/license(?:@\w+)?", text):
                         state = get_license_snapshot()
@@ -3830,6 +3835,7 @@ def monitor_telegram_commands():
                             f"{act_str}\n"
                             f"Chi tiết: {state.get('reason') or 'Chưa kiểm tra.'}",
                             target_chat_id=chat_id,
+                            message_thread_id=thread_id,
                         )
                         continue
                     activate_match = re.fullmatch(r'/activate(?:@\w+)?(?:\s+["“]?([^"”\s]+)["”]?)?', raw_text, re.IGNORECASE)
@@ -3841,30 +3847,33 @@ def monitor_telegram_commands():
                                 "⛔ Key không khớp với máy CCTV này.\n"
                                 f"Key máy: `{machine_key or 'N/A'}`",
                                 target_chat_id=chat_id,
+                                message_thread_id=thread_id,
                             )
                         elif refresh_license_state():
-                            send_telegram_alert("✅ Bản quyền xem lại hợp lệ. Key đã có trong tin nhắn ghim Telegram.", target_chat_id=chat_id)
+                            send_telegram_alert("✅ Bản quyền xem lại hợp lệ. Key đã có trong tin nhắn ghim Telegram.", target_chat_id=chat_id, message_thread_id=thread_id)
                         else:
                             send_telegram_alert(
                                 "⛔ Chưa kích hoạt. Hãy thêm đúng key máy vào tin nhắn ghim Telegram rồi thử lại.\n"
                                 f"Key máy: `{machine_key or 'N/A'}`",
                                 target_chat_id=chat_id,
+                                message_thread_id=thread_id,
                             )
                         continue
                     if text in ("/reset", "/restart"):
                         send_telegram_alert(
                             "⚠️ Đã nhận lệnh khởi động lại. Hệ thống đang restart...",
                             target_chat_id=chat_id,
+                            message_thread_id=thread_id,
                         )
                         restart_server()
                         continue
                     if text in ("/update", "/checkupdate"):
-                        send_telegram_alert("🔍 Đang kiểm tra bản cập nhật mới trên GitHub...", target_chat_id=chat_id)
+                        send_telegram_alert("🔍 Đang kiểm tra bản cập nhật mới trên GitHub...", target_chat_id=chat_id, message_thread_id=thread_id)
                         res = check_github_update()
                         if not res.get("has_update"):
                             reason = res.get("reason")
                             detail = f" ({reason})" if reason else ""
-                            send_telegram_alert(f"✅ Hệ thống đang ở phiên bản mới nhất: **v{APP_VERSION}**{detail}.", target_chat_id=chat_id)
+                            send_telegram_alert(f"✅ Hệ thống đang ở phiên bản mới nhất: **v{APP_VERSION}**{detail}.", target_chat_id=chat_id, message_thread_id=thread_id)
                         else:
                             new_v = res["new_version"]
                             send_telegram_alert(
@@ -3872,11 +3881,12 @@ def monitor_telegram_commands():
                                 f"🔹 Phiên bản: **v{new_v}**\n"
                                 f"📥 Đang tự động tải về và nâng cấp ứng dụng...",
                                 target_chat_id=chat_id,
+                                message_thread_id=thread_id,
                             )
                             try:
                                 apply_github_update(res["download_url"], new_v)
                             except Exception as e:
-                                send_telegram_alert(f"❌ Lỗi khi cập nhật tự động: {e}", target_chat_id=chat_id)
+                                send_telegram_alert(f"❌ Lỗi khi cập nhật tự động: {e}", target_chat_id=chat_id, message_thread_id=thread_id)
                         continue
                     if text == "/status":
                         hdd_used = get_total_size_gb()
@@ -3891,7 +3901,7 @@ def monitor_telegram_commands():
                             f"💾 Dung lượng video: **{hdd_used:.1f} / {SIZE_LIMIT_GB} GB**\n"
                             f"🔐 Bản quyền xem lại: **{lic_txt}**"
                         )
-                        send_telegram_alert(msg, target_chat_id=chat_id)
+                        send_telegram_alert(msg, target_chat_id=chat_id, message_thread_id=thread_id)
                         continue
             time.sleep(1)
         except:
@@ -6970,15 +6980,22 @@ def on_quit(icon, item):
 
 def setup_tray():
     port = int(CONFIG.get("server_port", 8000))
-    pystray.Icon(
-        "CameraHighlight",
-        create_tray_icon(),
-        "Camera Highlight",
-        pystray.Menu(
-            pystray.MenuItem("Mở Camera Highlight", lambda icon, item: _open_server_page(port), default=True),
-            pystray.MenuItem("Thoát", on_quit),
-        ),
-    ).run()
+    try:
+        img = create_tray_icon()
+        icon = pystray.Icon(
+            "CameraHighlight",
+            img,
+            "Camera Highlight",
+            pystray.Menu(
+                pystray.MenuItem("Mở Camera Highlight", lambda icon, item: _open_server_page(port), default=True),
+                pystray.MenuItem("Thoát", on_quit),
+            ),
+        )
+        icon.run_detached()
+        return icon
+    except Exception as exc:
+        logger.warning(f"Không thể khởi động System Tray: {exc}")
+        return None
 
 
 # Install server-side table privacy guards after all legacy media routes exist.
@@ -7072,9 +7089,8 @@ def main():
         )
 
     run_startup = CONFIG.get("run_on_startup", "no").lower() == "yes"
-    run_tray = CONFIG.get("run_in_tray", "no").lower() == "yes"
+    run_tray = False  # Tránh lỗi crash Win32 notification icon của pystray trong PyInstaller
     if getattr(sys, "frozen", False):
-        run_tray = True
         run_startup = True
     set_autostart(run_startup)
     server_port = int(CONFIG.get("server_port", 8000))
@@ -7111,10 +7127,7 @@ def main():
     )
     server_thread.start()
     if run_tray:
-        try:
-            setup_tray()
-        except Exception as e:
-            logger.error(f"Lỗi khởi động System Tray: {e}")
+        setup_tray()
     server_thread.join()
 
 
