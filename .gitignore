@@ -24,6 +24,8 @@ staging/
 
 # Local secrets / machine-specific config
 config.json
+config.yml
+tunnel_token.txt
 device_id.key
 nvr/nvr_config.json
 nvr/playback_cache/

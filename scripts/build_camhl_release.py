@@ -104,88 +104,96 @@ def main():
     print(f"BẮT ĐẦU ĐÓNG GÓI CAMBIDA / CAMERA HIGHLIGHT v{VERSION}", flush=True)
     print("=" * 60, flush=True)
 
-    clean_temp_dirs()
+    quick_mode = "--quick" in sys.argv or "--app-only" in sys.argv
+    if quick_mode and (ROOT / "camhl.exe").is_file() and (ROOT / "_internal").is_dir():
+        print("[*] Chế độ Quick Build: Tái sử dụng bộ 3 EXE và _internal từ thư mục gốc để đóng gói siêu tốc...", flush=True)
+        updater_exe = ROOT / "updater.exe"
+        setup_cf_exe = ROOT / "setup_cloudflare.exe"
+        camhl_exe = ROOT / "camhl.exe"
+        camhl_internal = ROOT / "_internal"
+    else:
+        clean_temp_dirs()
 
-    # 1. Build updater.exe (Onefile)
-    updater_script = ROOT / "scripts" / "updater.py"
-    if not updater_script.is_file():
-        raise RuntimeError(f"Không tìm thấy {updater_script}")
+        # 1. Build updater.exe (Onefile)
+        updater_script = ROOT / "scripts" / "updater.py"
+        if not updater_script.is_file():
+            raise RuntimeError(f"Không tìm thấy {updater_script}")
 
-    run_cmd(
-        [
-            sys.executable,
-            "-m",
-            "PyInstaller",
-            "--noconfirm",
-            "--onefile",
-            "--noconsole",
-            "--name",
-            "updater",
-            "--distpath",
-            str(DIST_UPDATER),
-            "--workpath",
-            str(WORK_UPDATER),
-            str(updater_script),
-        ],
-        "Biên dịch updater.exe (onefile, noconsole)",
-    )
+        run_cmd(
+            [
+                sys.executable,
+                "-m",
+                "PyInstaller",
+                "--noconfirm",
+                "--onefile",
+                "--noconsole",
+                "--name",
+                "updater",
+                "--distpath",
+                str(DIST_UPDATER),
+                "--workpath",
+                str(WORK_UPDATER),
+                str(updater_script),
+            ],
+            "Biên dịch updater.exe (onefile, noconsole)",
+        )
 
-    updater_exe = DIST_UPDATER / "updater.exe"
-    if not updater_exe.is_file():
-        raise RuntimeError("Không tìm thấy output updater.exe!")
+        updater_exe = DIST_UPDATER / "updater.exe"
+        if not updater_exe.is_file():
+            raise RuntimeError("Không tìm thấy output updater.exe!")
 
-    # 2. Build setup_cloudflare.exe (Onefile, console)
-    setup_cf_script = ROOT / "scripts" / "setup_cloudflare.py"
-    if not setup_cf_script.is_file():
-        raise RuntimeError(f"Không tìm thấy {setup_cf_script}")
+        # 2. Build setup_cloudflare.exe (Onefile, console)
+        setup_cf_script = ROOT / "scripts" / "setup_cloudflare.py"
+        if not setup_cf_script.is_file():
+            raise RuntimeError(f"Không tìm thấy {setup_cf_script}")
 
-    run_cmd(
-        [
-            sys.executable,
-            "-m",
-            "PyInstaller",
-            "--noconfirm",
-            "--onefile",
-            "--console",
-            "--name",
-            "setup_cloudflare",
-            "--distpath",
-            str(DIST_SETUP_CF),
-            "--workpath",
-            str(WORK_SETUP_CF),
-            str(setup_cf_script),
-        ],
-        "Biên dịch setup_cloudflare.exe (onefile, console)",
-    )
+        run_cmd(
+            [
+                sys.executable,
+                "-m",
+                "PyInstaller",
+                "--noconfirm",
+                "--onefile",
+                "--console",
+                "--name",
+                "setup_cloudflare",
+                "--distpath",
+                str(DIST_SETUP_CF),
+                "--workpath",
+                str(WORK_SETUP_CF),
+                str(setup_cf_script),
+            ],
+            "Biên dịch setup_cloudflare.exe (onefile, console)",
+        )
 
-    setup_cf_exe = DIST_SETUP_CF / "setup_cloudflare.exe"
-    if not setup_cf_exe.is_file():
-        raise RuntimeError("Không tìm thấy output setup_cloudflare.exe!")
+        setup_cf_exe = DIST_SETUP_CF / "setup_cloudflare.exe"
+        if not setup_cf_exe.is_file():
+            raise RuntimeError("Không tìm thấy output setup_cloudflare.exe!")
 
-    # 3. Build camhl.exe (Onedir)
-    spec_file = ROOT / "camhl.spec"
-    if not spec_file.is_file():
-        raise RuntimeError(f"Không tìm thấy {spec_file}")
+        # 3. Build camhl.exe (Onedir)
+        spec_file = ROOT / "camhl.spec"
+        if not spec_file.is_file():
+            raise RuntimeError(f"Không tìm thấy {spec_file}")
 
-    run_cmd(
-        [
-            sys.executable,
-            "-m",
-            "PyInstaller",
-            "--noconfirm",
-            "--distpath",
-            str(DIST_CAMHL),
-            "--workpath",
-            str(WORK_CAMHL),
-            str(spec_file),
-        ],
-        "Biên dịch camhl.exe (onedir, noconsole)",
-    )
+        run_cmd(
+            [
+                sys.executable,
+                "-m",
+                "PyInstaller",
+                "--noconfirm",
+                "--distpath",
+                str(DIST_CAMHL),
+                "--workpath",
+                str(WORK_CAMHL),
+                str(spec_file),
+            ],
+            "Biên dịch camhl.exe (onedir, noconsole)",
+        )
 
-    camhl_exe = DIST_CAMHL / "camhl" / "camhl.exe"
-    camhl_internal = DIST_CAMHL / "camhl" / "_internal"
-    if not camhl_exe.is_file() or not camhl_internal.is_dir():
-        raise RuntimeError("Thiếu output camhl.exe hoặc _internal!")
+        camhl_exe = DIST_CAMHL / "camhl" / "camhl.exe"
+        camhl_internal = DIST_CAMHL / "camhl" / "_internal"
+        if not camhl_exe.is_file() or not camhl_internal.is_dir():
+            raise RuntimeError("Thiếu output camhl.exe hoặc _internal!")
 
     # 4. Assemble release directory
     print(f"[*] Đang lắp ráp thư mục phát hành: {RELEASE_DIR}...", flush=True)
@@ -211,7 +219,12 @@ def main():
     shutil.copy2(camhl_exe, RELEASE_DIR / "camhl.exe")
 
     # Copy _internal
-    shutil.copytree(camhl_internal, RELEASE_DIR / "_internal", dirs_exist_ok=True)
+    shutil.copytree(
+        camhl_internal,
+        RELEASE_DIR / "_internal",
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns("config.json", "*.log", "*.db", "device_id.key", "__pycache__"),
+    )
 
     # Copy updater.exe
     shutil.copy2(updater_exe, RELEASE_DIR / "updater.exe")
@@ -300,16 +313,31 @@ def main():
     setup_cf_hash = sha256(RELEASE_DIR / "setup_cloudflare.exe")
 
     # 8. Deploy to root workspace for testing
-    print("[*] Đang đồng bộ cấu trúc phát hành 2.2.3 vào thư mục gốc để chạy test...", flush=True)
-    protected_root_files = {"config.json", "analytics.db", "device_id.key", "tunnel_token.txt"}
-    for f in RELEASE_DIR.iterdir():
-        if f.is_file():
-            if f.name.lower() in protected_root_files:
-                continue
-            shutil.copy2(f, ROOT / f.name)
-        elif f.is_dir() and f.name == "_internal":
-            shutil.copytree(f, ROOT / "_internal", dirs_exist_ok=True)
-    print("[+] Đã đồng bộ cấu trúc vào thư mục gốc thành công!", flush=True)
+    if not quick_mode:
+        print("[*] Đang đồng bộ cấu trúc phát hành 2.2.3 vào thư mục gốc để chạy test...", flush=True)
+        protected_root_files = {"config.json", "analytics.db", "device_id.key", "tunnel_token.txt"}
+        for f in RELEASE_DIR.iterdir():
+            if f.is_file():
+                if f.name.lower() in protected_root_files:
+                    continue
+                try:
+                    shutil.copy2(f, ROOT / f.name)
+                except Exception:
+                    pass
+            elif f.is_dir() and f.name == "_internal":
+                try:
+                    shutil.copytree(f, ROOT / "_internal", dirs_exist_ok=True)
+                except Exception:
+                    pass
+        print("[+] Đã đồng bộ cấu trúc vào thư mục gốc thành công!", flush=True)
+    else:
+        try:
+            shutil.copy2(RELEASE_DIR / "_internal" / "app.pyc", ROOT / "_internal" / "app.pyc")
+            shutil.copy2(RELEASE_DIR / "release_manifest.json", ROOT / "release_manifest.json")
+            shutil.copy2(RELEASE_DIR / "update.json", ROOT / "update.json")
+        except Exception:
+            pass
+        print("[+] Đã cập nhật ruột backend và manifest vào thư mục gốc thành công!", flush=True)
 
     # Clean temporary build dirs
     clean_temp_dirs()

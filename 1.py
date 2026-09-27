@@ -4347,11 +4347,8 @@ def start_cloudflared_tunnel():
 
     token = None
     tunnel_cfg = CONFIG.get("cloudflare_tunnel", {})
-    enabled = False
-    if isinstance(tunnel_cfg, dict):
-        enabled = bool(tunnel_cfg.get("enabled", False))
-        if tunnel_cfg.get("token"):
-            token = str(tunnel_cfg["token"]).strip()
+    if isinstance(tunnel_cfg, dict) and tunnel_cfg.get("token"):
+        token = str(tunnel_cfg["token"]).strip()
 
     if not token:
         for t_file in [os.path.join(BASE_DIR, "tunnel_token.txt"), os.path.join(BASE_DIR, "cloudflared_setup", "tunnel_token.txt")]:
@@ -4361,15 +4358,9 @@ def start_cloudflared_tunnel():
                         t_val = f.read().strip()
                         if t_val:
                             token = t_val
-                            enabled = True
                             break
                 except Exception:
                     pass
-
-    # Nếu người dùng dùng DDNS và không bật Cloudflare Tunnel, không tự động chạy TryCloudflare ngầm
-    if not enabled and not token:
-        logger.info("[Tunnel] Cloudflare Tunnel đang tắt. Hệ thống sử dụng DDNS / IP trực tiếp theo cấu hình.")
-        return
 
     port = int(CONFIG.get("server_port") or 8004)
     if token:
@@ -7114,7 +7105,7 @@ def main():
 
     server_thread = threading.Thread(
         target=run_server,
-        daemon=run_tray,
+        daemon=False,
         name="WebServer",
     )
     server_thread.start()
@@ -7123,9 +7114,7 @@ def main():
             setup_tray()
         except Exception as e:
             logger.error(f"Lỗi khởi động System Tray: {e}")
-            server_thread.join()
-    else:
-        server_thread.join()
+    server_thread.join()
 
 
 if __name__ == "__main__":
