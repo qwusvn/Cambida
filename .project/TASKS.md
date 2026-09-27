@@ -8,7 +8,7 @@
   + Đóng gói bộ 3 EXE chuẩn (`camhl.exe`, `updater.exe`, `setup_cloudflare.exe`) + sidecar HTMLs + `ffmpeg.exe` + `cloudflared.exe`.
   + Đối soát Zero Config Pollution Audit: 100% PASS. Tạo `release/2.2.3/` và nén `release/2.2.3.zip` (215 MB).
   + Đồng bộ toàn bộ cấu trúc phát hành 2.2.3 vào thư mục gốc `D:\1\cambida\` để chạy test trực tiếp; kiểm thử runtime xác nhận server hoạt động mượt mà, phản hồi 200 OK trên `/api/ping`, `/` (HTML sidecar), `/api/license/status`, `/api/tables`.
-  + SHA-256 ZIP: `2dd29795dd73f16ab36f3bf60c1d24142d349950cf6a34b27df78b3e2ee707e0`.
+  + SHA-256 ZIP: `0bb904a4c5d6aea32a09f8b32d89d4ea55afd99eba9ea3b17198e5bd74b9b5b1`.
   + SHA-256 CAMHL: `bb3ddeb7f09e370a5efc668d590ff81e00ce1bc9da026cf177a4d4bb442026dc`.
   + SHA-256 UPDATER: `c02ad706be32301f8327875e367b1f79d84b0723a6744f6aed62cdd5579a6a1d`.
   + SHA-256 SETUP_CF: `dffe057114cfe4df22847eba7c211f5177455f1de0a7054de65bd7f6e6225491`.

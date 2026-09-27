@@ -6,7 +6,7 @@ Cập nhật: 2026-09-27 +07
 - Workspace: D:\\1\\cambida, branch main.
 - Phiên bản phát hành hiện tại: **2.2.3** (camhl.exe Host Loader, updater.exe, setup_cloudflare.exe, _internal/app.pyc, release/2.2.3.zip).
 - Kiến trúc lõi: **Host Loader (camhl.exe) + Bytecode (_internal/app.pyc)**. camhl.exe đóng vai trò file mồi nhúng runtime Dahua NetSDK, tự động nạp logic backend app.pyc (biên dịch 0.1s qua py_compile từ 1.py).
-- ZIP SHA-256: `2dd29795dd73f16ab36f3bf60c1d24142d349950cf6a34b27df78b3e2ee707e0` (215,292,706 bytes)
+- ZIP SHA-256: `0bb904a4c5d6aea32a09f8b32d89d4ea55afd99eba9ea3b17198e5bd74b9b5b1` (215,292,949 bytes)
 - camhl.exe SHA-256: `bb3ddeb7f09e370a5efc668d590ff81e00ce1bc9da026cf177a4d4bb442026dc`
 - updater.exe SHA-256: `c02ad706be32301f8327875e367b1f79d84b0723a6744f6aed62cdd5579a6a1d`
 - setup_cloudflare.exe SHA-256: `dffe057114cfe4df22847eba7c211f5177455f1de0a7054de65bd7f6e6225491`

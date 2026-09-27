@@ -3010,13 +3010,11 @@ def api_license_status():
 
 def telegram_command_help():
     return (
-        "📋 **LỆNH CCTV**\n"
-        "`/status` — Xem trạng thái hệ thống.\n"
-        "`/license` — Xem key và trạng thái bản quyền xem lại.\n"
-        "`/activate \"KEY\"` — Kiểm tra lại KEY với tin nhắn ghim.\n"
-        "`/update` — Kiểm tra và cập nhật tự động từ GitHub.\n"
-        "`/reset` hoặc `/restart` — Khởi động lại ứng dụng.\n"
-        "`/list` — Hiển thị danh sách lệnh này."
+        "📋 **DANH SÁCH LỆNH**\n"
+        "`/update` — Kiểm tra và cập nhật ứng dụng tự động từ GitHub.\n"
+        "`/status` — Xem trạng thái hệ thống và dung lượng video.\n"
+        "`/license` — Xem key máy và trạng thái bản quyền xem lại.\n"
+        "`/restart` (hoặc `/reset`) — Khởi động lại ứng dụng."
     )
 
 
@@ -3782,7 +3780,7 @@ def start_github_update_worker():
 
 def monitor_telegram_commands():
     global LICENSE_TELEGRAM_CHAT_ID
-    token = str(LICENSE_TELEGRAM_TOKEN or CONFIG.get("telegram_token") or "").strip()
+    token = str(CONFIG.get("telegram_token") or LICENSE_TELEGRAM_TOKEN or "").strip()
     admin_id = str(CONFIG.get("telegram_chat_id") or "").strip()
     license_chat_id = str(
         CONFIG.get("license_telegram_chat_id") or LICENSE_TELEGRAM_CHAT_ID or ""
@@ -3854,44 +3852,47 @@ def monitor_telegram_commands():
                             )
                         continue
                     if text in ("/reset", "/restart"):
-                        requests.get(
-                            f"https://api.telegram.org/bot{token}/getUpdates?"
-                            f"offset={offset + 1}"
-                        )
                         send_telegram_alert(
-                            "⚠️ Đã nhận lệnh RESET. Hệ thống đang khởi động lại...",
+                            "⚠️ Đã nhận lệnh khởi động lại. Hệ thống đang restart...",
                             target_chat_id=chat_id,
                         )
-                        time.sleep(1)
-                        os.execl(sys.executable, sys.executable, *sys.argv)
+                        restart_server()
+                        continue
                     if text in ("/update", "/checkupdate"):
-                        send_telegram_alert("🔍 Đang kiểm tra bản cập nhật mới trên GitHub...")
+                        send_telegram_alert("🔍 Đang kiểm tra bản cập nhật mới trên GitHub...", target_chat_id=chat_id)
                         res = check_github_update()
                         if not res.get("has_update"):
                             reason = res.get("reason")
                             detail = f" ({reason})" if reason else ""
-                            send_telegram_alert(f"✅ Hệ thống đang ở phiên bản mới nhất: **v{APP_VERSION}**{detail}.")
+                            send_telegram_alert(f"✅ Hệ thống đang ở phiên bản mới nhất: **v{APP_VERSION}**{detail}.", target_chat_id=chat_id)
                         else:
                             new_v = res["new_version"]
                             send_telegram_alert(
                                 f"🚀 **PHÁT HIỆN BẢN CẬP NHẬT MỚI!**\n"
                                 f"🔹 Phiên bản: **v{new_v}**\n"
-                                f"📥 Đang tự động tải về và nâng cấp ứng dụng..."
+                                f"📥 Đang tự động tải về và nâng cấp ứng dụng...",
+                                target_chat_id=chat_id,
                             )
                             try:
                                 apply_github_update(res["download_url"], new_v)
                             except Exception as e:
-                                send_telegram_alert(f"❌ Lỗi khi cập nhật tự động: {e}")
+                                send_telegram_alert(f"❌ Lỗi khi cập nhật tự động: {e}", target_chat_id=chat_id)
+                        continue
                     if text == "/status":
-                        hdd_free = get_total_size_gb()
-                        logs = get_last_logs(30)
+                        hdd_used = get_total_size_gb()
+                        active_cams = sum(1 for w in CAM_WORKERS.values() if w and w.is_alive())
+                        total_cams = len(CAM_LIST) if isinstance(CAM_LIST, list) else 0
+                        state = get_license_snapshot()
+                        lic_txt = "✅ Hợp lệ" if state.get("active") else "⛔ Chưa kích hoạt"
                         msg = (
-                            "✅ **TRẠNG THÁI HỆ THỐNG**\n"
-                            f"💾 Dung lượng Video: {hdd_free:.1f} / {SIZE_LIMIT_GB} GB\n"
-                            "➖➖➖➖➖➖➖➖➖➖\n"
-                            f"📜 **Log hệ thống:**\n```\n{logs}\n```"
+                            "📊 **TRẠNG THÁI HỆ THỐNG**\n"
+                            f"🔹 Phiên bản: **v{APP_VERSION}**\n"
+                            f"📹 Camera: **{active_cams}/{total_cams}** đang ghi hình\n"
+                            f"💾 Dung lượng video: **{hdd_used:.1f} / {SIZE_LIMIT_GB} GB**\n"
+                            f"🔐 Bản quyền xem lại: **{lic_txt}**"
                         )
-                        send_telegram_alert(msg)
+                        send_telegram_alert(msg, target_chat_id=chat_id)
+                        continue
             time.sleep(1)
         except:
             time.sleep(5)
