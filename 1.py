@@ -6998,6 +6998,12 @@ def setup_tray():
         return None
 
 
+def _should_run_tray():
+    if getattr(sys, "frozen", False):
+        return True
+    return CONFIG.get("run_in_tray", "no").lower() == "yes"
+
+
 # Install server-side table privacy guards after all legacy media routes exist.
 # The module receives callbacks; it does not alter recording workers or camera IDs.
 def _update_table_access_config(updated):
@@ -7089,7 +7095,7 @@ def main():
         )
 
     run_startup = CONFIG.get("run_on_startup", "no").lower() == "yes"
-    run_tray = False  # Tránh lỗi crash Win32 notification icon của pystray trong PyInstaller
+    run_tray = _should_run_tray()
     if getattr(sys, "frozen", False):
         run_startup = True
     set_autostart(run_startup)
