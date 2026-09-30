@@ -4,6 +4,8 @@
 Hỗ trợ:
 - Tự động nhận diện config.json và cloudflared.exe
 - Tự động dò tìm cổng máy chủ (8004, 8000, hoặc cổng đang chạy thực tế của camhl.exe)
+- Tự động provision Named Tunnel + ingress + DNS từ public_base_url khi chưa có tunnel_token.txt
+- Lấy Tunnel Token qua Cloudflare API và tự sinh tunnel_token.txt; API Token quản trị chỉ dùng trong RAM
 - Khởi động Cloudflare Named Tunnel bằng token riêng của từng quán
 - Tự động cập nhật public_base_url vào config.json
 - Tự động kiểm tra độ thông mạng qua /api/ping
@@ -20,6 +22,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 # Thiết lập encoding UTF-8 cho Windows console
@@ -48,6 +51,7 @@ CONFIG_FILE = BASE_DIR / "config.json"
 CLOUDFLARED_EXE = BASE_DIR / "cloudflared.exe"
 LOG_DIR = BASE_DIR / "logs"
 TOKEN_FILE = BASE_DIR / "tunnel_token.txt"
+CF_API_BASE = "https://api.cloudflare.com/client/v4"
 
 
 def set_console_title(title: str):
@@ -134,6 +138,221 @@ def get_fixed_public_url(cfg: dict) -> str:
         return ""
     return url
 
+
+
+def get_public_hostname(cfg: dict) -> str:
+    public_url = get_fixed_public_url(cfg)
+    if not public_url:
+        return ""
+    try:
+        return (urllib.parse.urlparse(public_url).hostname or "").strip().lower()
+    except Exception:
+        return ""
+
+
+def _cloudflare_api_request(method: str, path: str, api_token: str, payload=None, query=None, timeout: float = 15.0):
+    """Gọi Cloudflare API mà không ghi API token quản trị xuống đĩa."""
+    api_token = (api_token or "").strip()
+    if not api_token:
+        raise RuntimeError("Cloudflare API Token đang trống.")
+
+    url = CF_API_BASE + path
+    if query:
+        url += "?" + urllib.parse.urlencode(query)
+
+    data = None
+    headers = {
+        "Authorization": f"Bearer {api_token}",
+        "Accept": "application/json",
+        "User-Agent": "CambidaCloudflareProvisioner/1.0",
+    }
+    if payload is not None:
+        data = json.dumps(payload).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+
+    req = urllib.request.Request(url, data=data, headers=headers, method=method.upper())
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        try:
+            raw = exc.read().decode("utf-8", "replace")
+            body = json.loads(raw)
+            errors = body.get("errors") or []
+            message = "; ".join(str(e.get("message") or e) for e in errors) or raw[:300]
+        except Exception:
+            message = str(exc.reason or exc)
+        raise RuntimeError(f"Cloudflare API HTTP {exc.code}: {message}") from None
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Không kết nối được Cloudflare API: {exc.reason}") from None
+
+    try:
+        body = json.loads(raw)
+    except json.JSONDecodeError:
+        raise RuntimeError("Cloudflare API trả dữ liệu không hợp lệ.") from None
+
+    if not body.get("success", False):
+        errors = body.get("errors") or []
+        message = "; ".join(str(e.get("message") or e) for e in errors) or "Cloudflare API báo thất bại."
+        raise RuntimeError(message)
+    return body.get("result")
+
+
+def discover_cloudflare_zone(api_token: str, hostname: str) -> dict:
+    """Tự dò zone và account từ hostname. API token cần Zone Read."""
+    hostname = (hostname or "").strip().lower().rstrip(".")
+    if not hostname:
+        raise RuntimeError("Hostname Cloudflare đang trống.")
+
+    zones = _cloudflare_api_request(
+        "GET",
+        "/zones",
+        api_token,
+        query={"per_page": 50},
+    ) or []
+    matches = []
+    for zone in zones:
+        zone_name = str(zone.get("name") or "").strip().lower().rstrip(".")
+        if zone_name and (hostname == zone_name or hostname.endswith("." + zone_name)):
+            matches.append(zone)
+    if not matches:
+        raise RuntimeError(
+            f"Không tìm thấy Cloudflare Zone phù hợp với {hostname}. "
+            "API Token cần quyền Zone Read cho zone này."
+        )
+    return max(matches, key=lambda z: len(str(z.get("name") or "")))
+
+
+def _tunnel_name_for_hostname(hostname: str) -> str:
+    clean = re.sub(r"[^a-z0-9-]+", "-", (hostname or "").lower()).strip("-")
+    return ("cambida-" + clean)[:100]
+
+
+def get_or_create_cloudflare_tunnel(api_token: str, account_id: str, hostname: str) -> dict:
+    tunnel_name = _tunnel_name_for_hostname(hostname)
+    existing = _cloudflare_api_request(
+        "GET",
+        f"/accounts/{account_id}/cfd_tunnel",
+        api_token,
+        query={"name": tunnel_name, "is_deleted": "false", "per_page": 10},
+    ) or []
+    for tunnel in existing:
+        if str(tunnel.get("name") or "") == tunnel_name and not tunnel.get("deleted_at"):
+            return tunnel
+
+    return _cloudflare_api_request(
+        "POST",
+        f"/accounts/{account_id}/cfd_tunnel",
+        api_token,
+        payload={"name": tunnel_name, "config_src": "cloudflare"},
+    )
+
+
+def configure_cloudflare_tunnel(api_token: str, account_id: str, tunnel_id: str, hostname: str, port: int):
+    payload = {
+        "config": {
+            "ingress": [
+                {
+                    "hostname": hostname,
+                    "service": f"http://127.0.0.1:{int(port)}",
+                    "originRequest": {},
+                },
+                {"service": "http_status:404"},
+            ]
+        }
+    }
+    return _cloudflare_api_request(
+        "PUT",
+        f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations",
+        api_token,
+        payload=payload,
+    )
+
+
+def ensure_cloudflare_dns(api_token: str, zone_id: str, hostname: str, tunnel_id: str):
+    target = f"{tunnel_id}.cfargotunnel.com"
+    records = _cloudflare_api_request(
+        "GET",
+        f"/zones/{zone_id}/dns_records",
+        api_token,
+        query={"name": hostname, "per_page": 100},
+    ) or []
+
+    desired = {
+        "type": "CNAME",
+        "name": hostname,
+        "content": target,
+        "ttl": 1,
+        "proxied": True,
+    }
+
+    if records:
+        cname = next((r for r in records if str(r.get("type") or "").upper() == "CNAME"), None)
+        if cname is None:
+            kinds = ", ".join(sorted({str(r.get("type") or "?") for r in records}))
+            raise RuntimeError(
+                f"DNS {hostname} đang có record loại {kinds}; không tự xóa record hiện có."
+            )
+        if (
+            str(cname.get("content") or "").rstrip(".").lower() == target.lower()
+            and bool(cname.get("proxied", False))
+        ):
+            return cname
+        return _cloudflare_api_request(
+            "PATCH",
+            f"/zones/{zone_id}/dns_records/{cname['id']}",
+            api_token,
+            payload=desired,
+        )
+
+    return _cloudflare_api_request(
+        "POST",
+        f"/zones/{zone_id}/dns_records",
+        api_token,
+        payload=desired,
+    )
+
+
+def provision_cloudflare_named_tunnel(api_token: str, cfg: dict, port: int) -> dict:
+    """
+    Tự tạo/reuse Named Tunnel, cấu hình ingress, DNS và lấy Tunnel Token.
+    API Token quản trị chỉ tồn tại trong RAM trong lần provisioning này.
+    """
+    hostname = get_public_hostname(cfg)
+    if not hostname:
+        raise RuntimeError("Hãy điền public_base_url bằng hostname HTTPS cố định trong config.json.")
+
+    zone = discover_cloudflare_zone(api_token, hostname)
+    zone_id = str(zone.get("id") or "").strip()
+    account_id = str((zone.get("account") or {}).get("id") or "").strip()
+    if not zone_id or not account_id:
+        raise RuntimeError("Cloudflare Zone không trả về zone_id/account_id hợp lệ.")
+
+    tunnel = get_or_create_cloudflare_tunnel(api_token, account_id, hostname)
+    tunnel_id = str((tunnel or {}).get("id") or "").strip()
+    if not tunnel_id:
+        raise RuntimeError("Cloudflare không trả về Tunnel ID.")
+
+    configure_cloudflare_tunnel(api_token, account_id, tunnel_id, hostname, port)
+    ensure_cloudflare_dns(api_token, zone_id, hostname, tunnel_id)
+
+    tunnel_token = _cloudflare_api_request(
+        "GET",
+        f"/accounts/{account_id}/cfd_tunnel/{tunnel_id}/token",
+        api_token,
+    )
+    tunnel_token = str(tunnel_token or "").strip()
+    if not tunnel_token:
+        raise RuntimeError("Cloudflare không trả về Tunnel Token.")
+
+    return {
+        "hostname": hostname,
+        "zone_id": zone_id,
+        "account_id": account_id,
+        "tunnel_id": tunnel_id,
+        "tunnel_name": str((tunnel or {}).get("name") or _tunnel_name_for_hostname(hostname)),
+        "tunnel_token": tunnel_token,
+    }
 
 def ping_port(port: int, timeout: float = 1.2) -> bool:
     """Kiểm tra xem cổng có đang chạy máy chủ Cambida (phản hồi /api/ping) không."""
@@ -381,13 +600,45 @@ def action_setup(port_override: int = None, non_interactive: bool = False):
 
     token = read_tunnel_token(cfg)
     if not token:
-        if non_interactive:
-            print("[!] Chưa có tunnel_token.txt cho quán này.", flush=True)
+        api_token = (os.environ.get("CLOUDFLARE_API_TOKEN") or "").strip()
+        if not api_token and non_interactive:
+            print(
+                "[!] Chưa có tunnel_token.txt. Đặt CLOUDFLARE_API_TOKEN cho lần provisioning đầu tiên.",
+                flush=True,
+            )
             return False
-        token = getpass.getpass("\nDán Cloudflare Tunnel Token của quán (không hiển thị): ").strip()
+        if not api_token:
+            print(
+                "\nLần đầu Cambida sẽ tự tạo/reuse Tunnel + DNS + Tunnel Token.",
+                flush=True,
+            )
+            print(
+                "API Token cần: Account/Cloudflare Tunnel Edit + Zone/DNS Edit + Zone/Zone Read.",
+                flush=True,
+            )
+            api_token = getpass.getpass(
+                "Dán Cloudflare API Token quản trị (chỉ dùng trong RAM, không lưu): "
+            ).strip()
+        if not api_token:
+            print("[!] Cloudflare API Token đang trống.", flush=True)
+            return False
+        try:
+            provisioned = provision_cloudflare_named_tunnel(api_token, cfg, target_port)
+        except RuntimeError as exc:
+            print(f"[!] Provisioning Cloudflare thất bại: {exc}", flush=True)
+            return False
+        finally:
+            api_token = ""
+
+        token = provisioned["tunnel_token"]
         if not write_tunnel_token(token):
-            print("[!] Token trống hoặc không thể lưu tunnel_token.txt.", flush=True)
+            print("[!] Không thể sinh tunnel_token.txt.", flush=True)
             return False
+        print(
+            f"[+] Đã provision Tunnel {provisioned['tunnel_name']} cho {provisioned['hostname']}.",
+            flush=True,
+        )
+        print("[+] Đã tự sinh tunnel_token.txt cho quán này.", flush=True)
 
     if not run_named_tunnel(token):
         print("[!] Quá trình khởi động Named Tunnel thất bại.", flush=True)

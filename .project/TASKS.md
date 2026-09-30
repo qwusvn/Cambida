@@ -1,6 +1,13 @@
 # TASKS — Cambida
 
 ## DONE
+- [x] 2026-09-30 — Cloudflare API auto-provisioning & update 2.2.5:
+  + Khi chưa có `tunnel_token.txt`, `setup_cloudflare.exe` dùng Cloudflare API Token một lần để tự dò zone/account từ `public_base_url`.
+  + Tự tạo hoặc reuse Named Tunnel theo hostname, cấu hình ingress `http://127.0.0.1:<server_port>`, tạo/cập nhật DNS CNAME tới `<tunnel_id>.cfargotunnel.com`, lấy Tunnel Token và sinh `tunnel_token.txt`.
+  + API Token quản trị chỉ tồn tại trong RAM trong lần provisioning; không ghi vào `config.json`, release hay file bí mật khác. Non-interactive hỗ trợ biến môi trường `CLOUDFLARE_API_TOKEN`.
+  + Quyền API Token cần: Account/Cloudflare Tunnel Edit, Zone/DNS Edit, Zone/Zone Read.
+  + Release `2.2.5.zip` build thành công, SHA-256 `610506bc899706bcc4596f66ebdb8f597dce949ceb0214815015c814b943481f`; generic ZIP không chứa config/token.
+  + Regression Cloudflare provisioning 10/10 PASS; py_compile/diff-check/Zero Config Pollution PASS; live Cloudflare API provisioning chưa chạy do phiên không có API Token quản trị.
 - [x] 2026-09-30 — Cloudflare Named Tunnel cố định & update 2.2.4:
   + Bỏ runtime Quick Tunnel/trycloudflare fallback; Cambida chỉ chạy `cloudflared tunnel run --token`.
   + Hostname HTTPS cố định lấy từ `public_base_url` trong `config.json`; token từng quán lưu riêng ở `tunnel_token.txt`.

@@ -19,7 +19,7 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "2.2.4"
+VERSION = "2.2.5"
 RELEASE_DIR = ROOT / "release" / VERSION
 RELEASE_ZIP = ROOT / "release" / f"{VERSION}.zip"
 DIST_CAMHL = ROOT / "dist-camhl"

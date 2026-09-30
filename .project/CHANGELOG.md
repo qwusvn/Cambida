@@ -1,5 +1,12 @@
 # PROJECT CHANGELOG — Cambida
 
+## 2026-09-30 — 2.2.5 Cloudflare API auto-provisioning
+- Từ `public_base_url`, setup tự dò Cloudflare Zone/Account, tạo hoặc reuse Named Tunnel và cấu hình ingress về server Cambida.
+- Tự tạo/cập nhật DNS CNAME proxied tới `<tunnel_id>.cfargotunnel.com`, gọi API lấy Tunnel Token và sinh `tunnel_token.txt`.
+- Cloudflare API Token quản trị chỉ dùng trong RAM; interactive nhập ẩn, non-interactive có thể dùng `CLOUDFLARE_API_TOKEN`; không persist vào config/release.
+- DNS hiện hữu không phải CNAME sẽ được giữ nguyên và báo lỗi thay vì tự xóa/ghi đè.
+- Đóng gói `release/2.2.5.zip` 215,297,500 bytes, SHA-256 `610506bc899706bcc4596f66ebdb8f597dce949ceb0214815015c814b943481f`; provisioning regression 10/10 PASS; Zero Config Pollution PASS.
+
 ## 2026-09-30 — 2.2.4 Cloudflare Named Tunnel
 - Chuyển runtime từ Quick Tunnel `*.trycloudflare.com` sang Named Tunnel token riêng từng quán; không còn fallback tự cấp URL trial.
 - `public_base_url` trong `config.json` trở thành hostname HTTPS cố định; `tunnel_token.txt` tách riêng khỏi config.

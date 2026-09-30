@@ -80,6 +80,82 @@ class NamedTunnelUpdateTests(unittest.TestCase):
             ):
                 self.assertEqual(BUILDER.get_tunnel_token_seed(), token_file.resolve())
 
+    def test_zone_discovery_uses_longest_matching_zone(self):
+        zones = [
+            {"id": "zone-root", "name": "example.com", "account": {"id": "acct"}},
+            {"id": "zone-sub", "name": "shop.example.com", "account": {"id": "acct"}},
+        ]
+        with patch.object(SETUP, "_cloudflare_api_request", return_value=zones):
+            zone = SETUP.discover_cloudflare_zone("admin-token", "cam.shop.example.com")
+        self.assertEqual(zone["id"], "zone-sub")
+
+    def test_provision_builds_tunnel_ingress_dns_and_fetches_token(self):
+        calls = []
+
+        def fake_api(method, path, api_token, payload=None, query=None, timeout=15.0):
+            calls.append((method, path, payload, query))
+            if path == "/zones":
+                return [{"id": "zone1", "name": "example.com", "account": {"id": "acct1"}}]
+            if path == "/accounts/acct1/cfd_tunnel" and method == "GET":
+                return []
+            if path == "/accounts/acct1/cfd_tunnel" and method == "POST":
+                return {"id": "tunnel1", "name": "cambida-cam-example-com"}
+            if path.endswith("/configurations"):
+                return {"ok": True}
+            if path == "/zones/zone1/dns_records" and method == "GET":
+                return []
+            if path == "/zones/zone1/dns_records" and method == "POST":
+                return {"id": "dns1"}
+            if path.endswith("/token"):
+                return "shop-tunnel-token"
+            raise AssertionError((method, path, payload, query))
+
+        with patch.object(SETUP, "_cloudflare_api_request", side_effect=fake_api):
+            result = SETUP.provision_cloudflare_named_tunnel(
+                "admin-token",
+                {"public_base_url": "https://cam.example.com"},
+                8004,
+            )
+
+        self.assertEqual(result["tunnel_token"], "shop-tunnel-token")
+        config_call = next(c for c in calls if c[1].endswith("/configurations"))
+        ingress = config_call[2]["config"]["ingress"]
+        self.assertEqual(ingress[0]["hostname"], "cam.example.com")
+        self.assertEqual(ingress[0]["service"], "http://127.0.0.1:8004")
+        dns_create = next(c for c in calls if c[0] == "POST" and c[1] == "/zones/zone1/dns_records")
+        self.assertEqual(dns_create[2]["content"], "tunnel1.cfargotunnel.com")
+        self.assertTrue(dns_create[2]["proxied"])
+
+    def test_first_setup_auto_generates_tunnel_token_file(self):
+        with tempfile.TemporaryDirectory() as td:
+            cfg_path = Path(td) / "config.json"
+            token_path = Path(td) / "tunnel_token.txt"
+            cfg_path.write_text(
+                '{"server_port": 8004, "public_base_url": "https://cam.example.com"}',
+                encoding="utf-8",
+            )
+            provisioned = {
+                "hostname": "cam.example.com",
+                "zone_id": "zone1",
+                "account_id": "acct1",
+                "tunnel_id": "tunnel1",
+                "tunnel_name": "cambida-cam-example-com",
+                "tunnel_token": "generated-shop-token",
+            }
+            with patch.object(SETUP, "CONFIG_FILE", cfg_path), \
+                 patch.object(SETUP, "TOKEN_FILE", token_path), \
+                 patch.object(SETUP, "detect_server_port", return_value=8004), \
+                 patch.object(SETUP, "ping_port", return_value=False), \
+                 patch.object(SETUP, "provision_cloudflare_named_tunnel", return_value=provisioned) as provision, \
+                 patch.object(SETUP, "run_named_tunnel", return_value=True), \
+                 patch.dict(os.environ, {"CLOUDFLARE_API_TOKEN": "one-time-admin-token"}):
+                self.assertTrue(SETUP.action_setup(non_interactive=True))
+
+            self.assertEqual(token_path.read_text(encoding="utf-8").strip(), "generated-shop-token")
+            saved = cfg_path.read_text(encoding="utf-8")
+            self.assertNotIn("one-time-admin-token", saved)
+            provision.assert_called_once()
+
     def test_runtime_start_function_has_no_quick_tunnel_fallback(self):
         source = (ROOT / "1.py").read_text(encoding="utf-8")
         start = source.index("def start_cloudflared_tunnel():")
