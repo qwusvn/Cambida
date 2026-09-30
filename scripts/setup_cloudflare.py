@@ -4,13 +4,14 @@
 Hỗ trợ:
 - Tự động nhận diện config.json và cloudflared.exe
 - Tự động dò tìm cổng máy chủ (8004, 8000, hoặc cổng đang chạy thực tế của camhl.exe)
-- Khởi động Cloudflare Quick Tunnel, bắt URL https://xxxx.trycloudflare.com
+- Khởi động Cloudflare Named Tunnel bằng token riêng của từng quán
 - Tự động cập nhật public_base_url vào config.json
 - Tự động kiểm tra độ thông mạng qua /api/ping
 - Quản lý tự khởi động cùng Windows (chạy ngầm, không hiện cửa sổ cmd)
 """
 import argparse
 import ctypes
+import getpass
 import json
 import os
 from pathlib import Path
@@ -46,6 +47,7 @@ BASE_DIR = get_base_dir()
 CONFIG_FILE = BASE_DIR / "config.json"
 CLOUDFLARED_EXE = BASE_DIR / "cloudflared.exe"
 LOG_DIR = BASE_DIR / "logs"
+TOKEN_FILE = BASE_DIR / "tunnel_token.txt"
 
 
 def set_console_title(title: str):
@@ -94,6 +96,43 @@ def write_config(cfg: dict) -> bool:
     except Exception as exc:
         print(f"[!] Lỗi ghi config.json: {exc}", flush=True)
         return False
+
+
+def read_tunnel_token(cfg: dict = None) -> str:
+    """Đọc token Named Tunnel; ưu tiên cấu hình cũ rồi tới file token riêng."""
+    cfg = cfg or {}
+    tunnel_cfg = cfg.get("cloudflare_tunnel", {})
+    if isinstance(tunnel_cfg, dict):
+        token = str(tunnel_cfg.get("token") or "").strip()
+        if token:
+            return token
+    try:
+        if TOKEN_FILE.is_file():
+            return TOKEN_FILE.read_text(encoding="utf-8-sig").strip()
+    except Exception:
+        pass
+    return ""
+
+
+def write_tunnel_token(token: str) -> bool:
+    token = (token or "").strip()
+    if not token:
+        return False
+    try:
+        TOKEN_FILE.write_text(token + "\n", encoding="utf-8")
+        return True
+    except Exception as exc:
+        print(f"[!] Không thể lưu tunnel_token.txt: {exc}", flush=True)
+        return False
+
+
+def get_fixed_public_url(cfg: dict) -> str:
+    url = str(cfg.get("public_base_url") or "").strip().rstrip("/")
+    if url and not re.match(r"^https://", url, re.IGNORECASE):
+        url = "https://" + url.lstrip("/")
+    if "trycloudflare.com" in url.lower():
+        return ""
+    return url
 
 
 def ping_port(port: int, timeout: float = 1.2) -> bool:
@@ -219,8 +258,8 @@ def toggle_autostart(enable: bool, port: int) -> bool:
             args = f"--daemon --port {port}"
             work_dir = str(BASE_DIR)
         else:
-            target = str(CLOUDFLARED_EXE)
-            args = f"tunnel --url http://127.0.0.1:{port} --no-autoupdate"
+            target = sys.executable
+            args = f'"{str(Path(__file__).resolve())}" --daemon --port {port}'
             work_dir = str(BASE_DIR)
 
         ps_script = f"""
@@ -240,76 +279,45 @@ $Shortcut.Save()
         return False
 
 
-def run_quick_tunnel(port: int, wait_timeout: int = 35) -> str:
-    """Khởi động cloudflared tunnel và bắt URL https://xxxx.trycloudflare.com."""
+def run_named_tunnel(token: str, wait_timeout: int = 5) -> bool:
+    """Khởi động Named Tunnel bằng token riêng của quán; không tạo Quick Tunnel."""
+    token = (token or "").strip()
+    if not token:
+        print("[!] Chưa có tunnel_token.txt cho quán này.", flush=True)
+        return False
     if not CLOUDFLARED_EXE.is_file():
         print(f"[!] Không tìm thấy file {CLOUDFLARED_EXE.name} trong thư mục:", flush=True)
         print(f"    {BASE_DIR}", flush=True)
-        return ""
+        return False
 
     stop_cloudflared_processes()
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     log_file = LOG_DIR / "cloudflared.log"
 
-    print(f"[*] Đang khởi tạo Cloudflare Tunnel kết nối tới http://127.0.0.1:{port}...", flush=True)
-
     flags = 0
     if sys.platform == "win32":
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
 
-    cmd = [
-        str(CLOUDFLARED_EXE),
-        "tunnel",
-        "--url",
-        f"http://127.0.0.1:{port}",
-        "--no-autoupdate",
-    ]
-
+    cmd = [str(CLOUDFLARED_EXE), "tunnel", "run", "--token", token]
     try:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            stdin=subprocess.DEVNULL,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            creationflags=flags,
-        )
-    except Exception as exc:
-        print(f"[!] Không thể khởi động cloudflared.exe: {exc}", flush=True)
-        return ""
-
-    tunnel_url = ""
-    pattern = re.compile(r"https://[-a-zA-Z0-9]+\.trycloudflare\.com")
-
-    print("[*] Đang đợi Cloudflare cấp tên miền HTTPS", end="", flush=True)
-    start_t = time.time()
-
-    with open(log_file, "w", encoding="utf-8") as lf:
-        while time.time() - start_t < wait_timeout:
+        with open(log_file, "a", encoding="utf-8") as lf:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=lf,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                creationflags=flags,
+            )
+        deadline = time.time() + max(1, wait_timeout)
+        while time.time() < deadline:
             if proc.poll() is not None:
-                print("\n[!] Tiến trình cloudflared đã dừng đột ngột!", flush=True)
-                break
-            line = proc.stdout.readline()
-            if line:
-                lf.write(line)
-                lf.flush()
-                match = pattern.search(line)
-                if match:
-                    tunnel_url = match.group(0)
-                    break
-            print(".", end="", flush=True)
-            time.sleep(0.5)
-
-    print("", flush=True)
-
-    if not tunnel_url:
-        print("[!] Không bắt được URL Cloudflare sau 35 giây.", flush=True)
-        print(f"    Vui lòng kiểm tra nhật ký tại: {log_file}", flush=True)
-        return ""
-
-    return tunnel_url
+                print(f"[!] Named Tunnel dừng sớm. Xem nhật ký: {log_file}", flush=True)
+                return False
+            time.sleep(0.25)
+        return proc.poll() is None
+    except Exception as exc:
+        print(f"[!] Không thể khởi động Named Tunnel: {exc}", flush=True)
+        return False
 
 
 def test_public_url(url: str, timeout: float = 3.5) -> bool:
@@ -328,7 +336,7 @@ def action_setup(port_override: int = None, non_interactive: bool = False):
     detected_port = port_override or detect_server_port(cfg)
 
     print("\n" + "=" * 60, flush=True)
-    print("  THIẾT LẬP CLOUDFLARE QUICK TUNNEL - CAMBIDA CCTV", flush=True)
+    print("  THIẾT LẬP CLOUDFLARE NAMED TUNNEL - CAMBIDA CCTV", flush=True)
     print("=" * 60, flush=True)
 
     is_running = ping_port(detected_port)
@@ -336,11 +344,11 @@ def action_setup(port_override: int = None, non_interactive: bool = False):
         print(f"[+] Web Server Cambida đang HOẠT ĐỘNG tại cổng: {detected_port}", flush=True)
     else:
         print(f"[*] Chưa phát hiện Web Server phản hồi tại cổng: {detected_port}", flush=True)
-        print("    (Nếu máy chủ đang tắt, bạn có thể bật sau khi cài đặt tunnel)", flush=True)
+        print("    (Tunnel vẫn có thể cài trước; Cambida có thể bật sau.)", flush=True)
 
     target_port = detected_port
     if not non_interactive:
-        prompt_val = input(f"\nNhập cổng máy chủ cần kết nối [Mặc định: {detected_port}]: ").strip()
+        prompt_val = input(f"\nCổng Cambida [Mặc định: {detected_port}]: ").strip()
         if prompt_val:
             try:
                 target_port = int(prompt_val)
@@ -348,38 +356,56 @@ def action_setup(port_override: int = None, non_interactive: bool = False):
                 print(f"[!] Cổng không hợp lệ, giữ mặc định {detected_port}", flush=True)
                 target_port = detected_port
 
-    # Cập nhật cổng vào config nếu khác
     if cfg.get("server_port") != target_port:
         cfg["server_port"] = target_port
 
-    # Khởi chạy tunnel và bắt URL
-    tunnel_url = run_quick_tunnel(target_port)
-    if not tunnel_url:
-        print("[!] Quá trình thiết lập Cloudflare Tunnel thất bại.", flush=True)
+    public_url = get_fixed_public_url(cfg)
+    if not public_url:
+        if non_interactive:
+            print("[!] Hãy điền public_base_url bằng hostname HTTPS cố định trong config.json.", flush=True)
+            return False
+        domain = input("\nTên miền cố định (ví dụ https://cam1.example.com): ").strip()
+        if domain:
+            tmp_cfg = dict(cfg)
+            tmp_cfg["public_base_url"] = domain
+            public_url = get_fixed_public_url(tmp_cfg)
+        if not public_url:
+            print("[!] Tên miền không hợp lệ hoặc vẫn là trycloudflare.com.", flush=True)
+            return False
+
+    if cfg.get("public_base_url") != public_url:
+        cfg["public_base_url"] = public_url
+        if not write_config(cfg):
+            print("[!] Không thể lưu public_base_url vào config.json.", flush=True)
+            return False
+
+    token = read_tunnel_token(cfg)
+    if not token:
+        if non_interactive:
+            print("[!] Chưa có tunnel_token.txt cho quán này.", flush=True)
+            return False
+        token = getpass.getpass("\nDán Cloudflare Tunnel Token của quán (không hiển thị): ").strip()
+        if not write_tunnel_token(token):
+            print("[!] Token trống hoặc không thể lưu tunnel_token.txt.", flush=True)
+            return False
+
+    if not run_named_tunnel(token):
+        print("[!] Quá trình khởi động Named Tunnel thất bại.", flush=True)
         return False
 
-    # Ghi vào config.json
-    cfg["public_base_url"] = tunnel_url
-    if write_config(cfg):
-        print(f"[+] Đã cập nhật public_base_url vào config.json thành công!", flush=True)
-    else:
-        print(f"[!] Cảnh báo: Không thể ghi URL vào config.json.", flush=True)
-
     print("\n" + "=" * 60, flush=True)
-    print("  [THÀNH CÔNG] CLOUDFLARE HTTPS TUNNEL ĐÃ SẴN SÀNG!", flush=True)
-    print(f"  Link truy cập từ xa: {tunnel_url}", flush=True)
+    print("  [THÀNH CÔNG] CLOUDFLARE NAMED TUNNEL ĐÃ SẴN SÀNG!", flush=True)
+    print(f"  Link cố định: {public_url}", flush=True)
     print("=" * 60, flush=True)
 
-    # Thử nghiệm ping internet
     if is_running:
         print("[*] Đang xác thực đường truyền từ Internet...", end="", flush=True)
         time.sleep(1.5)
-        if test_public_url(tunnel_url):
+        if test_public_url(public_url):
             print(" [OK - Đã thông mạng]", flush=True)
         else:
-            print(" [Đang kết nối ngầm - vui lòng đợi vài giây]", flush=True)
+            print(" [Chưa phản hồi - kiểm tra Public Hostname/Service trên Cloudflare]", flush=True)
 
-    # Cài đặt tự khởi động
     if not non_interactive:
         autostart_current = check_autostart_status()
         status_str = "ĐANG BẬT" if autostart_current else "ĐANG TẮT"
@@ -393,8 +419,7 @@ def action_setup(port_override: int = None, non_interactive: bool = False):
             toggle_autostart(False, target_port)
             print("[+] Đã tắt tự khởi động cùng Windows.", flush=True)
 
-    print("\nKhách dùng iPhone khi quét mã QR sẽ tự động mở trang Lưu Video vào Thư viện Ảnh.")
-    print("Bạn có thể đóng cửa sổ này, tiến trình Cloudflared sẽ tiếp tục chạy ngầm.")
+    print("\nCambida sẽ dùng public_base_url cố định; không còn tự tạo tên miền trycloudflare.com.")
     return True
 
 
@@ -410,7 +435,10 @@ def action_status():
     server_running = ping_port(port)
     print(f"- Web Server nội bộ (port {port}): {'🟢 HOẠT ĐỘNG' if server_running else '🔴 CHƯA PHẢN HỒI'}", flush=True)
 
-    pub_url = (cfg.get("public_base_url") or "").strip()
+    token_present = bool(read_tunnel_token(cfg))
+    print(f"- Named Tunnel Token: {'🟢 ĐÃ CÓ' if token_present else '🔴 CHƯA CÓ'}", flush=True)
+
+    pub_url = get_fixed_public_url(cfg)
     if pub_url:
         print(f"- URL công khai: {pub_url}", flush=True)
         if running and server_running:
@@ -433,18 +461,19 @@ def action_stop():
 
 
 def daemon_mode(port: int):
-    """Chạy ngầm liên tục, bắt URL mới nếu tunnel khởi động lại và duy trì kết nối."""
+    """Chạy ngầm Named Tunnel và tự khởi động lại nếu connector dừng."""
     hide_console()
     while True:
         try:
             cfg = read_config()
-            act_port = port or detect_server_port(cfg)
-            tunnel_url = run_quick_tunnel(act_port, wait_timeout=45)
-            if tunnel_url:
-                cfg["public_base_url"] = tunnel_url
-                cfg["server_port"] = act_port
-                write_config(cfg)
-            # Theo dõi liveness
+            token = read_tunnel_token(cfg)
+            if not token:
+                time.sleep(10)
+                continue
+            if not get_fixed_public_url(cfg):
+                time.sleep(10)
+                continue
+            run_named_tunnel(token, wait_timeout=2)
             while is_cloudflared_running():
                 time.sleep(10)
         except Exception:
@@ -484,7 +513,7 @@ def main():
         print("\n" + "=" * 60, flush=True)
         print("   QUẢN LÝ CLOUDFLARE TUNNEL - CAMBIDA CCTV", flush=True)
         print("=" * 60, flush=True)
-        print("  [1] Cài đặt / Cấp mới URL Cloudflare Quick Tunnel", flush=True)
+        print("  [1] Cài đặt / Kết nối Cloudflare Named Tunnel", flush=True)
         print("  [2] Kiểm tra trạng thái kết nối Cloudflare", flush=True)
         print("  [3] Dừng Cloudflare Tunnel", flush=True)
         print("  [4] Bật / Tắt tự khởi động cùng Windows", flush=True)

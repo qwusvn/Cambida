@@ -1,16 +1,17 @@
 # STATE — Cambida
 
-Cập nhật: 2026-09-27 +07
+Cập nhật: 2026-09-30 +07
 
 ## Trạng thái hiện tại
 - Workspace: D:\\1\\cambida, branch main.
-- Phiên bản phát hành hiện tại: **2.2.3** (camhl.exe Host Loader, updater.exe, setup_cloudflare.exe, _internal/app.pyc, release/2.2.3.zip).
+- Phiên bản phát hành hiện tại: **2.2.4** (Named Tunnel cố định, updater install-once token, setup_cloudflare.exe, _internal/app.pyc, release/2.2.4.zip).
+- Cloudflare 2.2.4: runtime chỉ chạy Named Tunnel bằng token riêng từng quán; `public_base_url` là hostname cố định trong `config.json`; updater chỉ cài `tunnel_token.txt` khi máy chưa có và không ghi đè token hiện hữu. Generic ZIP không chứa token/config.
 - Kiến trúc lõi: **Host Loader (camhl.exe) + Bytecode (_internal/app.pyc)**. camhl.exe đóng vai trò file mồi nhúng runtime Dahua NetSDK, tự động nạp logic backend app.pyc (biên dịch 0.1s qua py_compile từ 1.py).
-- ZIP SHA-256: `0bb904a4c5d6aea32a09f8b32d89d4ea55afd99eba9ea3b17198e5bd74b9b5b1` (215,292,949 bytes)
+- ZIP SHA-256: `05d7e7e68ec0e4d8478fcd28f10fe00c4e11ab24bee22d8981f5aef95807aff2` (215,292,531 bytes)
 - camhl.exe SHA-256: `bb3ddeb7f09e370a5efc668d590ff81e00ce1bc9da026cf177a4d4bb442026dc`
-- updater.exe SHA-256: `c02ad706be32301f8327875e367b1f79d84b0723a6744f6aed62cdd5579a6a1d`
-- setup_cloudflare.exe SHA-256: `dffe057114cfe4df22847eba7c211f5177455f1de0a7054de65bd7f6e6225491`
-- Đồng bộ Root Test: Toàn bộ cấu trúc runtime 2.2.3 đã được đồng bộ vào thư mục gốc `D:\1\cambida\`. Đã kiểm thử runtime xác nhận: `/api/ping` (200 OK), UI HTML sidecars (`/`, 200 OK), `/api/license/status` (200 OK), `/api/tables` (200 OK). Zero Config Pollution Audit: 100% PASS.
+- updater.exe SHA-256: `a8a7a3efd34e891731bb48ef81d86a734db0ffa7bd599cd934c46d667362c92a`
+- setup_cloudflare.exe SHA-256: `7c2c4f021a3468f026f57e8daab22c78c201b52544eb1c949c4e24d5ac3f6e88`
+- Verify 2.2.4: `py_compile` PASS; Cloudflare regression 7/7 PASS; `git diff --check` PASS; Zero Config Pollution PASS; generic ZIP không có `config.json`/`tunnel_token.txt`; `setup_cloudflare.exe --status` PASS. Bộ `test_auto_update` cũ còn 1 failure riêng ở kiểm tra GitHub release, không đi qua mã Cloudflare/updater mới.
 
 - Workspace: D:\1\cambida, branch main (tracking origin/main tại https://github.com/qwusvn/Cambida).
 - Phiên bản phát triển và đóng gói hiện tại: **2.1.63** (RELEASE_VERSION.txt = 2.1.63, spec và launcher CCTV_2.1.63.spec, CCTV_2.1.63.launcher.cmd, Chay_CCTV.cmd, package_2.1.63.ps1). Gói phát hành đầy đủ chuẩn: `release/2.1.63.zip` (SHA-256: `944E63B59DD8EE7EECB8DDCA6E95DF2B4B93D4EC54AA6DCDA86570EAF648A51D`) bao gồm đầy đủ runtime, sidecars, launcher, hoàn toàn không kèm file 1.py bên ngoài. File thực thi onedir: `CCTV_2.1.63.exe` (SHA-256: `38E6348A0206DDE859693083730EF94215A93D7C8EE694B3022A688BAEBC9AD1`).

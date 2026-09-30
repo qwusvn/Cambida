@@ -4373,66 +4373,27 @@ def start_cloudflared_tunnel():
                 except Exception:
                     pass
 
-    port = int(CONFIG.get("server_port") or 8004)
-    if token:
-        cmd = [cf_bin, "tunnel", "run", "--token", token]
-    else:
-        cmd = [cf_bin, "tunnel", "--url", f"http://127.0.0.1:{port}"]
+    if not token:
+        logger.warning("[Tunnel] Chưa có tunnel_token.txt; bỏ qua Named Tunnel, không tạo Quick Tunnel tạm")
+        return
+
+    cmd = [cf_bin, "tunnel", "run", "--token", token]
 
     flags = 0
     if sys.platform == "win32":
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
 
     try:
-        if not token:
-            _cloudflared_proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                stdin=subprocess.DEVNULL,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                creationflags=flags
-            )
-            def _watch_trycloudflare():
-                global _TUNNEL_ONLINE
-                pattern = re.compile(r"https://[-a-zA-Z0-9]+\.trycloudflare\.com")
-                try:
-                    for line in iter(_cloudflared_proc.stdout.readline, ""):
-                        if not line:
-                            break
-                        match = pattern.search(line)
-                        if match:
-                            found_url = match.group(0)
-                            logger.info(f"[Tunnel] Cloudflare cấp URL: {found_url}")
-                            if CONFIG.get("public_base_url") != found_url:
-                                CONFIG["public_base_url"] = found_url
-                                _TUNNEL_ONLINE = True
-                                try:
-                                    if os.path.isfile(CONFIG_FILE):
-                                        with open(CONFIG_FILE, "r", encoding="utf-8-sig") as f:
-                                            data = json.load(f)
-                                        data["public_base_url"] = found_url
-                                        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-                                            json.dump(data, f, indent=2, ensure_ascii=False)
-                                except Exception as e:
-                                    logger.warning(f"[Tunnel] Không thể lưu public_base_url: {e}")
-                            break
-                except Exception:
-                    pass
-            threading.Thread(target=_watch_trycloudflare, daemon=True, name="CloudflareWatcher").start()
-        else:
-            _cloudflared_proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=flags
-            )
-        logger.info(f"[Tunnel] Đã tự động kích hoạt cloudflared ngầm (PID: {_cloudflared_proc.pid})")
+        _cloudflared_proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            creationflags=flags,
+        )
+        logger.info(f"[Tunnel] Đã tự động kích hoạt Named Tunnel ngầm (PID: {_cloudflared_proc.pid})")
     except Exception as exc:
-        logger.warning(f"[Tunnel] Không thể khởi động cloudflared: {exc}")
-
+        logger.warning(f"[Tunnel] Không thể khởi động Named Tunnel: {exc}")
 
 def stop_cloudflared_tunnel():
     global _cloudflared_proc
@@ -5773,7 +5734,7 @@ def api_admin_tunnel_status():
     pub_url = get_public_base_url()
     online = is_tunnel_online()
     tunnel_cfg = CONFIG.get("cloudflare_tunnel", {})
-    enabled = bool(tunnel_cfg.get("enabled", False))
+    enabled = bool((isinstance(tunnel_cfg, dict) and tunnel_cfg.get("token")) or os.path.isfile(os.path.join(BASE_DIR, "tunnel_token.txt")))
 
     if online:
         status = "online"

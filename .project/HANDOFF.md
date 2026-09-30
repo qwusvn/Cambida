@@ -1,6 +1,6 @@
 # HANDOFF — Cambida
 
-Cập nhật: 2026-09-23 +07
+Cập nhật: 2026-09-30 +07
 
 ## Bắt đầu hội thoại/agent mới
 1. Workspace: `D:\1\cambida`.
@@ -10,6 +10,7 @@ Cập nhật: 2026-09-23 +07
 5. Mỗi task hoàn tất phải có commit riêng đúng scope; không gom thay đổi cũ ngoài task.
 
 ## Trạng thái bàn giao
+- **2.2.4 Cloudflare Named Tunnel**: release chung `release/2.2.4.zip` đã build (SHA-256 `05d7e7e68ec0e4d8478fcd28f10fe00c4e11ab24bee22d8981f5aef95807aff2`). Runtime không còn Quick Tunnel; hostname lấy từ `config.json.public_base_url`; token từng quán ở `tunnel_token.txt`. Updater cài token theo kiểu install-once và giữ nguyên token cũ. Builder có `--tunnel-token-file <path>` để tạo update private cho từng quán; generic ZIP không chứa token/config. Test Cloudflare 7/7 PASS, py_compile/diff-check/Zero Config Pollution PASS.
 - Phiên bản phát triển và đóng gói hiện tại: **2.1.63** (RELEASE_VERSION.txt = 2.1.63, release/2.1.63.zip, CCTV_2.1.63.exe, launcher).
   + Gói zip phát hành đầy đủ chuẩn: `release/2.1.63.zip` (218 MB, SHA-256: `944E63B59DD8EE7EECB8DDCA6E95DF2B4B93D4EC54AA6DCDA86570EAF648A51D`), bao gồm toàn bộ runtime Python trong `_internal\`, module `qrcode`, NetSDK, Cloudflared, HTML sidecars, `updater.cmd`, `Chay_CCTV.cmd` và launcher shims, loại bỏ hoàn toàn `1.py` bên ngoài.
   + File thực thi onedir: `CCTV_2.1.63.exe` (SHA-256: `38E6348A0206DDE859693083730EF94215A93D7C8EE694B3022A688BAEBC9AD1`).

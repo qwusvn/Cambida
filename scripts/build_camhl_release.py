@@ -19,7 +19,7 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "2.2.3"
+VERSION = "2.2.4"
 RELEASE_DIR = ROOT / "release" / VERSION
 RELEASE_ZIP = ROOT / "release" / f"{VERSION}.zip"
 DIST_CAMHL = ROOT / "dist-camhl"
@@ -97,6 +97,22 @@ def make_zip(source_dir, output_zip):
                 rel_path = abs_path.relative_to(source_dir)
                 zf.write(abs_path, rel_path.as_posix())
     print(f"[+] Nén hoàn tất trong {time.time() - t0:.1f}s (Dung lượng: {output_zip.stat().st_size:,} bytes)", flush=True)
+
+
+def get_tunnel_token_seed():
+    """Optional per-shop token seed. Generic/public builds never include a tunnel token."""
+    flag = "--tunnel-token-file"
+    if flag not in sys.argv:
+        return None
+    idx = sys.argv.index(flag)
+    if idx + 1 >= len(sys.argv):
+        raise RuntimeError(f"{flag} requires a file path")
+    token_path = Path(sys.argv[idx + 1]).expanduser().resolve()
+    if not token_path.is_file():
+        raise RuntimeError(f"Tunnel token file not found: {token_path}")
+    if not token_path.read_text(encoding="utf-8-sig").strip():
+        raise RuntimeError(f"Tunnel token file is empty: {token_path}")
+    return token_path
 
 
 def main():
@@ -239,6 +255,12 @@ def main():
             raise RuntimeError(f"Thiếu file sidecar bắt buộc: {sidecar}")
         shutil.copy2(src, RELEASE_DIR / sidecar)
 
+    # Optional private per-shop token seed. Never included unless explicitly requested.
+    tunnel_token_seed = get_tunnel_token_seed()
+    if tunnel_token_seed:
+        shutil.copy2(tunnel_token_seed, RELEASE_DIR / "tunnel_token.txt")
+        print("[*] Private per-shop build: included tunnel_token.txt (install-once).", flush=True)
+
     # Copy VERSION.txt
     shutil.copy2(ROOT / "RELEASE_VERSION.txt", RELEASE_DIR / "VERSION.txt")
 
@@ -314,7 +336,7 @@ def main():
 
     # 8. Deploy to root workspace for testing
     if not quick_mode:
-        print("[*] Đang đồng bộ cấu trúc phát hành 2.2.3 vào thư mục gốc để chạy test...", flush=True)
+        print(f"[*] Đang đồng bộ cấu trúc phát hành {VERSION} vào thư mục gốc để chạy test...", flush=True)
         protected_root_files = {"config.json", "analytics.db", "device_id.key", "tunnel_token.txt"}
         for f in RELEASE_DIR.iterdir():
             if f.is_file():

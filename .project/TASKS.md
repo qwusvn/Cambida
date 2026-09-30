@@ -1,6 +1,14 @@
 # TASKS — Cambida
 
 ## DONE
+- [x] 2026-09-30 — Cloudflare Named Tunnel cố định & update 2.2.4:
+  + Bỏ runtime Quick Tunnel/trycloudflare fallback; Cambida chỉ chạy `cloudflared tunnel run --token`.
+  + Hostname HTTPS cố định lấy từ `public_base_url` trong `config.json`; token từng quán lưu riêng ở `tunnel_token.txt`.
+  + Updater chuyển `tunnel_token.txt` sang install-once: cài từ update private nếu máy chưa có, tuyệt đối không ghi đè token đã tồn tại; `config.json` vẫn được bảo vệ.
+  + `setup_cloudflare.exe` chuyển sang Named Tunnel, không tự cấp/ghi đè URL trycloudflare; hỗ trợ lưu token một lần và kiểm tra hostname cố định.
+  + Builder hỗ trợ tùy chọn `--tunnel-token-file <path>` cho private per-shop build; generic build không chứa token.
+  + Release `2.2.4.zip` build quick thành công, SHA-256 `05d7e7e68ec0e4d8478fcd28f10fe00c4e11ab24bee22d8981f5aef95807aff2`; Zero Config Pollution PASS.
+  + Regression `tests.test_cloudflare_named_tunnel`: 7/7 PASS; py_compile PASS; diff-check PASS.
 - [x] 2026-09-27 — Kiến trúc Host Loader (camhl.exe) + Bytecode (_internal/app.pyc), đóng gói phát hành 2.2.3 & triển khai đồng bộ Root Test:
   + Thiết kế và hiện thực Host Loader (`scripts/camhl_launcher.py`) đóng gói ra `camhl.exe`: File mồi cố định nạp Dahua NetSDK, tự động nạp logic backend `_internal/app.pyc` qua `runpy.run_path`, ghi log khởi động `logs/camhl_boot.log`.
   + Tối ưu hóa AST dependency scanning trong `camhl.spec` tự động quét 100% stdlib submodules và thư viện phụ trợ, đảm bảo môi trường runtime hoàn chỉnh cho `app.pyc`.

@@ -15,6 +15,9 @@ PROTECTED_FILES = {
     "config.json",
     "analytics.db",
     "device_id.key",
+}
+
+INSTALL_ONCE_FILES = {
     "tunnel_token.txt",
 }
 
@@ -115,11 +118,17 @@ def update_files(src_dir, dst_dir, log_file=None):
         os.makedirs(target_root, exist_ok=True)
 
         for filename in files:
-            if filename.lower() in PROTECTED_FILES:
-                log(f"Bảo vệ cấu hình: bỏ qua ghi đè {filename}", log_file)
-                continue
             src_file = os.path.join(root, filename)
             dst_file = os.path.join(target_root, filename)
+            lower_name = filename.lower()
+
+            if lower_name in PROTECTED_FILES:
+                log(f"Bảo vệ cấu hình: bỏ qua ghi đè {filename}", log_file)
+                continue
+            if lower_name in INSTALL_ONCE_FILES and os.path.exists(dst_file):
+                log(f"Bảo vệ token hiện có: bỏ qua ghi đè {filename}", log_file)
+                continue
+
 
             # Đừng tự đè lên chính binary updater.exe đang chạy
             if os.path.abspath(src_file) == os.path.abspath(sys.executable) or os.path.abspath(dst_file) == os.path.abspath(sys.executable):

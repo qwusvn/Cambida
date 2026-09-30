@@ -1,5 +1,13 @@
 # PROJECT CHANGELOG — Cambida
 
+## 2026-09-30 — 2.2.4 Cloudflare Named Tunnel
+- Chuyển runtime từ Quick Tunnel `*.trycloudflare.com` sang Named Tunnel token riêng từng quán; không còn fallback tự cấp URL trial.
+- `public_base_url` trong `config.json` trở thành hostname HTTPS cố định; `tunnel_token.txt` tách riêng khỏi config.
+- Updater hỗ trợ install-once token: cài nếu máy chưa có, không bao giờ ghi đè token hiện hữu; config vẫn được bảo vệ.
+- `setup_cloudflare.exe` chuyển sang Named Tunnel, hỗ trợ nhập/lưu token một lần, kiểm tra fixed hostname và daemon tự phục hồi.
+- Builder hỗ trợ `--tunnel-token-file <path>` cho private per-shop update; build chung không chứa token.
+- Đóng gói `release/2.2.4.zip` 215,292,531 bytes, SHA-256 `05d7e7e68ec0e4d8478fcd28f10fe00c4e11ab24bee22d8981f5aef95807aff2`; Cloudflare regression 7/7 PASS; Zero Config Pollution PASS.
+
 ## 2026-09-12
 
 - Cập nhật quy tắc Git theo yêu cầu mới nhất: mọi task chỉ được chuyển sang `COMPLETED` sau khi có Git commit riêng cho đúng scope; không stage/commit thay đổi ngoài scope; báo cáo `COMMIT` bắt buộc có hash khi hoàn tất.
