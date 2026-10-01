@@ -156,6 +156,21 @@ class NamedTunnelUpdateTests(unittest.TestCase):
             self.assertNotIn("one-time-admin-token", saved)
             provision.assert_called_once()
 
+    def test_updater_installs_controlhub_bootstrap_once(self):
+        with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as dst:
+            Path(src, "controlhub_bootstrap.json").write_text('{"site_id":"new"}', encoding="utf-8")
+            UPDATER.update_files(src, dst)
+            self.assertEqual(
+                Path(dst, "controlhub_bootstrap.json").read_text(encoding="utf-8"),
+                '{"site_id":"new"}',
+            )
+            Path(src, "controlhub_bootstrap.json").write_text('{"site_id":"overwrite"}', encoding="utf-8")
+            UPDATER.update_files(src, dst)
+            self.assertEqual(
+                Path(dst, "controlhub_bootstrap.json").read_text(encoding="utf-8"),
+                '{"site_id":"new"}',
+            )
+
     def test_runtime_start_function_has_no_quick_tunnel_fallback(self):
         source = (ROOT / "1.py").read_text(encoding="utf-8")
         start = source.index("def start_cloudflared_tunnel():")

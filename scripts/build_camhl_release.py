@@ -19,7 +19,7 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "2.2.5"
+VERSION = "2.2.6"
 RELEASE_DIR = ROOT / "release" / VERSION
 RELEASE_ZIP = ROOT / "release" / f"{VERSION}.zip"
 DIST_CAMHL = ROOT / "dist-camhl"
@@ -277,6 +277,15 @@ def main():
         raise RuntimeError("Không tìm thấy output _internal/app.pyc sau khi biên dịch!")
     print(f"[+] Biên dịch ruột backend hoàn tất: {app_pyc.stat().st_size:,} bytes", flush=True)
 
+    # Compile one-time ControlHub claim client into _internal (no raw Python source in release).
+    controlhub_src = ROOT / "controlhub_claim.py"
+    controlhub_pyc = RELEASE_DIR / "_internal" / "controlhub_claim.pyc"
+    if not controlhub_src.is_file():
+        raise RuntimeError(f"Không tìm thấy ControlHub claim client: {controlhub_src}")
+    py_compile.compile(str(controlhub_src), cfile=str(controlhub_pyc), doraise=True)
+    if not controlhub_pyc.is_file():
+        raise RuntimeError("Không tìm thấy output _internal/controlhub_claim.pyc sau khi biên dịch!")
+
     # 5. Strict Zero Config Pollution & Cleanliness Audit
     print("[*] Đang đối soát bảo mật (Zero Config Pollution Audit)...", flush=True)
     found_forbidden = []
@@ -355,6 +364,7 @@ def main():
     else:
         try:
             shutil.copy2(RELEASE_DIR / "_internal" / "app.pyc", ROOT / "_internal" / "app.pyc")
+            shutil.copy2(RELEASE_DIR / "_internal" / "controlhub_claim.pyc", ROOT / "_internal" / "controlhub_claim.pyc")
             shutil.copy2(RELEASE_DIR / "release_manifest.json", ROOT / "release_manifest.json")
             shutil.copy2(RELEASE_DIR / "update.json", ROOT / "update.json")
         except Exception:

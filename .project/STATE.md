@@ -4,7 +4,9 @@ Cập nhật: 2026-09-30 +07
 
 ## Trạng thái hiện tại
 - Workspace: D:\\1\\cambida, branch main.
-- Phiên bản phát hành hiện tại: **2.2.5** (Cloudflare API auto-provisioning, Named Tunnel cố định, setup_cloudflare.exe, _internal/app.pyc, release/2.2.5.zip).
+- Phiên bản phát hành hiện tại: **2.2.6** (ControlHub one-time claim + Named Tunnel cố định, release/2.2.6.zip).
+- ControlHub 2.2.6: update riêng theo quán chỉ cài install-once `controlhub_bootstrap.json`; lúc khởi động Cambida tự claim qua HTTPS, nhận `public_base_url` + Tunnel Token riêng, ghi `config.json`/`tunnel_token.txt`, rồi xóa bootstrap. Cloudflare API Token quản trị không xuống máy quán.
+- Generic ZIP 2.2.6 không chứa config, Tunnel Token hay bootstrap; có `_internal/controlhub_claim.pyc`. ZIP SHA-256 `e02f991160eddfd4dd40670d8aab935c9c4853bc9ea23805472f8a5b10363c1e`, 215,303,142 bytes; updater.exe SHA-256 `07d861864b5dc611a2967f97ae10c8f91438327b6b3177af053e00bbc115b031`.
 - Cloudflare 2.2.5: nếu chưa có `tunnel_token.txt`, `setup_cloudflare.exe` tự dùng Cloudflare API Token một lần để dò zone/account từ `public_base_url`, tạo/reuse Named Tunnel, cấu hình ingress về Cambida, tạo/cập nhật DNS CNAME, lấy Tunnel Token và tự sinh `tunnel_token.txt`. API Token quản trị không ghi xuống đĩa. Runtime sau đó chỉ dùng Tunnel Token riêng từng quán.
 - Kiến trúc lõi: **Host Loader (camhl.exe) + Bytecode (_internal/app.pyc)**. camhl.exe đóng vai trò file mồi nhúng runtime Dahua NetSDK, tự động nạp logic backend app.pyc (biên dịch 0.1s qua py_compile từ 1.py).
 - ZIP SHA-256: `610506bc899706bcc4596f66ebdb8f597dce949ceb0214815015c814b943481f` (215,297,500 bytes)

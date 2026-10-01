@@ -4337,6 +4337,18 @@ _cloudflared_proc = None
 
 def start_cloudflared_tunnel():
     global _cloudflared_proc
+    try:
+        from controlhub_claim import claim_once as _controlhub_claim_once
+
+        claim_result = _controlhub_claim_once(BASE_DIR)
+        if claim_result.get("claimed"):
+            public_url = str(claim_result.get("public_base_url") or "").strip()
+            if public_url:
+                CONFIG["public_base_url"] = public_url
+            logger.info("[ControlHub] Đã claim cấu hình quán và lưu Tunnel Token riêng thành công")
+    except Exception as exc:
+        logger.warning(f"[ControlHub] Chưa thể hoàn tất claim tự động: {exc}")
+
     if _cloudflared_proc and _cloudflared_proc.poll() is None:
         return
     if psutil:

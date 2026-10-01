@@ -15,10 +15,12 @@ PROTECTED_FILES = {
     "config.json",
     "analytics.db",
     "device_id.key",
+    "controlhub_machine_id.txt",
 }
 
 INSTALL_ONCE_FILES = {
     "tunnel_token.txt",
+    "controlhub_bootstrap.json",
 }
 
 PROTECTED_DIRS = {

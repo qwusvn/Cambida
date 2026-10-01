@@ -1,5 +1,12 @@
 # PROJECT CHANGELOG — Cambida
 
+## 2026-10-01 — 2.2.6 ControlHub one-time claim
+- Thêm client bootstrap/claim tự động với ControlHub độc lập; Cloudflare API Token quản trị không còn cần xuống máy quán.
+- Update theo quán chỉ mang claim token một lần trong `controlhub_bootstrap.json`; Cambida bind site vào machine ID đầu tiên claim thành công.
+- Sau claim, Cambida ghi fixed `public_base_url` và `tunnel_token.txt`, xóa bootstrap; updater bảo vệ bootstrap install-once và machine ID.
+- Builder compile client thành `_internal/controlhub_claim.pyc`; generic ZIP không chứa bootstrap/config/token.
+- Release `2.2.6.zip`: 215,303,142 bytes, SHA-256 `e02f991160eddfd4dd40670d8aab935c9c4853bc9ea23805472f8a5b10363c1e`; targeted regression 14/14 PASS.
+
 ## 2026-09-30 — 2.2.5 Cloudflare API auto-provisioning
 - Từ `public_base_url`, setup tự dò Cloudflare Zone/Account, tạo hoặc reuse Named Tunnel và cấu hình ingress về server Cambida.
 - Tự tạo/cập nhật DNS CNAME proxied tới `<tunnel_id>.cfargotunnel.com`, gọi API lấy Tunnel Token và sinh `tunnel_token.txt`.
