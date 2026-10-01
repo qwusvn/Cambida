@@ -243,7 +243,42 @@ def _parse_onvif_scopes(scopes: List[str]) -> Tuple[str, str, str]:
 def discover_hikvision_sadp(timeout_sec: float = 3.0) -> List[DiscoveredDevice]:
     """
     Probe Hikvision / Ezviz devices using SADP protocol on port 37020.
+    Prefers native Sadp.dll if available, falls back to raw UDP socket broadcast.
     """
+    try:
+        from camera_modules.hikvision import discover_hikvision_sadp as native_sadp, sadp_available
+        if sadp_available():
+            raw_devices = native_sadp(timeout_sec=timeout_sec)
+            if raw_devices:
+                devices: List[DiscoveredDevice] = []
+                for d in raw_devices:
+                    dev_ip = d["ip"]
+                    port = int(d["port"])
+                    vendor = d.get("vendor", "hikvision")
+                    model = d.get("serial", "")
+                    mac = d.get("mac", "")
+                    firmware = d.get("firmware", "")
+                    dev_id = generate_device_id(vendor, dev_ip, port)
+                    devices.append(
+                        DiscoveredDevice(
+                            device_id=dev_id,
+                            ip=dev_ip,
+                            port=port,
+                            protocol="hikvision",
+                            vendor=vendor,
+                            model=model,
+                            mac=mac,
+                            firmware=firmware,
+                            http_port=80,
+                            rtsp_port=554,
+                            name=f"{vendor.capitalize()} {model} ({dev_ip})".strip(),
+                            extra={"sadp_native": d},
+                        )
+                    )
+                return devices
+    except Exception as exc:
+        logger.debug("Native SADP discovery fallback to socket: %s", exc)
+
     probe_xml = f"""<?xml version="1.0" encoding="utf-8"?>
 <Probe>
   <Uuid>{uuid.uuid4()}</Uuid>
@@ -545,7 +580,7 @@ def discover_lan_cameras(
     for t in threads:
         t.start()
     for t in threads:
-        t.join(timeout=timeout_sec + 0.5)
+        t.join(timeout=timeout_sec + 2.0)
 
     # Optional subnet scan fallback
     if subnet:

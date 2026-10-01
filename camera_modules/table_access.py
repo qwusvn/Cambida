@@ -259,9 +259,15 @@ def install_table_access(app, *, get_config, set_config, save_config,
                                                 port=port, vendor=vendor)
                 return jsonify({"ok": result.ok, "vendor": vendor,
                                 "device_kind": result.device_kind, "transport": result.transport,
-                                "channels": [{"channel_id": ch.channel_id, "name": ch.name,
-                                              "channel_number": ch.channel_number,
-                                              "online": ch.is_online} for ch in result.channels],
+                                "channels": [{
+                                    "channel_id": ch.channel_id,
+                                    "name": ch.name,
+                                    "channel_number": ch.channel_number,
+                                    "sdk_channel_number": getattr(ch, "sdk_channel_number", ch.channel_id),
+                                    "online": getattr(ch, "is_online", None),
+                                    "status_code": getattr(ch, "status_code", None),
+                                    "status_text": getattr(ch, "status_text", "unknown"),
+                                } for ch in result.channels],
                                 "message": str(result.message).replace(password, "***")}), (200 if result.ok else 503)
             if vendor in ("dahua", "imou"):
                 from camera_modules.dahua import probe_dahua_device

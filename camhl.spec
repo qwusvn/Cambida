@@ -14,6 +14,20 @@ binaries = [
     if f.lower().endswith('.dll')
 ]
 
+# Hikvision HCNetSDK contains a root DLL set plus HCNetSDKCom dependencies.
+# Preserve the vendor directory layout because HCNetSDK loads companions at runtime.
+hik_sdk_root = os.path.join(ROOT, 'vendor', 'hikvision_netsdk')
+if os.path.isdir(hik_sdk_root):
+    for current_root, _, files in os.walk(hik_sdk_root):
+        rel_dir = os.path.relpath(current_root, ROOT).replace('\\', '/')
+        for filename in files:
+            src = os.path.join(current_root, filename)
+            lower = filename.lower()
+            if lower.endswith('.dll'):
+                binaries.append((src, rel_dir))
+            elif lower.endswith('.xml'):
+                datas.append((src, rel_dir))
+
 import ast
 import glob
 

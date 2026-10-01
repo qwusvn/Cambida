@@ -96,7 +96,7 @@ test('admin camera renderer isolates NetSDK, RTSP, and zero-camera states', () =
 
   context.setForm({ cameras: [stale], tables: [] });
   const netsdkMarkup = elements.get('cameraList').innerHTML;
-  assert.match(netsdkMarkup, /NetSDK port/);
+  assert.match(netsdkMarkup, /Cổng SDK/);
   assert.doesNotMatch(netsdkMarkup, /Preset RTSP camera|Chỉnh luồng RTSP camera nâng cao|cam-record-path/);
   assert.doesNotMatch(netsdkMarkup, /Cấu hình đầu ghi nâng cao|cam-nvr-timezone|cam-nvr-connect-timeout|cam-nvr-https/);
 
@@ -104,7 +104,7 @@ test('admin camera renderer isolates NetSDK, RTSP, and zero-camera states', () =
   const rtspMarkup = elements.get('cameraList').innerHTML;
   assert.match(rtspMarkup, /Preset RTSP camera/);
   assert.match(rtspMarkup, /Chỉnh luồng RTSP camera nâng cao/);
-  assert.doesNotMatch(rtspMarkup, /NetSDK port/);
+  assert.doesNotMatch(rtspMarkup, /Cổng SDK/);
 
   context.setForm({ cameras: [], tables: [] });
   assert.match(elements.get('cameraList').innerHTML, /Chưa có kênh/);

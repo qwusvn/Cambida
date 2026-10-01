@@ -151,11 +151,12 @@ def runtime(modules, version='2.2.0'):
         ver_file = ROOT / 'version_info_2_2_0.txt'
     inputs = [ROOT / 'scripts/native_launcher.py', ROOT / 'scripts/native_runtime.spec',
               ver_file, ROOT / 'config.release.json',
-              *sorted((ROOT / 'vendor/dahua_netsdk').glob('*.dll'))]
+              *sorted((ROOT / 'vendor/dahua_netsdk').glob('*.dll')),
+              *sorted(p for p in (ROOT / 'vendor/hikvision_netsdk').rglob('*') if p.is_file())]
     fingerprint = key({'settings': settings, 'python': sys.version,
                        'dependencies': sorted((d.metadata['Name'], d.version)
                                               for d in importlib.metadata.distributions()),
-                       'files': {p.name: digest(p) for p in inputs}})
+                       'files': {p.relative_to(ROOT).as_posix(): digest(p) for p in inputs}})
     out = BUILD / 'runtime-dist/Cambida'
     cache = read_json(BUILD / 'runtime-cache.json', {})
     runtime_files = cache.get('files', {})
@@ -263,10 +264,17 @@ def main():
     if args.base_release:
         base = args.base_release.resolve()
         old = read_json(base / 'release_manifest.json')
-        if old['abi'] != manifest['abi'] or old['runtime_id'] != runtime_id:
-            raise RuntimeError('Runtime or ABI changed: full package built; delta refused')
+        old_abi = old.get('abi')
+        old_runtime_id = old.get('runtime_id')
+        if not old_abi or not old_runtime_id:
+            print('PATCH=SKIPPED (legacy base manifest; full package required)', flush=True)
+            return
+        if old_abi != manifest['abi'] or old_runtime_id != runtime_id:
+            print('PATCH=SKIPPED (runtime or ABI changed; full package required)', flush=True)
+            return
         if set(old['files']) - set(manifest['files']):
-            raise RuntimeError('File removals require a full release; delta refused')
+            print('PATCH=SKIPPED (file removals detected; full package required)', flush=True)
+            return
         changed = [p for p, checksum in manifest['files'].items() if old['files'].get(p) != checksum]
         delta_folder = BUILD / ('delta-' + args.version)
         delta_folder.mkdir(exist_ok=False)

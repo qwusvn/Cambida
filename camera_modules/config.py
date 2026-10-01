@@ -269,7 +269,7 @@ class CameraConfig:
     vendor: str = "hikvision"
     rtsp_channel: Optional[int] = None
 
-    # Local NetSDK settings (Dahua / Imou port 37777, KBVision port 8888)
+    # Vendor private SDK settings (Hikvision/Ezviz 8000, Dahua/Imou 37777, KBVision 8888)
     netsdk_port: Optional[int] = None
     netsdk_channel: Optional[int] = None
 
@@ -343,7 +343,18 @@ class CameraConfig:
         result["local_transport"] = transport
 
         if transport == "netsdk":
-            result["netsdk_port"] = self.netsdk_port or 37777
+            vendor = VendorType.normalize(self.vendor or "")
+            if vendor not in {"hikvision", "ezviz", "dahua", "imou", "kbvision"}:
+                vendor = "dahua"
+            default_port = {
+                "hikvision": 8000,
+                "ezviz": 8000,
+                "dahua": 37777,
+                "imou": 37777,
+                "kbvision": 8888,
+            }[vendor]
+            result["vendor"] = vendor
+            result["netsdk_port"] = self.netsdk_port or default_port
             result["netsdk_channel"] = max(1, self.netsdk_channel or 1)
             return result
 
@@ -443,10 +454,31 @@ class CameraConfig:
         password = str(cam.get("pass") if cam.get("pass") is not None else (cam.get("password") or ""))
         transport = str(cam.get("local_transport", "rtsp") or "rtsp").strip().lower()
         transport = transport if transport in {"rtsp", "netsdk"} else "rtsp"
-        vendor = str(cam.get("vendor") or "hikvision").strip().lower()
+        raw_vendor = str(cam.get("vendor") or "").strip().lower()
+        aliases = {
+            "hik": "hikvision",
+            "hikvision_sdk": "hikvision",
+            "ezviz_camera": "ezviz",
+            "dahua_camera": "dahua",
+            "imou_camera": "imou",
+        }
+        raw_vendor = aliases.get(raw_vendor, raw_vendor)
 
         if transport == "netsdk":
-            netsdk_port = int(cam.get("netsdk_port") or (37777 if vendor == "dahua" else 8888))
+            port_hint = int(cam.get("netsdk_port") or 0)
+            vendor = raw_vendor or (
+                "hikvision" if port_hint == 8000 else ("kbvision" if port_hint == 8888 else "dahua")
+            )
+            if vendor not in {"hikvision", "ezviz", "dahua", "imou", "kbvision"}:
+                vendor = "dahua"
+            default_port = {
+                "hikvision": 8000,
+                "ezviz": 8000,
+                "dahua": 37777,
+                "imou": 37777,
+                "kbvision": 8888,
+            }[vendor]
+            netsdk_port = int(cam.get("netsdk_port") or default_port)
             netsdk_channel = max(1, int(cam.get("netsdk_channel") or 1))
             dev_id = cam.get("device_id") or generate_device_id(vendor, ip, netsdk_port)
             return cls(
@@ -469,6 +501,7 @@ class CameraConfig:
             )
 
         # Local RTSP
+        vendor = raw_vendor or "hikvision"
         port = int(cam.get("port") or cam.get("rtsp_port") or 554)
         record_path = str(cam.get("record_path") or "h264/ch1/main/av_stream").strip()
         preview_path = str(cam.get("preview_path") or "h264/ch1/sub/av_stream").strip()
@@ -761,8 +794,12 @@ def validate_modular_config(config: ModularCCTVConfig) -> List[str]:
             if not cam.ip:
                 errors.append(f"Local Camera '{cam.name}' has empty IP address.")
             if cam.local_transport == "netsdk":
+                if VendorType.normalize(cam.vendor) not in {"hikvision", "ezviz", "dahua", "imou", "kbvision"}:
+                    errors.append(f"SDK Camera '{cam.name}' has unsupported vendor: {cam.vendor}.")
                 if cam.netsdk_port is not None and (cam.netsdk_port <= 0 or cam.netsdk_port > 65535):
-                    errors.append(f"NetSDK Camera '{cam.name}' invalid netsdk_port: {cam.netsdk_port}.")
+                    errors.append(f"SDK Camera '{cam.name}' invalid netsdk_port: {cam.netsdk_port}.")
+                if cam.netsdk_channel is not None and cam.netsdk_channel < 1:
+                    errors.append(f"SDK Camera '{cam.name}' invalid netsdk_channel: {cam.netsdk_channel}.")
             else:
                 if cam.port <= 0 or cam.port > 65535:
                     errors.append(f"RTSP Camera '{cam.name}' invalid port: {cam.port}.")

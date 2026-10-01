@@ -18,7 +18,10 @@ import ctypes as C
 import os
 import re
 import socket
+import subprocess
+import tempfile
 import threading
+import time
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import quote
@@ -41,6 +44,36 @@ DEFAULT_HIKVISION_HTTPS_PORT = 443
 DEFAULT_HIKVISION_RTSP_PORT = 554
 
 SUPPORTED_VENDORS = {"hikvision", "ezviz", "hik", "ezviz_camera"}
+
+MAX_CHANNUM_V30 = 64
+MAX_DIGITAL_CHANNELS = MAX_CHANNUM_V30 * 4
+NET_DVR_GET_DIGITAL_CHANNEL_STATE = 6126
+STREAM_PS = 0x1
+
+HIKVISION_DIGITAL_CHANNEL_STATUS: Dict[int, str] = {
+    0: "invalid",
+    1: "connected",
+    2: "connecting",
+    3: "bandwidth_exceeded",
+    4: "domain_error",
+    5: "channel_error",
+    6: "account_error",
+    7: "stream_type_unsupported",
+    8: "dvr_ip_conflict",
+    9: "ipc_ip_conflict",
+    10: "network_unreachable",
+    11: "ipc_not_present",
+    12: "ipc_exception",
+    13: "other_error",
+    14: "resolution_unsupported",
+    15: "language_mismatch",
+    16: "user_locked",
+    17: "not_activated",
+    18: "user_not_exist",
+    19: "ipc_unregistered",
+    20: "poe_detecting",
+    24: "token_auth_failed",
+}
 
 # HCNetSDK Error Codes Mapping
 HIKVISION_SDK_ERRORS: Dict[int, str] = {
@@ -128,13 +161,15 @@ class HikvisionChannel:
     channel_number: int  # 1-based sequential index
     name: str
     is_ip_camera: bool
-    is_online: bool
+    is_online: Optional[bool]
     supports_main_stream: bool
     supports_sub_stream: bool
     rtsp_main_path: str
     rtsp_sub_path: str
     isapi_channel_id: int
     sdk_channel_number: int
+    status_code: Optional[int] = None
+    status_text: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -183,16 +218,17 @@ class ProbeResult:
 # Ctypes Structs for Hikvision HCNetSDK (Windows x86 / x64)
 # =============================================================================
 
-LONG = C.c_long
+# HCNetSDK uses 32-bit LONG/BOOL on Windows even in the x64 SDK.
+LONG = C.c_int32
 DWORD = C.c_uint32
 WORD = C.c_uint16
 BYTE = C.c_ubyte
-BOOL = C.c_int
+BOOL = C.c_int32
 HWND = C.c_void_p
 
 
 class NET_DVR_DEVICEINFO_V30(C.Structure):
-    """Standard device info structure for NET_DVR_Login_V30."""
+    """Official HCNetSDK NET_DVR_DEVICEINFO_V30 ABI."""
     _fields_ = [
         ("sSerialNumber", BYTE * 48),
         ("byAlarmInPortNum", BYTE),
@@ -214,22 +250,20 @@ class NET_DVR_DEVICEINFO_V30(C.Structure):
         ("byMultiStreamProto", BYTE),
         ("byStartDChan", BYTE),
         ("byStartDTalkChan", BYTE),
-        ("byHighIPChanNum", BYTE),
+        ("byHighDChanNum", BYTE),
         ("bySupport4", BYTE),
         ("byLanguageType", BYTE),
         ("byVoiceInChanNum", BYTE),
         ("byStartVoiceInChanNo", BYTE),
-        ("bySupport5", BYTE),
-        ("bySupport6", BYTE),
+        ("byRes3", BYTE * 2),
         ("byMirrorChanNum", BYTE),
         ("wStartMirrorChanNo", WORD),
-        ("bySupport7", BYTE),
-        ("byRes2", BYTE * 23),
+        ("byRes2", BYTE * 2),
     ]
 
 
 class NET_DVR_USER_LOGIN_INFO(C.Structure):
-    """Input structure for NET_DVR_Login_V40."""
+    """Official current NET_DVR_USER_LOGIN_INFO ABI for NET_DVR_Login_V40."""
     _fields_ = [
         ("sDeviceAddress", C.c_char * 129),
         ("byUseTransport", BYTE),
@@ -243,14 +277,14 @@ class NET_DVR_USER_LOGIN_INFO(C.Structure):
         ("byUseUTCTime", BYTE),
         ("byLoginMode", BYTE),
         ("byHttps", BYTE),
-        ("iProxyID", C.c_int),
-        ("byVerifyMode", BYTE),
-        ("byRes2", BYTE * 119),
+        ("iProxyID", LONG),
+        ("byVerifyMode", LONG),
+        ("byRes3", BYTE * 119),
     ]
 
 
 class NET_DVR_DEVICEINFO_V40(C.Structure):
-    """Output structure for NET_DVR_Login_V40."""
+    """Official current NET_DVR_DEVICEINFO_V40 output ABI."""
     _fields_ = [
         ("struDeviceV30", NET_DVR_DEVICEINFO_V30),
         ("bySupportLock", BYTE),
@@ -259,8 +293,58 @@ class NET_DVR_DEVICEINFO_V40(C.Structure):
         ("byProxyType", BYTE),
         ("dwSurplusLockTime", DWORD),
         ("byCharEncodeType", BYTE),
-        ("bySupportDevUrl", BYTE),
-        ("byRes2", BYTE * 246),
+        ("bySupportDev5", BYTE),
+        ("byLoginMode", BYTE),
+        ("byRes3", DWORD),
+        ("iResidualValidity", C.c_int32),
+        ("byResidualValidity", BYTE),
+        ("bySingleStartDTalkChan", BYTE),
+        ("bySingleDTalkChanNums", BYTE),
+        ("byPassWordResetLevel", BYTE),
+        ("bySupportStreamEncrypt", BYTE),
+        ("byMarketType", BYTE),
+        ("byRes2", BYTE * 238),
+    ]
+
+
+class NET_DVR_DIGITAL_CHANNEL_STATE(C.Structure):
+    """Digital channel connection states returned by command 6126."""
+    _fields_ = [
+        ("dwSize", DWORD),
+        ("byDigitalAudioChanTalkState", BYTE * MAX_CHANNUM_V30),
+        ("byDigitalChanState", BYTE * MAX_CHANNUM_V30),
+        ("byDigitalAudioChanTalkStateEx", BYTE * (MAX_CHANNUM_V30 * 3)),
+        ("byDigitalChanStateEx", BYTE * (MAX_CHANNUM_V30 * 3)),
+        ("byRes", BYTE * 64),
+    ]
+
+
+class NET_DVR_PREVIEWINFO(C.Structure):
+    """Preview parameters used by NET_DVR_RealPlay_V40."""
+    _fields_ = [
+        ("lChannel", LONG),
+        ("dwStreamType", DWORD),
+        ("dwLinkMode", DWORD),
+        ("hPlayWnd", HWND),
+        ("bBlocked", BOOL),
+        ("bPassbackRecord", BOOL),
+        ("byPreviewMode", BYTE),
+        ("byStreamID", BYTE * 32),
+        ("byProtoType", BYTE),
+        ("byRes1", BYTE),
+        ("byVideoCodingType", BYTE),
+        ("dwDisplayBufNum", DWORD),
+        ("byNPQMode", BYTE),
+        ("byRecvMetaData", BYTE),
+        ("byDataType", BYTE),
+        ("byRes", BYTE * 213),
+    ]
+
+
+class NET_DVR_JPEGPARA(C.Structure):
+    _fields_ = [
+        ("wPicSize", WORD),
+        ("wPicQuality", WORD),
     ]
 
 
@@ -270,7 +354,7 @@ class NET_DVR_DEVICEINFO_V40(C.Structure):
 
 _RUNTIME_LOCK = threading.RLock()
 _RUNTIME_DLL: Any = None
-_RUNTIME_DLL_DIR_HANDLE: Any = None
+_RUNTIME_DLL_DIR_HANDLES: List[Any] = []
 _RUNTIME_INITIALIZED: bool = False
 
 
@@ -311,6 +395,21 @@ def _candidate_sdk_dirs(base_dir: Optional[str] = None) -> List[str]:
             if p not in seen:
                 seen.add(p)
                 candidates.append(p)
+
+    # 4. Standard Windows iVMS-4200 and SADP installation locations
+    if os.name == "nt":
+        for std_dir in (
+            r"C:\Program Files (x86)\iVMS-4200 Site\iVMS-4200 Client\Client",
+            r"C:\Program Files (x86)\iVMS-4200 Site\iVMS-4200 Client\Server",
+            r"C:\Program Files\iVMS-4200 Lite",
+            r"C:\Program Files (x86)\SADP\SADP",
+            r"C:\Program Files (x86)\Ezviz Studio\sadp",
+        ):
+            if os.path.isdir(std_dir):
+                std_abs = os.path.abspath(std_dir)
+                if std_abs not in seen:
+                    seen.add(std_abs)
+                    candidates.append(std_abs)
 
     return candidates
 
@@ -369,13 +468,54 @@ def _configure_api(dll: Any) -> None:
         dll.NET_DVR_Logout_V30.restype = BOOL
         dll.NET_DVR_Logout_V30.argtypes = [LONG]
 
+    if hasattr(dll, "NET_DVR_GetDVRConfig"):
+        dll.NET_DVR_GetDVRConfig.restype = BOOL
+        dll.NET_DVR_GetDVRConfig.argtypes = [
+            LONG,
+            DWORD,
+            LONG,
+            C.c_void_p,
+            DWORD,
+            C.POINTER(DWORD),
+        ]
+
+    if hasattr(dll, "NET_DVR_RealPlay_V40"):
+        dll.NET_DVR_RealPlay_V40.restype = LONG
+        dll.NET_DVR_RealPlay_V40.argtypes = [
+            LONG,
+            C.POINTER(NET_DVR_PREVIEWINFO),
+            C.c_void_p,
+            C.c_void_p,
+        ]
+
+    if hasattr(dll, "NET_DVR_StopRealPlay"):
+        dll.NET_DVR_StopRealPlay.restype = BOOL
+        dll.NET_DVR_StopRealPlay.argtypes = [LONG]
+
+    if hasattr(dll, "NET_DVR_SaveRealData_V30"):
+        dll.NET_DVR_SaveRealData_V30.restype = BOOL
+        dll.NET_DVR_SaveRealData_V30.argtypes = [LONG, DWORD, C.c_char_p]
+
+    if hasattr(dll, "NET_DVR_StopSaveRealData"):
+        dll.NET_DVR_StopSaveRealData.restype = BOOL
+        dll.NET_DVR_StopSaveRealData.argtypes = [LONG]
+
+    if hasattr(dll, "NET_DVR_CaptureJPEGPicture"):
+        dll.NET_DVR_CaptureJPEGPicture.restype = BOOL
+        dll.NET_DVR_CaptureJPEGPicture.argtypes = [
+            LONG,
+            LONG,
+            C.POINTER(NET_DVR_JPEGPARA),
+            C.c_char_p,
+        ]
+
 
 def _load_runtime(base_dir: Optional[str] = None) -> Any:
     """
     Lazy load and initialize HCNetSDK.dll.
     Raises HikvisionSDKNotFoundError with an actionable Vietnamese message if unavailable.
     """
-    global _RUNTIME_DLL, _RUNTIME_DLL_DIR_HANDLE, _RUNTIME_INITIALIZED
+    global _RUNTIME_DLL, _RUNTIME_DLL_DIR_HANDLES, _RUNTIME_INITIALIZED
     with _RUNTIME_LOCK:
         if _RUNTIME_DLL is not None and _RUNTIME_INITIALIZED:
             return _RUNTIME_DLL
@@ -392,10 +532,13 @@ def _load_runtime(base_dir: Optional[str] = None) -> Any:
                 "Vui lòng cung cấp thư mục vendor/hikvision_netsdk hoặc thiết lập biến môi trường HIKVISION_NETSDK_DIR."
             )
 
-        # Register DLL search directory on Python 3.8+ Windows
+        # Keep DLL-directory handles alive for the full HCNetSDK runtime.
         if hasattr(os, "add_dll_directory"):
             try:
-                _RUNTIME_DLL_DIR_HANDLE = os.add_dll_directory(sdk_dir)
+                _RUNTIME_DLL_DIR_HANDLES.append(os.add_dll_directory(sdk_dir))
+                com_dir = os.path.join(sdk_dir, "HCNetSDKCom")
+                if os.path.isdir(com_dir):
+                    _RUNTIME_DLL_DIR_HANDLES.append(os.add_dll_directory(com_dir))
             except OSError as exc:
                 raise HikvisionSDKNotFoundError(
                     f"Không thể đăng ký thư mục DLL HCNetSDK ({sdk_dir}): {exc}"
@@ -437,7 +580,7 @@ def _load_runtime(base_dir: Optional[str] = None) -> Any:
 
 def _cleanup_runtime() -> None:
     """Clean up HCNetSDK runtime on process termination."""
-    global _RUNTIME_DLL, _RUNTIME_INITIALIZED, _RUNTIME_DLL_DIR_HANDLE
+    global _RUNTIME_DLL, _RUNTIME_INITIALIZED, _RUNTIME_DLL_DIR_HANDLES
     with _RUNTIME_LOCK:
         if _RUNTIME_DLL is not None and _RUNTIME_INITIALIZED:
             try:
@@ -446,15 +589,128 @@ def _cleanup_runtime() -> None:
                 pass
         _RUNTIME_DLL = None
         _RUNTIME_INITIALIZED = False
-        if _RUNTIME_DLL_DIR_HANDLE is not None:
+        for handle in reversed(_RUNTIME_DLL_DIR_HANDLES):
             try:
-                _RUNTIME_DLL_DIR_HANDLE.close()
+                handle.close()
             except Exception:
                 pass
-        _RUNTIME_DLL_DIR_HANDLE = None
+        _RUNTIME_DLL_DIR_HANDLES = []
 
 
 atexit.register(_cleanup_runtime)
+
+
+# =============================================================================
+# SADP Auto-Discovery (Windows x64 via Sadp.dll)
+# =============================================================================
+
+class SADP_DEVICE_INFO(C.Structure):
+    """Structure matching Sadp.dll callback output (reverse-engineered from x64 DLL)."""
+    _fields_ = [
+        ("dwDevType", DWORD),
+        ("byRes1", BYTE * 8),
+        ("szSerialNO", C.c_char * 48),
+        ("szMAC", C.c_char * 20),
+        ("szIPv4Address", C.c_char * 16),
+        ("szIPv4SubnetMask", C.c_char * 16),
+        ("byRes2", BYTE * 4),
+        ("dwPort", DWORD),
+        ("byRes3", BYTE * 8),
+        ("szSoftwareVersion", C.c_char * 48),
+    ]
+
+_SADP_LOCK = threading.RLock()
+_SADP_CALLBACK_TYPE = C.WINFUNCTYPE(None, C.POINTER(SADP_DEVICE_INFO), C.c_void_p) if os.name == "nt" else None
+
+
+def find_sadp_dir(base_dir: Optional[str] = None) -> Optional[str]:
+    """Scan candidate directories and return the directory containing Sadp.dll, or None."""
+    for path in _candidate_sdk_dirs(base_dir):
+        if os.path.isfile(os.path.join(path, "Sadp.dll")):
+            return path
+    return None
+
+
+def sadp_available(base_dir: Optional[str] = None) -> bool:
+    """Return True if running on Windows and Sadp.dll is available."""
+    if os.name != "nt":
+        return False
+    return find_sadp_dir(base_dir) is not None
+
+
+def discover_hikvision_sadp(timeout_sec: float = 2.0, base_dir: Optional[str] = None) -> List[Dict[str, Any]]:
+    """
+    Discover Hikvision and Ezviz devices on LAN using native Sadp.dll.
+    Returns a list of device dictionaries: ip, port, serial, mac, subnet_mask, firmware, vendor.
+    """
+    if not sadp_available(base_dir):
+        return []
+
+    sdk_dir = find_sadp_dir(base_dir)
+    dll_path = os.path.join(sdk_dir, "Sadp.dll")
+
+    with _SADP_LOCK:
+        if hasattr(os, "add_dll_directory"):
+            try:
+                os.add_dll_directory(sdk_dir)
+            except Exception:
+                pass
+
+        try:
+            sadp = C.WinDLL(dll_path)
+            sadp.SADP_Start_V30.argtypes = [_SADP_CALLBACK_TYPE, C.c_int, C.c_void_p]
+            sadp.SADP_Start_V30.restype = BOOL
+            sadp.SADP_SendInquiry.argtypes = []
+            sadp.SADP_SendInquiry.restype = BOOL
+            sadp.SADP_Stop.argtypes = []
+            sadp.SADP_Stop.restype = BOOL
+        except Exception:
+            return []
+
+        devices: List[Dict[str, Any]] = []
+        seen_keys = set()
+
+        def _cb(p_info, p_user):
+            if not p_info:
+                return
+            try:
+                info = p_info.contents
+                ip = info.szIPv4Address.decode("ascii", errors="ignore").strip("\x00")
+                if not ip or ip == "0.0.0.0":
+                    return
+                port = int(info.dwPort) or DEFAULT_HIKVISION_SDK_PORT
+                serial = info.szSerialNO.decode("ascii", errors="ignore").strip("\x00")
+                mac = info.szMAC.decode("ascii", errors="ignore").strip("\x00")
+                mask = info.szIPv4SubnetMask.decode("ascii", errors="ignore").strip("\x00")
+                fw = info.szSoftwareVersion.decode("ascii", errors="ignore").strip("\x00")
+
+                key = f"{ip}:{port}"
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    vendor = "ezviz" if "CS-" in serial or "EZVIZ" in serial.upper() else "hikvision"
+                    devices.append({
+                        "ip": ip,
+                        "port": port,
+                        "serial": serial,
+                        "mac": mac,
+                        "subnet_mask": mask,
+                        "firmware": fw,
+                        "vendor": vendor,
+                    })
+            except Exception:
+                pass
+
+        cb_holder = _SADP_CALLBACK_TYPE(_cb)
+        started = sadp.SADP_Start_V30(cb_holder, 1, None)
+        if started:
+            try:
+                sadp.SADP_SendInquiry()
+                sleep_duration = min(1.2, max(0.5, float(timeout_sec) - 0.5))
+                time.sleep(sleep_duration)
+            finally:
+                sadp.SADP_Stop()
+
+        return devices
 
 
 # =============================================================================
@@ -729,7 +985,8 @@ class HikvisionAdapter:
         username = camera.get("user") or camera.get("username") or nested.get("username") or "admin"
         password = camera.get("pass") if camera.get("pass") is not None else camera.get("password", nested.get("password", ""))
         port = (
-            camera.get("sdk_port")
+            camera.get("netsdk_port")
+            or camera.get("sdk_port")
             or camera.get("port")
             or nested.get("sdk_port")
             or DEFAULT_HIKVISION_SDK_PORT
@@ -817,7 +1074,7 @@ class HikvisionAdapter:
             analog_count = int(v30_info.byChanNum)
             start_analog = int(v30_info.byStartChan)
             ip_low = int(v30_info.byIPChanNum)
-            ip_high = int(v30_info.byHighIPChanNum)
+            ip_high = int(v30_info.byHighDChanNum)
             digital_count = ip_low + (ip_high << 8)
             start_digital = int(v30_info.byStartDChan)
             dvr_type = int(v30_info.byDVRType)
@@ -887,18 +1144,58 @@ class HikvisionAdapter:
                 return self._device_info
             return self.connect()
 
-    def get_channel_inventory(self) -> List[HikvisionChannel]:
+    def get_digital_channel_states(self) -> Dict[int, int]:
+        """Return digital-channel status codes keyed by 1-based digital slot.
+
+        Command 6126 is optional on older devices. Failure is treated as
+        "status unknown" rather than inventing online/offline state.
         """
-        Enumerate real channels from the connected device.
-        Seamlessly distinguishes IP cameras from NVR/DVR units without user switch.
+        with self._lock:
+            self.get_device_info()
+            dll = _load_runtime(self.sdk_dir or self.base_dir)
+            if not hasattr(dll, "NET_DVR_GetDVRConfig"):
+                return {}
+
+            state = NET_DVR_DIGITAL_CHANNEL_STATE()
+            C.memset(C.byref(state), 0, C.sizeof(state))
+            state.dwSize = C.sizeof(state)
+            returned = DWORD(0)
+            ok = dll.NET_DVR_GetDVRConfig(
+                LONG(self._login_handle),
+                DWORD(NET_DVR_GET_DIGITAL_CHANNEL_STATE),
+                LONG(-1),
+                C.byref(state),
+                DWORD(C.sizeof(state)),
+                C.byref(returned),
+            )
+            if not ok:
+                return {}
+
+            values = list(state.byDigitalChanState) + list(state.byDigitalChanStateEx)
+            return {idx + 1: int(code) for idx, code in enumerate(values)}
+
+    @staticmethod
+    def _status_fields(status_code: Optional[int]) -> Tuple[Optional[bool], str]:
+        if status_code is None:
+            return None, "unknown"
+        return status_code == 1, HIKVISION_DIGITAL_CHANNEL_STATUS.get(
+            int(status_code), f"status_{int(status_code)}"
+        )
+
+    def get_channel_inventory(self) -> List[HikvisionChannel]:
+        """Enumerate physical channels using HCNetSDK channel numbers.
+
+        Digital slots use command 6126 when supported, so unconfigured slots
+        are not exposed as cameras and configured-but-offline channels remain
+        visible with an explicit offline/error status.
         """
         with self._lock:
             info = self.get_device_info()
             channels: List[HikvisionChannel] = []
+            digital_states = self.get_digital_channel_states() if info.digital_channels else {}
 
-            # Case A: Standalone IP Camera (IPC)
             if info.device_kind == "ipc":
-                chan_no = 1
+                sdk_chan = info.start_analog_channel or info.start_digital_channel or 1
                 rtsp_paths = build_hikvision_rtsp_paths(channel=1, vendor=self.vendor)
                 channels.append(
                     HikvisionChannel(
@@ -910,86 +1207,93 @@ class HikvisionAdapter:
                         supports_main_stream=True,
                         supports_sub_stream=True,
                         rtsp_main_path=rtsp_paths["primary_path"],
-                        rtsp_sub_path=build_hikvision_rtsp_paths(channel=1, stream="sub", vendor=self.vendor)["primary_path"],
+                        rtsp_sub_path=build_hikvision_rtsp_paths(
+                            channel=1, stream="sub", vendor=self.vendor
+                        )["primary_path"],
                         isapi_channel_id=101,
-                        sdk_channel_number=info.start_analog_channel or 1,
+                        sdk_channel_number=sdk_chan,
+                        status_code=1,
+                        status_text="connected",
                     )
                 )
                 return channels
 
-            # Case B: NVR (Pure IP Network Video Recorder)
-            if info.device_kind == "nvr":
-                count = max(1, info.digital_channels or info.total_channels)
-                start_d = info.start_digital_channel or 33
-                for idx in range(1, count + 1):
-                    track_main = idx * 100 + 1
-                    track_sub = idx * 100 + 2
-                    sdk_chan = start_d + idx - 1
-                    channels.append(
-                        HikvisionChannel(
-                            channel_id=idx,
-                            channel_number=idx,
-                            name=f"Camera {idx:02d}",
-                            is_ip_camera=True,
-                            is_online=True,
-                            supports_main_stream=True,
-                            supports_sub_stream=True,
-                            rtsp_main_path=f"Streaming/Channels/{track_main}",
-                            rtsp_sub_path=f"Streaming/Channels/{track_sub}",
-                            isapi_channel_id=track_main,
-                            sdk_channel_number=sdk_chan,
-                        )
-                    )
-                return channels
-
-            # Case C: DVR / Hybrid XVR
             seq = 1
-            # 1. Analog channels
             analog_start = info.start_analog_channel or 1
             for a_idx in range(info.analog_channels):
-                chan_num = analog_start + a_idx
+                sdk_chan = analog_start + a_idx
                 track_main = seq * 100 + 1
-                track_sub = seq * 100 + 2
                 channels.append(
                     HikvisionChannel(
                         channel_id=seq,
                         channel_number=seq,
                         name=f"Camera Analog {seq:02d}",
                         is_ip_camera=False,
-                        is_online=True,
+                        is_online=None,
                         supports_main_stream=True,
                         supports_sub_stream=True,
                         rtsp_main_path=f"Streaming/Channels/{track_main}",
-                        rtsp_sub_path=f"Streaming/Channels/{track_sub}",
+                        rtsp_sub_path=f"Streaming/Channels/{seq * 100 + 2}",
                         isapi_channel_id=track_main,
-                        sdk_channel_number=chan_num,
+                        sdk_channel_number=sdk_chan,
+                        status_code=None,
+                        status_text="unknown",
                     )
                 )
                 seq += 1
 
-            # 2. Digital IP channels on Hybrid DVR
+            digital_count = min(max(0, info.digital_channels), MAX_DIGITAL_CHANNELS)
             digital_start = info.start_digital_channel or 33
-            for d_idx in range(info.digital_channels):
+            for d_idx in range(digital_count):
+                status_code = digital_states.get(d_idx + 1)
+                # 0 = invalid slot, 11 = no IPC attached. When state query is
+                # unsupported, retain the slot but mark status unknown.
+                if digital_states and status_code in {0, 11}:
+                    continue
+                online, status_text = self._status_fields(status_code)
                 sdk_chan = digital_start + d_idx
                 track_main = seq * 100 + 1
-                track_sub = seq * 100 + 2
                 channels.append(
                     HikvisionChannel(
                         channel_id=seq,
                         channel_number=seq,
                         name=f"Camera IP {d_idx + 1:02d}",
                         is_ip_camera=True,
-                        is_online=True,
+                        is_online=online,
                         supports_main_stream=True,
                         supports_sub_stream=True,
                         rtsp_main_path=f"Streaming/Channels/{track_main}",
-                        rtsp_sub_path=f"Streaming/Channels/{track_sub}",
+                        rtsp_sub_path=f"Streaming/Channels/{seq * 100 + 2}",
                         isapi_channel_id=track_main,
                         sdk_channel_number=sdk_chan,
+                        status_code=status_code,
+                        status_text=status_text,
                     )
                 )
                 seq += 1
 
+            # Some NVRs report channel counts but omit state support. Preserve
+            # honest "unknown" channels instead of claiming they are online.
+            if not channels and info.total_channels:
+                count = min(max(1, info.total_channels), MAX_DIGITAL_CHANNELS)
+                for idx in range(1, count + 1):
+                    channels.append(
+                        HikvisionChannel(
+                            channel_id=idx,
+                            channel_number=idx,
+                            name=f"Camera {idx:02d}",
+                            is_ip_camera=True,
+                            is_online=None,
+                            supports_main_stream=True,
+                            supports_sub_stream=True,
+                            rtsp_main_path=f"Streaming/Channels/{idx * 100 + 1}",
+                            rtsp_sub_path=f"Streaming/Channels/{idx * 100 + 2}",
+                            isapi_channel_id=idx * 100 + 1,
+                            sdk_channel_number=(info.start_digital_channel or 1) + idx - 1,
+                            status_code=None,
+                            status_text="unknown",
+                        )
+                    )
             return channels
 
     def get_core_channels(self) -> List[Any]:
@@ -1027,6 +1331,223 @@ class HikvisionAdapter:
     def get_capabilities(self) -> HikvisionCapabilities:
         """Inspect and return capability matrix for this adapter and host."""
         return get_hikvision_capabilities(self.vendor, self.base_dir)
+
+
+    def _start_preview(self, sdk_channel_number: int, stream: str = "main") -> Tuple[Any, int]:
+        """Open one HCNetSDK RealPlay session without a display window."""
+        self.connect()
+        dll = _load_runtime(self.sdk_dir or self.base_dir)
+        if not hasattr(dll, "NET_DVR_RealPlay_V40"):
+            raise HikvisionDeviceError("HCNetSDK hiện tại không có NET_DVR_RealPlay_V40.")
+
+        channel = int(sdk_channel_number)
+        if channel < 1:
+            raise HikvisionChannelError("Số kênh SDK Hikvision phải từ 1 trở lên.")
+
+        preview = NET_DVR_PREVIEWINFO()
+        C.memset(C.byref(preview), 0, C.sizeof(preview))
+        preview.lChannel = LONG(channel)
+        preview.dwStreamType = DWORD(
+            1 if str(stream or "main").strip().lower() == "sub" else 0
+        )
+        preview.dwLinkMode = DWORD(0)  # TCP
+        preview.hPlayWnd = None
+        preview.bBlocked = BOOL(1)
+
+        handle = int(
+            dll.NET_DVR_RealPlay_V40(
+                LONG(self._login_handle),
+                C.byref(preview),
+                None,
+                None,
+            )
+        )
+        if handle < 0:
+            code, desc = _sdk_error(dll)
+            raise HikvisionChannelError(
+                f"Không mở được luồng HCNetSDK kênh {channel}: {desc} (code {code})."
+            )
+        return dll, handle
+
+    def capture_jpeg(
+        self,
+        sdk_channel_number: int,
+        timeout: float = 12.0,
+    ) -> bytes:
+        """Capture one JPEG directly from the device through HCNetSDK."""
+        del timeout  # HCNetSDK owns the request timeout configured by the runtime.
+        self.connect()
+        dll = _load_runtime(self.sdk_dir or self.base_dir)
+        if not hasattr(dll, "NET_DVR_CaptureJPEGPicture"):
+            raise HikvisionDeviceError("HCNetSDK hiện tại không hỗ trợ chụp JPEG trực tiếp.")
+
+        channel = int(sdk_channel_number)
+        if channel < 1:
+            raise HikvisionChannelError("Số kênh SDK Hikvision phải từ 1 trở lên.")
+
+        jpeg = NET_DVR_JPEGPARA()
+        jpeg.wPicSize = WORD(0xFF)   # Auto/current stream resolution
+        jpeg.wPicQuality = WORD(1)   # Better quality
+
+        fd, temp_path = tempfile.mkstemp(prefix="cambida_hik_", suffix=".jpg")
+        os.close(fd)
+        try:
+            ok = dll.NET_DVR_CaptureJPEGPicture(
+                LONG(self._login_handle),
+                LONG(channel),
+                C.byref(jpeg),
+                os.fsencode(os.path.abspath(temp_path)),
+            )
+            if not ok:
+                code, desc = _sdk_error(dll)
+                raise HikvisionChannelError(
+                    f"Không chụp được JPEG HCNetSDK kênh {channel}: {desc} (code {code})."
+                )
+            with open(temp_path, "rb") as handle:
+                data = handle.read()
+            if len(data) < 4 or not data.startswith(b"\xff\xd8"):
+                raise HikvisionDeviceError("HCNetSDK trả về ảnh JPEG không hợp lệ.")
+            return data
+        finally:
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+
+    def iter_jpeg_frames(
+        self,
+        sdk_channel_number: int,
+        fps: float = 5.0,
+        frame_timeout: float = 12.0,
+    ):
+        """Yield direct-SDK JPEG snapshots as an MJPEG-compatible preview source."""
+        interval = 1.0 / max(0.5, min(float(fps or 5.0), 8.0))
+        try:
+            self.connect()
+            while True:
+                started = time.monotonic()
+                yield self.capture_jpeg(sdk_channel_number, timeout=frame_timeout)
+                remaining = interval - (time.monotonic() - started)
+                if remaining > 0:
+                    time.sleep(remaining)
+        finally:
+            self.disconnect()
+
+    def record_segment(
+        self,
+        sdk_channel_number: int,
+        output_path: str,
+        duration: float,
+        ffmpeg_path: str,
+        stop_event: Optional[threading.Event] = None,
+    ) -> Dict[str, Any]:
+        """Record through HCNetSDK RealPlay/SaveRealData and remux PS to MP4."""
+        if not ffmpeg_path or not os.path.isfile(ffmpeg_path):
+            raise HikvisionDeviceError("Không tìm thấy ffmpeg.exe để đóng gói video HCNetSDK thành MP4.")
+
+        output_abs = os.path.abspath(output_path)
+        os.makedirs(os.path.dirname(output_abs) or ".", exist_ok=True)
+        ps_path = output_abs + ".hik.ps"
+        try:
+            os.remove(ps_path)
+        except OSError:
+            pass
+
+        dll = None
+        real_handle = -1
+        saving = False
+        try:
+            dll, real_handle = self._start_preview(sdk_channel_number, stream="main")
+            if not hasattr(dll, "NET_DVR_SaveRealData_V30") or not hasattr(
+                dll, "NET_DVR_StopSaveRealData"
+            ):
+                raise HikvisionDeviceError(
+                    "HCNetSDK hiện tại không hỗ trợ SaveRealData_V30."
+                )
+
+            if not dll.NET_DVR_SaveRealData_V30(
+                LONG(real_handle),
+                DWORD(STREAM_PS),
+                os.fsencode(ps_path),
+            ):
+                code, desc = _sdk_error(dll)
+                raise HikvisionDeviceError(
+                    f"HCNetSDK không bắt đầu ghi kênh {sdk_channel_number}: {desc} (code {code})."
+                )
+            saving = True
+
+            deadline = time.monotonic() + max(0.1, float(duration))
+            while time.monotonic() < deadline:
+                if stop_event is not None and stop_event.is_set():
+                    break
+                time.sleep(min(0.2, max(0.0, deadline - time.monotonic())))
+        finally:
+            if dll is not None and saving:
+                try:
+                    dll.NET_DVR_StopSaveRealData(LONG(real_handle))
+                except Exception:
+                    pass
+            if dll is not None and real_handle >= 0 and hasattr(dll, "NET_DVR_StopRealPlay"):
+                try:
+                    dll.NET_DVR_StopRealPlay(LONG(real_handle))
+                except Exception:
+                    pass
+
+        if stop_event is not None and stop_event.is_set():
+            try:
+                os.remove(ps_path)
+            except OSError:
+                pass
+            return {"ok": False, "stopped": True, "output_path": output_abs}
+
+        if not os.path.isfile(ps_path) or os.path.getsize(ps_path) <= 0:
+            raise HikvisionDeviceError("HCNetSDK không tạo được dữ liệu video PS hợp lệ.")
+
+        cmd = [
+            ffmpeg_path,
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            ps_path,
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a?",
+            "-c",
+            "copy",
+            "-movflags",
+            "+faststart",
+            "-f",
+            "mp4",
+            output_abs,
+        ]
+        completed = subprocess.run(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            timeout=max(30.0, float(duration) + 30.0),
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        try:
+            os.remove(ps_path)
+        except OSError:
+            pass
+
+        if completed.returncode != 0 or not os.path.isfile(output_abs) or os.path.getsize(output_abs) <= 0:
+            err = completed.stderr.decode("utf-8", errors="replace")[-600:]
+            raise HikvisionDeviceError(
+                "FFmpeg không đóng gói được video HCNetSDK thành MP4"
+                + (f": {err}" if err else ".")
+            )
+        return {
+            "ok": True,
+            "output_path": output_abs,
+            "transport": "hcnetsdk",
+            "sdk_channel_number": int(sdk_channel_number),
+        }
+
 
 
 # =============================================================================
@@ -1096,6 +1617,7 @@ __all__ = [
     "HikvisionChannel",
     "HikvisionCapabilities",
     "ProbeResult",
+    "SADP_DEVICE_INFO",
     # Exceptions
     "HikvisionError",
     "HikvisionSDKNotFoundError",
@@ -1106,6 +1628,9 @@ __all__ = [
     # Functions
     "find_hcnetsdk_dir",
     "hcnetsdk_available",
+    "find_sadp_dir",
+    "sadp_available",
+    "discover_hikvision_sadp",
     "is_hikvision_compatible",
     "detect_device_kind",
     "build_hikvision_rtsp_paths",

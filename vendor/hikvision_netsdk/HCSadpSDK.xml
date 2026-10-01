@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SdkLog>
+	<logLevel>3</logLevel>
+	<logDirectory>C:\SadpLog</logDirectory>
+	<autoDelete>true</autoDelete>
+	<cryptoPath>libcrypto-3-x64.dll</cryptoPath>
+	<sslPath>libssl-3-x64.dll</sslPath>
+	<pcap>true</pcap>
+	<multicast>true</multicast><!-- 是否开启多播，true-开启，false-关闭 -->
+	<checkIP>true</checkIP><!-- 是否开启检查IP，true-开启，false-关闭 -->
+	<checkIPInterval>5</checkIPInterval><!-- 检查IP间隔时间，单位秒。取值范围5~60-->
+	<timeout>10</timeout><!-- 业务超时时间，单位秒。取值范围5~20-->
+	<pcapPath>wpcap.dll</pcapPath><!-- winpcap路径：C:\Windows\System32\wpcap.dll   npcap路径：C:\Windows\System32\Npcap\wpcap.dll-->
+</SdkLog>

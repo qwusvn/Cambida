@@ -906,8 +906,16 @@
     normalized.pass = legacyPass;
     normalized.local_transport = String(normalized.local_transport || 'rtsp').toLowerCase() === 'netsdk' ? 'netsdk' : 'rtsp';
     if (normalized.local_transport === 'netsdk') {
-      ['port','record_path','preview_path','record_rtsp_url','preview_rtsp_url','vendor','rtsp_channel','netsdk_stream'].forEach(key => delete normalized[key]);
-      normalized.netsdk_port = Number(normalized.netsdk_port || 37777);
+      ['port','record_path','preview_path','record_rtsp_url','preview_rtsp_url','rtsp_channel','netsdk_stream'].forEach(key => delete normalized[key]);
+      let sdkVendor = String(normalized.vendor || '').toLowerCase();
+      const aliases = {hik:'hikvision', hikvision_sdk:'hikvision', ezviz_camera:'ezviz', dahua_camera:'dahua', imou_camera:'imou'};
+      sdkVendor = aliases[sdkVendor] || sdkVendor;
+      const portHint = Number(normalized.netsdk_port || 0);
+      if (!sdkVendor) sdkVendor = portHint === 8000 ? 'hikvision' : (portHint === 8888 ? 'kbvision' : 'dahua');
+      if (!['hikvision','ezviz','dahua','imou','kbvision'].includes(sdkVendor)) sdkVendor = 'dahua';
+      const defaults = {hikvision:8000, ezviz:8000, dahua:37777, imou:37777, kbvision:8888};
+      normalized.vendor = sdkVendor;
+      normalized.netsdk_port = Number(normalized.netsdk_port || defaults[sdkVendor]);
       normalized.netsdk_channel = Number(normalized.netsdk_channel || 1);
       return normalized;
     }
@@ -930,9 +938,9 @@
       const localTransport = String(cam.local_transport || 'rtsp').toLowerCase() === 'netsdk' ? 'netsdk' : 'rtsp';
 
       const rtspFields = localTransport === 'rtsp' ? `<div class="col-md-4"><label class="form-label">Preset RTSP camera</label><select class="form-select cam-preset" data-index="${index}"><option value="hikvision" ${preset(cam)==='hikvision'?'selected':''}>Hikvision / chuẩn cũ</option><option value="dahua" ${preset(cam)==='dahua'?'selected':''}>Dahua</option><option value="custom" ${preset(cam)==='custom'?'selected':''}>Tự chỉnh</option></select></div>` : '';
-      const netsdkFields = localTransport === 'netsdk' ? `<div class="col-md-4"><label class="form-label">NetSDK port</label><input class="form-control cam-netsdk-port" data-index="${index}" type="number" min="1" max="65535" value="${esc(cam.netsdk_port ?? 37777)}"></div><div class="col-md-4"><label class="form-label">Kênh NetSDK</label><input class="form-control cam-netsdk-channel" data-index="${index}" type="number" min="1" value="${esc(cam.netsdk_channel ?? 1)}"></div>` : '';
+      const netsdkFields = localTransport === 'netsdk' ? `<div class="col-md-4"><label class="form-label">Cổng SDK</label><input class="form-control cam-netsdk-port" data-index="${index}" type="number" min="1" max="65535" value="${esc(cam.netsdk_port ?? 37777)}"></div><div class="col-md-4"><label class="form-label">Kênh SDK</label><input class="form-control cam-netsdk-channel" data-index="${index}" type="number" min="1" value="${esc(cam.netsdk_channel ?? 1)}"></div>` : '';
       const localFields = `
-        <div class="col-md-4"><label class="form-label">Giao thức kết nối</label><select class="form-select cam-local-transport" data-index="${index}"><option value="rtsp" ${localTransport==='rtsp'?'selected':''}>RTSP (554)</option><option value="netsdk" ${localTransport==='netsdk'?'selected':''}>Dahua / Imou NetSDK (37777)</option></select></div>
+        <div class="col-md-4"><label class="form-label">Giao thức kết nối</label><select class="form-select cam-local-transport" data-index="${index}"><option value="rtsp" ${localTransport==='rtsp'?'selected':''}>RTSP (554)</option><option value="netsdk" ${localTransport==='netsdk'?'selected':''}>SDK hãng</option></select></div>
         ${rtspFields}
         ${netsdkFields}
         <div class="col-md-4"><label class="form-label">IP Camera</label><input class="form-control cam-ip" data-index="${index}" value="${esc(cam.ip || '')}" placeholder="192.168.1.208"></div>
@@ -964,7 +972,7 @@
 
       const testBtnText = isNvr ? `${ICONS.zap}<span>Kiểm tra NVR</span>` : `${ICONS.zap}<span>Kiểm tra Kết nối</span>`;
       const badgeClass = isNvr ? 'bg-indigo-900 text-indigo-300' : 'bg-primary text-white';
-      const badgeText = isNvr ? 'Local + NVR' : (localTransport === 'netsdk' ? 'NetSDK 37777' : 'RTSP');
+      const badgeText = isNvr ? 'Local + NVR' : (localTransport === 'netsdk' ? 'SDK hãng' : 'RTSP');
 
       return `<div class="col-12"><div class="camera-card">
         <div class="camera-card-header">
@@ -1015,6 +1023,7 @@
     set('.cam-user','user');
     set('.cam-pass','pass');
     set('.cam-local-transport','local_transport');
+    set('.cam-sdk-vendor','vendor');
     set('.cam-netsdk-port','netsdk_port',true);
     set('.cam-netsdk-channel','netsdk_channel',true);
     set('.cam-port','port',true);
@@ -1329,24 +1338,26 @@
       listEl.innerHTML = channels.map(ch => {
         const chId = ch.channel_id;
         const chName = ch.name || `Kênh ${chId}`;
-        const onlineTag = ch.online !== undefined
+        const onlineTag = ch.online !== undefined && ch.online !== null
           ? (ch.online ? ' · <span class="badge text-bg-success">Online</span>' : ' · <span class="badge text-bg-secondary">Offline</span>')
-          : '';
+          : ' · <span class="badge text-bg-warning">Chưa rõ trạng thái</span>';
         return `
           <div class="form-check py-1 border-bottom" style="border-color:var(--border) !important;">
-            <input class="form-check-input probe-channel-cb" type="checkbox" id="probeCh_${chId}" data-channel-id="${esc(chId)}" data-channel-name="${esc(chName)}" checked>
+            <input class="form-check-input probe-channel-cb" type="checkbox" id="probeCh_${chId}" data-channel-id="${esc(chId)}" data-sdk-channel="${esc(ch.sdk_channel_number ?? chId)}" data-channel-name="${esc(chName)}" checked>
             <label class="form-check-label small" for="probeCh_${chId}">
               <strong>Kênh ${esc(chId)}:</strong> ${esc(chName)}${onlineTag}
             </label>
           </div>`;
       }).join('');
 
-      const hasVerifiedMapping = (vendor === 'dahua' || vendor === 'imou') && data.transport === 'netsdk';
+      const hasVerifiedMapping =
+        ((vendor === 'dahua' || vendor === 'imou') && data.transport === 'netsdk') ||
+        ((vendor === 'hikvision' || vendor === 'ezviz') && data.transport === 'hcnetsdk');
 
       if (hasVerifiedMapping) {
         actionEl.innerHTML = `
           <div class="d-flex justify-content-between align-items-center mt-3">
-            <span class="small text-muted">Kênh đã kiểm chứng tương thích qua Dahua/Imou NetSDK.</span>
+            <span class="small text-muted">Kênh đã được xác thực bằng SDK của hãng và sẵn sàng thêm vào Cambida.</span>
             <button id="btnAddSelectedChannels" class="btn btn-success btn-sm d-inline-flex align-items-center" type="button">${ICONS.plus}<span>Thêm các kênh đã chọn vào danh sách</span></button>
           </div>`;
       } else {
@@ -1392,8 +1403,9 @@
 
     checkedBoxes.forEach(cb => {
       const chId = Number(cb.dataset.channelId);
-      if (!Number.isSafeInteger(chId) || chId < 1) return;
-      const identity = `${host.toLowerCase()}:${port}:${chId}`;
+      const sdkChannel = Number(cb.dataset.sdkChannel || chId);
+      if (!Number.isSafeInteger(chId) || chId < 1 || !Number.isSafeInteger(sdkChannel) || sdkChannel < 1) return;
+      const identity = `${host.toLowerCase()}:${port}:${sdkChannel}`;
       if (existingChannels.has(identity)) return;
       existingChannels.add(identity);
       const chName = cb.dataset.channelName || `Kênh ${chId}`;
@@ -1411,11 +1423,12 @@
         name: camName,
         playback_source: 'local',
         local_transport: 'netsdk',
+        vendor,
         ip: host,
         user: username,
         pass: password,
-        netsdk_port: port || 37777,
-        netsdk_channel: chId,
+        netsdk_port: port || VENDOR_DEFAULT_PORTS[vendor] || 37777,
+        netsdk_channel: sdkChannel,
         view_stream: 'auto',
         aspect_ratio: 'auto'
       }, cameraDrafts.length);

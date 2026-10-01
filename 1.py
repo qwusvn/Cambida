@@ -191,7 +191,6 @@ _LOCAL_RTSP_ONLY_KEYS = frozenset(
         "preview_path",
         "record_rtsp_url",
         "preview_rtsp_url",
-        "vendor",
         "rtsp_channel",
         "channel",
     }
@@ -391,9 +390,34 @@ def _normalise_camera_entry(camera, index):
     transport = transport if transport in {"rtsp", "netsdk"} else "rtsp"
     result["local_transport"] = transport
     if transport == "netsdk":
+        port_hint = _coerce_int(camera.get("netsdk_port") or 0, 0)
+        vendor = str(camera.get("vendor") or "").strip().lower()
+        aliases = {
+            "hik": "hikvision",
+            "hikvision_sdk": "hikvision",
+            "ezviz_camera": "ezviz",
+            "dahua_camera": "dahua",
+            "imou_camera": "imou",
+        }
+        vendor = aliases.get(vendor, vendor)
+        if not vendor:
+            vendor = "hikvision" if port_hint == 8000 else ("kbvision" if port_hint == 8888 else "dahua")
+        if vendor not in {"hikvision", "ezviz", "dahua", "imou", "kbvision"}:
+            vendor = "dahua"
+        default_private_port = {
+            "hikvision": 8000,
+            "ezviz": 8000,
+            "dahua": 37777,
+            "imou": 37777,
+            "kbvision": 8888,
+        }[vendor]
         result.update(
             {
-                "netsdk_port": _coerce_int(camera.get("netsdk_port") or 37777, 37777),
+                "vendor": vendor,
+                "netsdk_port": _coerce_int(
+                    camera.get("netsdk_port") or default_private_port,
+                    default_private_port,
+                ),
                 "netsdk_channel": max(
                     1, _coerce_int(camera.get("netsdk_channel") or 1, 1)
                 ),
@@ -2080,21 +2104,44 @@ def validate_config(candidate):
                 )
                 if mixed_keys:
                     return (
-                        f"Camera {index}: NetSDK không nhận trường RTSP/NVR cũ: "
+                        f"Camera {index}: SDK hãng không nhận trường RTSP/NVR cũ: "
                         + ", ".join(mixed_keys)
                         + "."
                     )
+                vendor = str(camera.get("vendor") or "").strip().lower()
+                vendor = {
+                    "hik": "hikvision",
+                    "hikvision_sdk": "hikvision",
+                    "ezviz_camera": "ezviz",
+                    "dahua_camera": "dahua",
+                    "imou_camera": "imou",
+                }.get(vendor, vendor)
                 try:
-                    private_port = int(camera.get("netsdk_port", 37777) or 37777)
+                    port_hint = int(camera.get("netsdk_port") or 0)
+                except (TypeError, ValueError):
+                    port_hint = 0
+                if not vendor:
+                    vendor = "hikvision" if port_hint == 8000 else ("kbvision" if port_hint == 8888 else "dahua")
+                if vendor not in {"hikvision", "ezviz", "dahua", "imou", "kbvision"}:
+                    return f"Camera {index}: hãng SDK không được hỗ trợ: {vendor or 'trống'}."
+                default_private_port = {
+                    "hikvision": 8000,
+                    "ezviz": 8000,
+                    "dahua": 37777,
+                    "imou": 37777,
+                    "kbvision": 8888,
+                }[vendor]
+                try:
+                    private_port = int(camera.get("netsdk_port") or default_private_port)
                     private_channel = int(camera.get("netsdk_channel", 1) or 1)
                 except (TypeError, ValueError):
-                    return f"Camera {index}: cau hinh NetSDK 37777 khong hop le."
+                    return f"Camera {index}: cấu hình SDK hãng không hợp lệ."
                 if not 1 <= private_port <= 65535:
-                    return f"Camera {index}: netsdk_port nam ngoai pham vi 1-65535."
+                    return f"Camera {index}: netsdk_port nằm ngoài phạm vi 1-65535."
                 if private_channel < 1:
-                    return f"Camera {index}: netsdk_channel phai tu 1 tro len."
+                    return f"Camera {index}: netsdk_channel phải từ 1 trở lên."
                 if "netsdk_stream" in camera and str(camera.get("netsdk_stream", "")).strip().lower() not in {"main", "sub"}:
-                    return f"Camera {index}: netsdk_stream chi nhan main hoac sub."
+                    return f"Camera {index}: netsdk_stream chỉ nhận main hoặc sub."
             else:
                 mixed_keys = sorted(
                     key
@@ -2597,18 +2644,95 @@ def build_rtsp_url(camera, stream):
 
 def _local_transport(camera):
     value = str(camera.get("local_transport", "rtsp") or "rtsp").strip().lower()
-    return "netsdk" if value in {"netsdk", "dahua37777", "37777"} else "rtsp"
+    return "netsdk" if value in {"netsdk", "dahua37777", "37777", "hcnetsdk", "hikvision8000"} else "rtsp"
+
+
+def _local_vendor(camera):
+    value = str(camera.get("vendor") or "").strip().lower()
+    value = {
+        "hik": "hikvision",
+        "hikvision_sdk": "hikvision",
+        "ezviz_camera": "ezviz",
+        "dahua_camera": "dahua",
+        "imou_camera": "imou",
+    }.get(value, value)
+    if value:
+        return value
+    try:
+        port = int(camera.get("netsdk_port") or 0)
+    except (TypeError, ValueError):
+        port = 0
+    if port == 8000:
+        return "hikvision"
+    if port == 8888:
+        return "kbvision"
+    return "dahua"
 
 
 def _netsdk_base_dir():
+    """Legacy Dahua/Imou NetSDK base directory."""
     if netsdk_available(BUNDLE_DIR):
         return BUNDLE_DIR
     return BASE_DIR
 
 
+def _hikvision_sdk_base_dir():
+    try:
+        from camera_modules.hikvision import hcnetsdk_available
+        if hcnetsdk_available(BUNDLE_DIR):
+            return BUNDLE_DIR
+    except Exception:
+        pass
+    return BASE_DIR
+
+
+def _private_sdk_channel(camera):
+    try:
+        return max(1, int(camera.get("netsdk_channel") or camera.get("channel") or 1))
+    except (TypeError, ValueError):
+        return 1
+
 def test_camera_connection(camera):
     """Probe the selected local transport without returning a URL or secret."""
     if _local_transport(camera) == "netsdk":
+        vendor = _local_vendor(camera)
+        if vendor in {"hikvision", "ezviz"}:
+            adapter = None
+            try:
+                from camera_modules.hikvision import HikvisionAdapter
+                adapter = HikvisionAdapter.from_camera(
+                    camera,
+                    base_dir=_hikvision_sdk_base_dir(),
+                )
+                info = adapter.connect()
+                channel = _private_sdk_channel(camera)
+                jpeg = adapter.capture_jpeg(channel, timeout=12.0)
+                return {
+                    "ok": bool(jpeg),
+                    "message": (
+                        f"HCNetSDK 8000: kết nối {info.device_kind.upper()} thành công, "
+                        f"kênh SDK {channel} có dữ liệu ảnh."
+                    ),
+                    "profile": "hcnetsdk8000",
+                    "transport": "netsdk",
+                    "vendor": vendor,
+                }
+            except Exception as exc:
+                logger.warning("[CamTest] Hikvision HCNetSDK failed: %s", exc)
+                return {
+                    "ok": False,
+                    "message": f"HCNetSDK 8000: {exc}",
+                    "profile": "hcnetsdk8000",
+                    "transport": "netsdk",
+                    "vendor": vendor,
+                }
+            finally:
+                if adapter is not None:
+                    try:
+                        adapter.disconnect()
+                    except Exception:
+                        pass
+
         try:
             result = Dahua37777Adapter.from_camera(camera, base_dir=_netsdk_base_dir()).probe(
                 require_media=True,
@@ -2619,16 +2743,18 @@ def test_camera_connection(camera):
                 "message": result.message,
                 "profile": "netsdk37777",
                 "transport": "netsdk",
+                "vendor": vendor,
                 "channels": result.channels,
                 "sdk_error": f"0x{result.sdk_error:08X}" if result.sdk_error else None,
             }
         except Exception as exc:
-            logger.warning("[CamTest] NetSDK 37777 failed: %s", exc)
+            logger.warning("[CamTest] Private NetSDK failed for %s: %s", vendor, exc)
             return {
                 "ok": False,
-                "message": f"NetSDK 37777: {exc}",
+                "message": f"NetSDK {vendor}: {exc}",
                 "profile": "netsdk37777",
                 "transport": "netsdk",
+                "vendor": vendor,
             }
 
     if not os.path.exists(FFMPEG_PATH):
@@ -3168,8 +3294,42 @@ def _run_recording_attempt(cam_id, rtsp_url, temp_filepath, stop_event):
 
 
 def _run_netsdk_recording_attempt(cam_id, camera, temp_filepath, stop_event):
-    """Record one segment through Dahua/Imou private TCP 37777.
-    Recording stream is ALWAYS Main stream (Dahua RealPlay type 0)."""
+    """Record one segment through the selected vendor private SDK."""
+    vendor = _local_vendor(camera)
+    if vendor in {"hikvision", "ezviz"}:
+        adapter = None
+        try:
+            from camera_modules.hikvision import HikvisionAdapter, HikvisionError
+            rec_camera = dict(camera)
+            rec_camera["netsdk_stream"] = "main"
+            rec_camera["stream"] = "main"
+            rec_camera["view_stream"] = "main"
+            adapter = HikvisionAdapter.from_camera(
+                rec_camera,
+                base_dir=_hikvision_sdk_base_dir(),
+            )
+            result = adapter.record_segment(
+                _private_sdk_channel(rec_camera),
+                temp_filepath,
+                duration=DURATION,
+                ffmpeg_path=FFMPEG_PATH,
+                stop_event=stop_event,
+            )
+            if result.get("ok"):
+                return 0, "", False
+            if result.get("stopped"):
+                return -1, "HCNetSDK recording stopped.", False
+            return -1, "HCNetSDK không tạo được video hợp lệ.", False
+        except Exception as exc:
+            logger.exception("[Cam %s] Hikvision HCNetSDK recording failed", cam_id)
+            return -1, f"HCNetSDK 8000: {exc}", False
+        finally:
+            if adapter is not None:
+                try:
+                    adapter.disconnect()
+                except Exception:
+                    pass
+
     try:
         rec_camera = dict(camera)
         rec_camera["netsdk_stream"] = "main"
@@ -3184,13 +3344,12 @@ def _run_netsdk_recording_attempt(cam_id, camera, temp_filepath, stop_event):
         )
         if result.get("ok"):
             return 0, "", False
-        return -1, "NetSDK 37777 khong tao duoc video hop le.", False
+        return -1, "NetSDK không tạo được video hợp lệ.", False
     except Dahua37777Error as exc:
         return -1, str(exc), False
     except Exception as exc:
-        logger.exception("[Cam %s] NetSDK 37777 recording failed", cam_id)
-        return -1, f"NetSDK 37777: {exc}", False
-
+        logger.exception("[Cam %s] %s NetSDK recording failed", cam_id, vendor)
+        return -1, f"NetSDK {vendor}: {exc}", False
 
 def record_camera(cam_id, camera, stop_event):
     """Record one camera. The supervisor guarantees a single worker per camera."""
@@ -3891,7 +4050,7 @@ def monitor_telegram_commands():
                     if text == "/status":
                         hdd_used = get_total_size_gb()
                         active_cams = sum(1 for w in CAM_WORKERS.values() if w and w.is_alive())
-                        total_cams = len(CAM_LIST) if isinstance(CAM_LIST, list) else 0
+                        total_cams = len(CAMERA_LIST) if isinstance(CAMERA_LIST, list) else 0
                         state = get_license_snapshot()
                         lic_txt = "✅ Hợp lệ" if state.get("active") else "⛔ Chưa kích hoạt"
                         msg = (
@@ -4236,17 +4395,40 @@ def get_rtsp_url(cam_id, stream=None, context=None):
 
 
 def gen_netsdk_frames(camera, stream=None, context=None):
-    """Stream JPEG frames from Dahua/Imou 37777 without RTSP fallback."""
+    """Stream JPEG frames through the configured vendor private SDK."""
     target_stream = resolve_live_preview_stream(camera, stream, context=context)
     private_camera = dict(camera)
     private_camera["netsdk_stream"] = target_stream
     private_camera["stream"] = target_stream
     private_camera["view_stream"] = target_stream
+    vendor = _local_vendor(private_camera)
+
     while True:
         frames = None
+        adapter = None
         try:
-            adapter = Dahua37777Adapter.from_camera(private_camera, base_dir=_netsdk_base_dir())
-            frames = adapter.iter_jpeg_frames(FFMPEG_PATH, fps=10.0, frame_timeout=12.0)
+            if vendor in {"hikvision", "ezviz"}:
+                from camera_modules.hikvision import HikvisionAdapter
+                adapter = HikvisionAdapter.from_camera(
+                    private_camera,
+                    base_dir=_hikvision_sdk_base_dir(),
+                )
+                frames = adapter.iter_jpeg_frames(
+                    _private_sdk_channel(private_camera),
+                    fps=5.0,
+                    frame_timeout=12.0,
+                )
+            else:
+                adapter = Dahua37777Adapter.from_camera(
+                    private_camera,
+                    base_dir=_netsdk_base_dir(),
+                )
+                frames = adapter.iter_jpeg_frames(
+                    FFMPEG_PATH,
+                    fps=10.0,
+                    frame_timeout=12.0,
+                )
+
             for frame in frames:
                 yield (
                     b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"
@@ -4259,12 +4441,22 @@ def gen_netsdk_frames(camera, stream=None, context=None):
                     frames.close()
                 except Exception:
                     pass
+            if adapter is not None and vendor in {"hikvision", "ezviz"}:
+                try:
+                    adapter.disconnect()
+                except Exception:
+                    pass
             return
         except Exception as exc:
-            logger.warning("[NetSDK Preview] %s", exc)
+            logger.warning("[%s SDK Preview] %s", vendor, exc)
             if frames is not None:
                 try:
                     frames.close()
+                except Exception:
+                    pass
+            if adapter is not None and vendor in {"hikvision", "ezviz"}:
+                try:
+                    adapter.disconnect()
                 except Exception:
                     pass
             time.sleep(3)
@@ -4617,15 +4809,38 @@ def camera_snapshot(cam_id):
         private_camera["netsdk_stream"] = target_stream
         private_camera["stream"] = target_stream
         private_camera["view_stream"] = target_stream
+        vendor = _local_vendor(private_camera)
+        adapter = None
         try:
-            adapter = Dahua37777Adapter.from_camera(private_camera, base_dir=_netsdk_base_dir())
-            jpeg = adapter.capture_jpeg(FFMPEG_PATH, timeout=12.0)
+            if vendor in {"hikvision", "ezviz"}:
+                from camera_modules.hikvision import HikvisionAdapter
+                adapter = HikvisionAdapter.from_camera(
+                    private_camera,
+                    base_dir=_hikvision_sdk_base_dir(),
+                )
+                jpeg = adapter.capture_jpeg(
+                    _private_sdk_channel(private_camera),
+                    timeout=12.0,
+                )
+            else:
+                adapter = Dahua37777Adapter.from_camera(
+                    private_camera,
+                    base_dir=_netsdk_base_dir(),
+                )
+                jpeg = adapter.capture_jpeg(FFMPEG_PATH, timeout=12.0)
             response = Response(jpeg, mimetype="image/jpeg")
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
             return response
         except Exception as exc:
-            logger.warning("[NetSDK Snapshot Cam %s] %s", cam_id, exc)
-            return "NetSDK snapshot unavailable", 503
+            logger.warning("[%s SDK Snapshot Cam %s] %s", vendor, cam_id, exc)
+            return "SDK snapshot unavailable", 503
+        finally:
+            if adapter is not None and vendor in {"hikvision", "ezviz"}:
+                try:
+                    adapter.disconnect()
+                except Exception:
+                    pass
+
     rtsp_url = get_rtsp_url(cam_id, target_stream, context=context)
     if not rtsp_url:
         return "Camera không tồn tại", 404

@@ -41,8 +41,8 @@ class AutoUpdateAndPrimaryLocalTests(unittest.TestCase):
             "body": "Fixes and improvements",
             "assets": [
                 {
-                    "name": "CCTV_2.1.2.zip",
-                    "browser_download_url": "https://github.com/qwusvn/Cambida/releases/download/v2.1.2/CCTV_2.1.2.zip"
+                    "name": "2.1.2.zip",
+                    "browser_download_url": "https://github.com/qwusvn/Cambida/releases/download/v2.1.2/2.1.2.zip"
                 }
             ]
         }
@@ -52,7 +52,7 @@ class AutoUpdateAndPrimaryLocalTests(unittest.TestCase):
                 res = APP.check_github_update(repo="qwusvn/Cambida")
                 self.assertTrue(res["has_update"])
                 self.assertEqual(res["new_version"], "2.1.2")
-                self.assertEqual(res["download_url"], "https://github.com/qwusvn/Cambida/releases/download/v2.1.2/CCTV_2.1.2.zip")
+                self.assertEqual(res["download_url"], "https://github.com/qwusvn/Cambida/releases/download/v2.1.2/2.1.2.zip")
 
     def test_check_github_update_already_latest(self):
         mock_response = MagicMock()
