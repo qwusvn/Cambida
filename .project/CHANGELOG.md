@@ -1,4 +1,4 @@
-# PROJECT CHANGELOG — Cambida
+﻿# PROJECT CHANGELOG — Cambida
 
 ## 2026-10-03 — Secure LAN-to-Cloudflare iPhone handoff
 - iPhone replay redirect from LAN now appends a signed one-time `lan_ticket` instead of forcing the guest through remote login.
@@ -416,4 +416,5 @@ elease/2.1.52.zip và đầy đủ cloudflared.exe + cloudflared_setup/.
 - Sau khi gán, ControlHub trả subdomain + Tunnel Token và cấu hình ingress theo server_port; Cambida tự lưu và chạy Named Tunnel. Luồng nhập tay/legacy vẫn tương thích.
 - Updater schema 2 bảo vệ client secret và health check dùng server_port thực tế trong config.
 - Bao gồm thay đổi remote-access auth từ phiên trước và các chỉnh sửa 2.3.0 đang có trong source.
-- Verification: ControlHub 31/31 PASS; Cambida targeted 24/24 PASS; Node UI 33/33 PASS; build 2.3.1 PASS; ZIP 220717001 bytes, SHA-256 74dff38d0d9897818fc17e28d0823835fa9df8064457f82730589bcf148f2b23.
+- Verification: ControlHub 31/31 PASS; Cambida targeted 24/24 PASS; Node UI 33/33 PASS; build 2.3.1 PASS; ZIP 220716997 bytes, SHA-256 b52740a1c2d39a8fff3c934199cc18798d9a6b99929d8d6047e858c58e40cfe5.
+

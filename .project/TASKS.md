@@ -1,4 +1,4 @@
-# TASKS — Cambida
+﻿# TASKS — Cambida
 
 ## 2026-10-03 — DONE: LAN handoff ticket cho iPhone
 - [x] QR LAN trên iPhone redirect sang Cloudflare bằng vé ký ngắn hạn, không hỏi pass.
@@ -514,4 +514,5 @@ elease\2.1.0\index.html byte-identically with source index.html.
 - [x] Kiểm tra và xác nhận loại trừ 100% cấu hình cá nhân (`config.json`, `analytics.db`, `device_id.key`, `logs/`, `cctv_videos/`, `nvr_cache/`).
 - [x] Xuất bản hoàn chỉnh `release/2.2.2/` và nén file `release/2.2.2.zip` (SHA-256: `f79a3c82c604efb4aef53c976989340d48a7412b53df9829b20d7d270e23c0cb`). Status: COMPLETED.
 
-- [2026-10-03] 2.3.1 self-registration/ControlHub: IMPLEMENTED + TESTED + BUILT; còn publish GitHub release để hoàn tất auto-update.
+- [2026-10-03] 2.3.1 self-registration/ControlHub: COMPLETED; GitHub Release v2.3.1 published, full 2.3.1.zip verified as latest for auto-update.
+

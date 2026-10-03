@@ -1,4 +1,4 @@
-# HANDOFF — Cambida
+﻿# HANDOFF — Cambida
 
 ## 2026-10-03 — iPhone LAN handoff contract
 - Intended flow: QR -> LAN replay URL -> iPhone detects HTTPS need -> Cambida mints signed one-time LAN handoff ticket -> 302 to public Cloudflare replay URL -> public middleware consumes ticket -> sets viewer-only remote session -> 302 to clean replay URL. No password prompt for this path.
@@ -627,5 +627,9 @@ elease\2.1.0\index.html synchronized with source.
 - Sau khi gán, ControlHub trả subdomain + Tunnel Token và cấu hình ingress theo server_port; Cambida tự lưu và chạy Named Tunnel. Luồng nhập tay/legacy vẫn tương thích.
 - Updater schema 2 bảo vệ client secret và health check dùng server_port thực tế trong config.
 - Bao gồm thay đổi remote-access auth từ phiên trước và các chỉnh sửa 2.3.0 đang có trong source.
-- Verification: ControlHub 31/31 PASS; Cambida targeted 24/24 PASS; Node UI 33/33 PASS; build 2.3.1 PASS; ZIP 220717001 bytes, SHA-256 74dff38d0d9897818fc17e28d0823835fa9df8064457f82730589bcf148f2b23.
+- Verification: ControlHub 31/31 PASS; Cambida targeted 24/24 PASS; Node UI 33/33 PASS; build 2.3.1 PASS; ZIP 220716997 bytes, SHA-256 b52740a1c2d39a8fff3c934199cc18798d9a6b99929d8d6047e858c58e40cfe5.
 - ControlHub production migration 0002 và Worker cfdbf23d-76fb-4e87-a46f-ce34820a1b36 đã deploy, health OK.
+
+
+- GitHub Release v2.3.1: https://github.com/qwusvn/Cambida/releases/tag/v2.3.1
+- Final ZIP: 220716997 bytes; SHA-256 b52740a1c2d39a8fff3c934199cc18798d9a6b99929d8d6047e858c58e40cfe5. GitHub asset digest/size match local exactly; latest release confirmed.

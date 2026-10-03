@@ -1,4 +1,4 @@
-# STATE — Cambida
+﻿# STATE — Cambida
 
 ## 2026-10-03 — iPhone LAN → Cloudflare handoff không hỏi pass
 - QR vẫn mở URL LAN. Khi iPhone cần HTTPS, Cambida chỉ trên request LAN trực tiếp mới phát `lan_ticket` ký HMAC, ràng buộc đúng path, dùng một lần, TTL 60 giây.
@@ -660,4 +660,5 @@ Cập nhật: 2026-09-30 +07
 - Sau khi gán, ControlHub trả subdomain + Tunnel Token và cấu hình ingress theo server_port; Cambida tự lưu và chạy Named Tunnel. Luồng nhập tay/legacy vẫn tương thích.
 - Updater schema 2 bảo vệ client secret và health check dùng server_port thực tế trong config.
 - Bao gồm thay đổi remote-access auth từ phiên trước và các chỉnh sửa 2.3.0 đang có trong source.
-- Verification: ControlHub 31/31 PASS; Cambida targeted 24/24 PASS; Node UI 33/33 PASS; build 2.3.1 PASS; ZIP 220717001 bytes, SHA-256 74dff38d0d9897818fc17e28d0823835fa9df8064457f82730589bcf148f2b23.
+- Verification: ControlHub 31/31 PASS; Cambida targeted 24/24 PASS; Node UI 33/33 PASS; build 2.3.1 PASS; ZIP 220716997 bytes, SHA-256 b52740a1c2d39a8fff3c934199cc18798d9a6b99929d8d6047e858c58e40cfe5.
+
