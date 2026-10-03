@@ -50,6 +50,7 @@ def run(argv, **kwargs):
 def source_modules():
     result = {'cambida_app': (ROOT / '1.py', False),
               'native_update': (ROOT / 'native_update.py', False),
+              'controlhub_claim': (ROOT / 'controlhub_claim.py', False),
               'dahua_37777': (ROOT / 'dahua_37777.py', False)}
     for package in PACKAGES:
         for path in sorted((ROOT / package).rglob('*.py')):
@@ -57,7 +58,14 @@ def source_modules():
             is_package = parts[-1] == '__init__'
             if is_package:
                 parts.pop()
-            result['.'.join(parts)] = (path, is_package)
+            # Ignore sync/copy artifacts such as "config (1).py". They are not
+            # importable Python module names and must never enter a release.
+            if not parts or any(not part.isidentifier() for part in parts):
+                continue
+            module_name = '.'.join(parts)
+            if module_name in result:
+                raise RuntimeError(f'Duplicate native module source: {module_name}')
+            result[module_name] = (path, is_package)
     return result
 
 
@@ -109,16 +117,24 @@ def compile_modules(modules):
         current[name] = {'input': fingerprint, 'output': None}
         entries[name] = {'file': output.relative_to(PYD).as_posix(), 'package': package}
     if changed:
-        setup = BUILD / 'compile_modules.py'
+        run_id = uuid.uuid4().hex[:8]
+        cython_dir = BUILD / ('cython-' + run_id)
+        objects_dir = BUILD / ('objects-' + run_id)
+        setup = BUILD / ('compile_modules-' + run_id + '.py')
         setup.write_text(
             'from setuptools import setup, Extension\nfrom Cython.Build import cythonize\n'
             + 'extensions = [Extension(n, [p], extra_compile_args=["/O1", "/GL-"]) for n,p in '
             + repr(changed) + ']\n'
             + 'setup(name="cambida-native", ext_modules=cythonize(extensions, compiler_directives='
-            + repr(DIRECTIVES) + ', build_dir=' + repr(str(BUILD / 'cython')) + '))\n', encoding='utf-8')
+            + repr(DIRECTIVES) + ', build_dir=' + repr(str(cython_dir)) + '))\n', encoding='utf-8')
         print(f'Compiling {len(changed)}/{len(modules)} native modules', flush=True)
-        run([sys.executable, str(setup), 'build_ext', '--build-lib', str(PYD),
-             '--build-temp', str(BUILD / 'objects'), '--parallel', '2'], env=compiler_env)
+        try:
+            run([sys.executable, str(setup), 'build_ext', '--build-lib', str(PYD),
+                 '--build-temp', str(objects_dir), '--parallel', '2'], env=compiler_env)
+        finally:
+            setup.unlink(missing_ok=True)
+            shutil.rmtree(cython_dir, ignore_errors=True)
+            shutil.rmtree(objects_dir, ignore_errors=True)
     else:
         print('All native modules unchanged: using cached binaries', flush=True)
     for name in current:
@@ -199,14 +215,14 @@ def main():
         raise RuntimeError(f'Refusing to overwrite an existing release: {destination}')
     release = BUILD / ('package-' + args.version + '-' + uuid.uuid4().hex[:8])
     modules = source_modules()
-    sidecars = ('index.html', 'admin.html', 'admin_login.html', 'home.html', 'live_all.html',
+    sidecars = ('index.html', 'admin.html', 'admin_login.html', 'remote_login.html', 'home.html', 'live_all.html',
                 'stats.html', 'timeline.html', 'ffmpeg.exe', 'cloudflared.exe')
     cloud_files = ('HD_SU_DUNG.txt', 'install_tunnel.bat', 'run_tunnel_silent.vbs',
                    'setup_tunnel.ps1', 'start_tunnel.ps1', 'stop_tunnel.bat')
     inputs = [p for p, _ in modules.values()] + [ROOT / name for name in sidecars]
     inputs += [ROOT / 'tools/cloudflared_setup' / name for name in cloud_files]
     inputs += [ROOT / name for name in ('scripts/native_launcher.py', 'scripts/native_runtime.spec',
-               'scripts/native_updater.cmd', 'scripts/native_updater.ps1',
+               'scripts/universal_updater.ps1',
                'scripts/release_launcher.cmd', 'config.release.json', 'NATIVE_RELEASE.md')]
     snapshot = {str(p.relative_to(ROOT)): digest(p) for p in inputs}
     entries = compile_modules(modules)
@@ -228,32 +244,42 @@ def main():
     for filename in ('RELEASE_VERSION.txt', 'VERSION.txt'):
         (release / filename).write_text(args.version + '\n', encoding='utf-8')
     shutil.copy2(ROOT / 'scripts/release_launcher.cmd', release / 'Chay_CCTV.cmd')
-    shutil.copy2(ROOT / 'scripts/native_updater.cmd', release / 'updater.cmd')
-    shutil.copy2(ROOT / 'scripts/native_updater.ps1', release / 'native_updater.ps1')
+    shutil.copy2(ROOT / 'scripts/universal_updater.ps1', release / 'updater.ps1')
     shutil.copy2(ROOT / 'NATIVE_RELEASE.md', release / 'README_RELEASE.md')
     write_json(release / 'BUILD_INFO.json', {
         'version': args.version, 'source': snapshot, 'runtime_id': runtime_id,
         'python': sys.version, 'cython': importlib.metadata.version('Cython'),
         'git_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
         'dirty': bool(subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT)),
-        'tests': 'NOT RUN - not requested', 'device_acceptance': 'NOT RUN - not requested',
+        'tests': os.environ.get('CAMBIDA_TEST_STATUS', 'NOT RECORDED'),
+        'device_acceptance': os.environ.get('CAMBIDA_DEVICE_STATUS', 'NOT RUN - not requested'),
     })
     for path, checksum in snapshot.items():
         if digest(ROOT / path) != checksum:
             raise RuntimeError(f'Source changed during build: {path}; package not released')
-    forbidden = {'config.json', 'analytics.db', 'device_id.key', 'logs', 'cctv_videos', 'nvr_cache'}
+    forbidden = {
+        'config.json', 'analytics.db', 'device_id.key', 'tunnel_token.txt',
+        'controlhub_machine_id.txt', 'controlhub_client_secret.txt', 'controlhub_bootstrap.json',
+        'logs', 'cctv_videos', 'nvr_cache', '.updates', '.update-backups',
+    }
     for path in release.rglob('*'):
         # Third-party runtime packages such as OpenCV need their bootstrap .py
         # files. Our own application code must exist only as native modules.
         private_source = path.relative_to(release).parts[0] != '_internal'
         if path.name in forbidden or (private_source and path.is_file() and path.suffix.lower() in {'.py', '.pyc', '.pyx', '.c'}):
             raise RuntimeError(f'Forbidden release content: {path.relative_to(release)}')
-    manifest = {'schema': 1, 'version': args.version, 'runtime_id': runtime_id,
+    manifest = {'schema': 2, 'version': args.version, 'runtime_id': runtime_id,
                 'abi': sys.implementation.cache_tag + '-' + sysconfig.get_platform(),
                 'files': {p.relative_to(release).as_posix(): digest(p)
                           for p in sorted(release.rglob('*')) if p.is_file()}}
     write_json(release / 'release_manifest.json', manifest)
-    write_json(release / 'update.json', {'schema': 1, 'kind': 'full', 'version': args.version})
+    write_json(release / 'update.json', {
+        'schema': 2,
+        'kind': 'full',
+        'version': args.version,
+        'start': {'path': 'Cambida.exe', 'args': []},
+        'health': {'url': 'http://127.0.0.1:8004/', 'timeout_seconds': 90},
+    })
     destination.parent.mkdir(parents=True, exist_ok=True)
     archive_temp = BUILD / (args.version + '-' + uuid.uuid4().hex[:8] + '.zip')
     make_zip(release, archive_temp)
@@ -262,33 +288,7 @@ def main():
     release = destination
     print(f'RELEASE={release}\nZIP={archive}\nSHA256={digest(archive)}', flush=True)
     if args.base_release:
-        base = args.base_release.resolve()
-        old = read_json(base / 'release_manifest.json')
-        old_abi = old.get('abi')
-        old_runtime_id = old.get('runtime_id')
-        if not old_abi or not old_runtime_id:
-            print('PATCH=SKIPPED (legacy base manifest; full package required)', flush=True)
-            return
-        if old_abi != manifest['abi'] or old_runtime_id != runtime_id:
-            print('PATCH=SKIPPED (runtime or ABI changed; full package required)', flush=True)
-            return
-        if set(old['files']) - set(manifest['files']):
-            print('PATCH=SKIPPED (file removals detected; full package required)', flush=True)
-            return
-        changed = [p for p, checksum in manifest['files'].items() if old['files'].get(p) != checksum]
-        delta_folder = BUILD / ('delta-' + args.version)
-        delta_folder.mkdir(exist_ok=False)
-        for path in changed + ['release_manifest.json']:
-            target = delta_folder / path
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(release / path, target)
-        write_json(delta_folder / 'update.json', {
-            'schema': 1, 'kind': 'delta', 'version': args.version,
-            'base_version': old['version'], 'base_manifest_sha256': digest(base / 'release_manifest.json'),
-        })
-        patch = release.parent / f'{args.version}-from-{old["version"]}.patch.zip'
-        make_zip(delta_folder, patch)
-        print(f'PATCH={patch}\nPATCH_SHA256={digest(patch)}', flush=True)
+        print('PATCH=SKIPPED (Cambida 2.3+ publishes full ZIP releases only)', flush=True)
 
 
 if __name__ == '__main__':

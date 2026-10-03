@@ -64,5 +64,19 @@ class LauncherTests(unittest.TestCase):
         restart_prompt.assert_not_called()
 
 
+    def test_current_server_startup_is_headless_and_does_not_open_browser(self):
+        for launcher_file in ("Chay_CCTV.cmd", "run.cmd"):
+            with open(os.path.join(ROOT, launcher_file), encoding="utf-8") as handle:
+                launcher = handle.read().lower()
+            self.assertNotIn('start "" "%url%"', launcher)
+            self.assertNotIn("mo trinh duyet", launcher)
+
+        with open(os.path.join(ROOT, "1.py"), encoding="utf-8") as handle:
+            source = handle.read()
+        main_source = source[source.index("def main():"):]
+        self.assertNotIn("_delayed_open", main_source)
+        self.assertNotIn("_open_server_page(server_port)", main_source)
+
+
 if __name__ == "__main__":
     unittest.main()

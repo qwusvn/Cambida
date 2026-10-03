@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Đăng nhập truy cập từ xa · {{ site.name or 'Cambida' }}</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0b1020;--card:#121a2b;--line:#24314a;--text:#f8fafc;--muted:#94a3b8;--primary:#0ea5e9;--danger:#fca5a5}
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at top,#17233b 0,#0b1020 52%,#070b14 100%);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text)}
+    .card{width:min(100%,420px);background:rgba(18,26,43,.96);border:1px solid var(--line);border-radius:22px;padding:30px;box-shadow:0 24px 70px rgba(0,0,0,.42)}
+    .icon{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;margin:0 auto 16px;background:linear-gradient(135deg,#0ea5e9,#4f46e5);font-size:26px}
+    h1{margin:0;text-align:center;font-size:1.35rem} p{margin:8px 0 24px;text-align:center;color:var(--muted);line-height:1.5}
+    label{display:block;font-size:.86rem;font-weight:700;margin:14px 0 7px}.input{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:#0b1220;color:var(--text);font-size:1rem;outline:none}.input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(14,165,233,.18)}
+    button{width:100%;margin-top:20px;padding:12px;border:0;border-radius:12px;background:var(--primary);color:white;font-size:1rem;font-weight:800;cursor:pointer}
+    .error{margin:0 0 14px;padding:10px 12px;border-radius:10px;background:rgba(239,68,68,.12);color:var(--danger);font-size:.9rem}
+    .note{margin-top:18px;font-size:.8rem;color:var(--muted);text-align:center}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="icon">🔒</div>
+    <h1>Truy cập từ ngoài mạng quán</h1>
+    <p>Bạn đang mở Cambida qua Internet. Nhập tài khoản và mật khẩu để tiếp tục.</p>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form method="post" autocomplete="on">
+      <label for="username">Tài khoản</label>
+      <input class="input" id="username" name="username" autocomplete="username" required autofocus>
+      <label for="password">Mật khẩu</label>
+      <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+      <button type="submit">Đăng nhập</button>
+    </form>
+    <div class="note">Thiết bị dùng cùng mạng LAN của quán không cần đăng nhập.</div>
+  </main>
+</body>
+</html>

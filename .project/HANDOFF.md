@@ -1,5 +1,37 @@
 # HANDOFF — Cambida
 
+## 2026-10-03 — iPhone LAN handoff contract
+- Intended flow: QR -> LAN replay URL -> iPhone detects HTTPS need -> Cambida mints signed one-time LAN handoff ticket -> 302 to public Cloudflare replay URL -> public middleware consumes ticket -> sets viewer-only remote session -> 302 to clean replay URL. No password prompt for this path.
+- Ticket must never be minted from a Cloudflare/public request; `_is_direct_lan_request()` gates minting. Ticket TTL is 60s, path-bound and one-time via in-memory nonce cache.
+- Direct public-domain access without a valid ticket still requires `/remote/login`; viewer session does not grant `/admin`.
+- Verified release: `D:\1\Cambida\release\2.3.0.zip`, SHA-256 `7cce95dd42c4d8a63e632ca4c89340a48626bae85508189386e983a6347154e1`, 220,706,930 bytes; 40 pytest + 33 Node UI PASS; updater parser PASS.
+
+## 2026-10-03 — Remote access contract
+- LAN direct URL (`http://<LAN-IP>:<server_port>`) is open for guests as before.
+- Public Cloudflare URL requires `/remote/login` first. Detection uses `CF-Connecting-IP` with configured public-host fallback; do not replace it with `request.remote_addr` because cloudflared reaches Flask from localhost.
+- Remote login checks `CONFIG.admin_auth` but only sets `remote_authenticated`; `/admin` still requires `admin_authenticated` through `/admin/login`.
+- Remote middleware protects all non-exempt routes globally, including live/replay/media/API. `/api/ping` stays exempt for ControlHub tunnel checks.
+- Verified release: `D:\1\Cambida\release\2.3.0.zip`, SHA-256 `e312dace1ad89b29b869ffd875530898a664a874633b4b67063d9642fcce81b6`, 220,691,166 bytes; 38 regression PASS; updater parser PASS.
+
+## 2026-10-02 — Cloudflare setup contract từ 2.3.0
+- Operator: ControlHubApp -> tạo cửa hàng -> sao chép subdomain. Máy quán: Config -> Subdomain Cloudflare -> Lưu -> Khởi động lại. Không copy Tunnel Token.
+- Cambida dùng machine ID ổn định theo installation để claim `/api/cambida/claim-by-subdomain`; token chỉ lưu cục bộ trong `tunnel_token.txt`.
+- `cloudflare_bound_subdomain` xác định token hiện tại thuộc hostname nào. Đổi subdomain sẽ clear binding/token cũ; restart stop tunnel cũ trước khi process mới claim.
+- Release đã xác minh: `D:\1\Cambida\release\2.3.0.zip`; SHA-256 `437fb5c5baf22429764114b9a83cae1f75e5526bbdb4109e1ba62817f992ba61`; 220,677,616 bytes.
+- Manifest schema 2 có 234 file và `modules/controlhub_claim.cp313-win_amd64.pyd`; ZIP secret/state audit BAD=0; `prepare_archive` PASS.
+- Regression không chạm thiết bị: 39 Python + 33 Node UI PASS; ControlHub 11/11 PASS. Không được coi là device acceptance.
+- ControlHubApp source đã sửa nhưng live service chưa restart/deploy trong task này.
+
+## 2026-10-02 ? 2.3.0 baseline / updater contract
+- Manual baseline: D:\1\Cambida\release\2.3.0.zip, SHA-256 c0c9847b8367b59758b230cbc32284efa74653a27f3b5bb4ad045b4d5c776856.
+- T? 2.3, m?i GitHub Release ph?i attach full <version>.zip; kh?ng d?ng delta/bridge chain.
+- Schema-2 release_manifest.json s? h?u file ch??ng tr?nh; update.json start path/args ??nh ngh?a entrypoint n?n layout t??ng lai c? th? ??i.
+- App copy updater.ps1 ra TEMP tr??c handoff, v? v?y updater c?i ??t c? th? t? b? thay th?.
+- Runtime/shop data kh?ng n?m trong manifest v? ???c b?o v?; rollback l?u d??i .update-backups.
+- Startup server headless; browser ch? m? khi ng??i d?ng ch?n t? tray/menu ho?c t? nh?p URL.
+- Verification local: 26/26 relevant tests PASS + syntax/parser/artifact audit. Kh?ng ch?y live camera/device.
+- Artifact build bao g?m pre-existing dirty admin.html; kh?ng ??a file ?? v?o commit c?a task n?y.
+
 Cập nhật: 2026-09-30 +07
 
 ## Bắt đầu hội thoại/agent mới
@@ -590,3 +622,10 @@ elease\2.1.0\index.html synchronized with source.
 - Preserved all 17 files in the resume snapshot without modification. User HTML changes remain unstaged; only native packaging changes are included in the task commit.
 - Build exit 0. Cached native modules were reused on the final packaging run. Executable launch, application behavior and delta application NOT TESTED.
 - Evidence: staging/native-build/release-verification.json and build-final.log.
+## 2026-10-03 — Cambida 2.3.1 self-registration + auto Cloudflare
+- Client 2.3.1 tự tạo machine ID + client secret, tự đăng ký ControlHub khi chưa có subdomain/token và poll mỗi 15 giây tới khi được gán quán.
+- Sau khi gán, ControlHub trả subdomain + Tunnel Token và cấu hình ingress theo server_port; Cambida tự lưu và chạy Named Tunnel. Luồng nhập tay/legacy vẫn tương thích.
+- Updater schema 2 bảo vệ client secret và health check dùng server_port thực tế trong config.
+- Bao gồm thay đổi remote-access auth từ phiên trước và các chỉnh sửa 2.3.0 đang có trong source.
+- Verification: ControlHub 31/31 PASS; Cambida targeted 24/24 PASS; Node UI 33/33 PASS; build 2.3.1 PASS; ZIP 220717001 bytes, SHA-256 74dff38d0d9897818fc17e28d0823835fa9df8064457f82730589bcf148f2b23.
+- ControlHub production migration 0002 và Worker cfdbf23d-76fb-4e87-a46f-ce34820a1b36 đã deploy, health OK.

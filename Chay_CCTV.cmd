@@ -21,11 +21,11 @@ if errorlevel 1 (
     echo [+] May chu Camera Highlight dang hoat dong san tren cong 8004.
 )
 
-:: 2. Doi may chu san sang va tu dong mo trinh duyet
-echo [*] Dang ket noi may chu va mo trinh duyet...
+:: 2. Doi may chu san sang
+echo [*] Dang cho may chu san sang...
 for /l %%N in (1,1,30) do (
     call :port_ready
-    if not errorlevel 1 goto :open_browser
+    if not errorlevel 1 goto :server_ready
     >nul timeout /t 1 /nobreak
 )
 
@@ -33,11 +33,8 @@ echo [!] May chu chua san sang tai %URL%
 if not "%~1"=="--no-pause" pause
 exit /b 2
 
-:open_browser
+:server_ready
 echo [OK] May chu da san sang tai %URL%
-if not "%~1"=="--no-browser" (
-    start "" "%URL%"
-)
 exit /b 0
 
 :port_ready

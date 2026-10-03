@@ -90,20 +90,16 @@ if errorlevel 1 (
 )
 
 :: -----------------------------------------------------------------------------
-:: 4. CHO MAY CHU SAN SANG & MO TRINH DUYET
+:: 4. CHO MAY CHU SAN SANG
 :: -----------------------------------------------------------------------------
 for /l %%N in (1,1,30) do (
     call :port_ready
-    if not errorlevel 1 goto :open_browser
+    if not errorlevel 1 goto :server_ready
     >nul timeout /t 1 /nobreak
 )
 exit /b 2
 
-:open_browser
-echo %* | findstr /i "\--no-browser \--headless" >nul 2>&1
-if errorlevel 1 (
-    start "" "%URL%"
-)
+:server_ready
 exit /b 0
 
 :port_ready

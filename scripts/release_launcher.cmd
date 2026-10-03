@@ -6,3 +6,4 @@ if not exist "%~dp0Cambida.exe" (
   exit /b 1
 )
 start "" "%~dp0Cambida.exe"
+exit /b 0

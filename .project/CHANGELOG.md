@@ -1,5 +1,38 @@
 # PROJECT CHANGELOG — Cambida
 
+## 2026-10-03 — Secure LAN-to-Cloudflare iPhone handoff
+- iPhone replay redirect from LAN now appends a signed one-time `lan_ticket` instead of forcing the guest through remote login.
+- Ticket uses the Cambida session secret with HMAC-SHA256, contains target path + issued time + random nonce, expires after 60 seconds, and is rejected after first use.
+- On valid public handoff, middleware creates viewer-only remote session and redirects to the same URL without the ticket.
+- Direct public access remains password-protected. Regression covers valid handoff, one-time use and signature tampering.
+- Rebuilt `release/2.3.0.zip`: 220,706,930 bytes; SHA-256 `7cce95dd42c4d8a63e632ca4c89340a48626bae85508189386e983a6347154e1`.
+
+## 2026-10-03 — Restore LAN/WAN access policy
+- Restore expected access policy: same-LAN users enter directly; Cloudflare/public-domain users must authenticate.
+- Add Cloudflare/public-host detection and global remote-access middleware covering guest pages, APIs, live/replay and media routes.
+- Add separate `remote_authenticated` session using configured username/password; admin routes retain independent admin session enforcement.
+- Exempt `/api/ping` from remote auth so tunnel monitoring stays functional.
+- Add `remote_login.html`, package it in native releases, add regression tests.
+- Rebuild `release/2.3.0.zip`: 220,691,166 bytes; SHA-256 `e312dace1ad89b29b869ffd875530898a664a874633b4b67063d9642fcce81b6`; manifest 235 files; archive verification PASS.
+
+## 2026-10-02 — 2.3.0 subdomain-only Cloudflare provisioning
+- Đổi UX Cloudflare thành: ControlHubApp tạo shop/subdomain -> Cambida nhập subdomain -> Lưu -> Restart.
+- Thêm claim theo subdomain qua ControlHub, first-machine binding, và chuyển binding an toàn khi cùng máy đổi subdomain.
+- Cambida tự nhận Tunnel Token, lưu local, derive `public_base_url=https://<subdomain>`; không yêu cầu người vận hành copy token.
+- Đổi subdomain sẽ xóa token cũ; restart dừng cloudflared trước khi mở process mới.
+- Native builder đóng `controlhub_claim`; legacy bootstrap vẫn tương thích.
+- Rebuild `release/2.3.0.zip`: 220,677,616 bytes; SHA-256 `437fb5c5baf22429764114b9a83cae1f75e5526bbdb4109e1ba62817f992ba61`.
+- Verification: Cambida 39 Python + 33 Node UI PASS, ControlHub 11/11 PASS, ZIP updater-parser/manifest/protected-state audit PASS.
+
+## 2026-10-02 ? Cambida 2.3.0 universal full updater
+- T?o baseline 2.3.0 native v?i update schema 2, full ZIP only v? start/health contract ??c l?p layout.
+- Updater ch?y ngo?i install tree, backup + remove stale release files + overlay full package + verify hash + restart/rollback.
+- B?o v? d? li?u qu?n, Tunnel Token v? ControlHub state kh?i release overlay.
+- B? auto-open browser khi server kh?i ??ng; thao t?c m? t? tray v?n gi?.
+- Native builder b? qua file sync-copy Python t?n kh?ng h?p l? v? d?ng compile temp ri?ng m?i l??t.
+- Release release/2.3.0.zip: 220,619,766 bytes; SHA-256 c0c9847b8367b59758b230cbc32284efa74653a27f3b5bb4ad045b4d5c776856.
+- Verification: relevant regression 26/26 PASS; Python syntax, PowerShell parser v? final ZIP audit PASS. Kh?ng publish GitHub/live device test.
+
 ## 2026-10-01 — 2.2.6 ControlHub one-time claim
 - Thêm client bootstrap/claim tự động với ControlHub độc lập; Cloudflare API Token quản trị không còn cần xuống máy quán.
 - Update theo quán chỉ mang claim token một lần trong `controlhub_bootstrap.json`; Cambida bind site vào machine ID đầu tiên claim thành công.
@@ -378,3 +411,9 @@ elease/2.1.52.zip và đầy đủ cloudflared.exe + cloudflared_setup/.
 - Preserved all 17 files in the resume snapshot without modification. User HTML changes remain unstaged; only native packaging changes are included in the task commit.
 - Build exit 0. Cached native modules were reused on the final packaging run. Executable launch, application behavior and delta application NOT TESTED.
 - Evidence: staging/native-build/release-verification.json and build-final.log.
+## 2026-10-03 — Cambida 2.3.1 self-registration + auto Cloudflare
+- Client 2.3.1 tự tạo machine ID + client secret, tự đăng ký ControlHub khi chưa có subdomain/token và poll mỗi 15 giây tới khi được gán quán.
+- Sau khi gán, ControlHub trả subdomain + Tunnel Token và cấu hình ingress theo server_port; Cambida tự lưu và chạy Named Tunnel. Luồng nhập tay/legacy vẫn tương thích.
+- Updater schema 2 bảo vệ client secret và health check dùng server_port thực tế trong config.
+- Bao gồm thay đổi remote-access auth từ phiên trước và các chỉnh sửa 2.3.0 đang có trong source.
+- Verification: ControlHub 31/31 PASS; Cambida targeted 24/24 PASS; Node UI 33/33 PASS; build 2.3.1 PASS; ZIP 220717001 bytes, SHA-256 74dff38d0d9897818fc17e28d0823835fa9df8064457f82730589bcf148f2b23.

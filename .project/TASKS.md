@@ -1,5 +1,46 @@
 # TASKS — Cambida
 
+## 2026-10-03 — DONE: LAN handoff ticket cho iPhone
+- [x] QR LAN trên iPhone redirect sang Cloudflare bằng vé ký ngắn hạn, không hỏi pass.
+- [x] Vé chỉ mint từ request LAN trực tiếp, bind path, TTL 60s, one-time consume.
+- [x] Sau consume tạo viewer session và làm sạch `lan_ticket` khỏi URL.
+- [x] Người ngoài mở domain trực tiếp, vé giả, vé tái sử dụng vẫn bị login.
+- [x] 40 pytest + 33 Node UI PASS; rebuilt 2.3.0; updater/archive audit PASS.
+- [x] SHA-256 `7cce95dd42c4d8a63e632ca4c89340a48626bae85508189386e983a6347154e1`.
+
+## 2026-10-03 — DONE: LAN open, WAN requires login
+- [x] LAN direct access remains unauthenticated.
+- [x] Cloudflare/public-host access requires username/password before guest pages, APIs, live/replay/media.
+- [x] Reuse configured `admin_auth` credentials but create separate viewer session; no automatic admin privilege.
+- [x] Keep `/api/ping` public for tunnel health and keep `/admin` on its own admin auth flow.
+- [x] Add `remote_login.html` to native sidecars and regression coverage.
+- [x] 38 remote-auth/update tests PASS; rebuilt 2.3.0 and updater-parser audit PASS.
+- [x] Release SHA-256: `e312dace1ad89b29b869ffd875530898a664a874633b4b67063d9642fcce81b6`.
+
+## 2026-10-02 — DONE: 2.3.0 subdomain-only Cloudflare setup
+- [x] Fix origin port auto-detect: client gửi `server_port`, ControlHub reconfigure ingress đúng port thay vì mặc định 8004.
+- [x] `athenapr.hhan24.org` live origin đã chuyển sang 8000; public check HTTP 200.
+- [x] Rebuild `release/2.3.0.zip`: 220,677,946 bytes; SHA-256 `39ca0a3094df4e6db55ac16530195b4ff47cdf194e28a6d4b8c8be7a4b52678f`.
+- [x] ControlHubApp tạo cửa hàng và trả subdomain; Cambida không cần package riêng/claim token trong luồng chuẩn.
+- [x] Trang Config Cambida chỉ yêu cầu `Subdomain Cloudflare`; Save chuẩn hóa HTTPS, Restart tự claim Tunnel Token và bật Named Tunnel.
+- [x] First-machine binding; cùng máy được chuyển sang subdomain mới, máy khác không thể claim site đã bind.
+- [x] Khi đổi subdomain, xóa token/binding cũ và dừng cloudflared trước restart để tránh chạy nhầm tunnel.
+- [x] Compile/đóng `controlhub_claim` vào release 2.3.0; giữ legacy bootstrap compatibility.
+- [x] Related regression: Cambida 39 pytest + 33 Node UI PASS; ControlHub 11/11 PASS; updater archive verification PASS.
+- [x] `release/2.3.0.zip`: 220,677,616 bytes; SHA-256 `437fb5c5baf22429764114b9a83cae1f75e5526bbdb4109e1ba62817f992ba61`.
+- [ ] Chưa deploy/restart live ControlHubApp; chưa publish GitHub Release 2.3.0.
+
+## 2026-10-02 ? DONE: Cambida 2.3.0 universal updater
+- [x] Ch?t 2.3.0 l?m baseline copy tay m?t l?n.
+- [x] GitHub updater ch? l?y full <version>.zip, validate schema 2 + SHA-256.
+- [x] Updater ch?y ngo?i install tree, d?ng ??ng old Cambida PID, full overlay + stale-file cleanup + rollback + restart.
+- [x] B?o to?n config/DB/device ID/tunnel & ControlHub state/video/log/cache.
+- [x] T?t auto-open browser khi server kh?i ??ng; tray open v?n gi?.
+- [x] Builder l?c sync-copy module t?n kh?ng h?p l? v? c? l?p compiler temp.
+- [x] release/2.3.0.zip: 220,619,766 bytes; SHA-256 c0c9847b8367b59758b230cbc32284efa74653a27f3b5bb4ad045b4d5c776856.
+- [x] Relevant regression 26/26 PASS; syntax/parser/final artifact audit PASS.
+- [ ] GitHub Release 2.3.0 ch?a publish; live client/device acceptance ch?a ch?y.
+
 ## DONE
 - [x] 2026-10-01 — ControlHub one-time claim & Cambida 2.2.6:
   + Cambida tự đọc `controlhub_bootstrap.json`, claim qua HTTPS, bind machine ID cục bộ, nhận fixed public URL + Tunnel Token rồi ghi config/token và xóa bootstrap.
@@ -473,3 +514,4 @@ elease\2.1.0\index.html byte-identically with source index.html.
 - [x] Kiểm tra và xác nhận loại trừ 100% cấu hình cá nhân (`config.json`, `analytics.db`, `device_id.key`, `logs/`, `cctv_videos/`, `nvr_cache/`).
 - [x] Xuất bản hoàn chỉnh `release/2.2.2/` và nén file `release/2.2.2.zip` (SHA-256: `f79a3c82c604efb4aef53c976989340d48a7412b53df9829b20d7d270e23c0cb`). Status: COMPLETED.
 
+- [2026-10-03] 2.3.1 self-registration/ControlHub: IMPLEMENTED + TESTED + BUILT; còn publish GitHub release để hoàn tất auto-update.

@@ -44,7 +44,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from io import BytesIO
 from logging.handlers import RotatingFileHandler
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import quote, unquote, urlparse, urlencode
 from xml.etree import ElementTree as ET
 
 import cv2
@@ -2060,9 +2060,31 @@ def _download_nvr_reference(token, at_value=None):
     raise RuntimeError("Nguồn NVR không được hỗ trợ.")
 
 
+def _normalize_cloudflare_subdomain(value):
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return ""
+    if "://" in raw:
+        parsed = urlparse(raw)
+        raw = parsed.hostname or ""
+    else:
+        raw = raw.split("/", 1)[0].split(":", 1)[0]
+    raw = raw.rstrip(".")
+    if len(raw) > 253 or "." not in raw:
+        raise ValueError("Subdomain Cloudflare không hợp lệ.")
+    for label in raw.split("."):
+        if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label):
+            raise ValueError("Subdomain Cloudflare không hợp lệ.")
+    return raw
+
+
 def validate_config(candidate):
     if not isinstance(candidate, dict):
         return "Cấu hình phải là một đối tượng JSON."
+    try:
+        _normalize_cloudflare_subdomain(candidate.get("cloudflare_subdomain"))
+    except ValueError as exc:
+        return str(exc)
     admin_auth = candidate.get("admin_auth")
     if (
         not isinstance(admin_auth, dict)
@@ -3083,6 +3105,157 @@ def get_license_snapshot():
         return dict(LICENSE_STATE)
 
 
+def _request_public_hostname():
+    return str(request.host or "").split(":", 1)[0].strip().lower().rstrip(".")
+
+
+def _configured_public_hostname():
+    raw = str(CONFIG.get("cloudflare_subdomain") or "").strip().lower()
+    if raw:
+        return raw.split("/", 1)[0].split(":", 1)[0].rstrip(".")
+    raw = str(CONFIG.get("public_base_url") or "").strip()
+    if raw:
+        try:
+            return (urlparse(raw).hostname or "").lower().rstrip(".")
+        except Exception:
+            return ""
+    return ""
+
+
+def is_remote_cloudflare_request():
+    """Public Cloudflare path => auth; direct LAN path => no auth."""
+    if request.headers.get("CF-Connecting-IP"):
+        return True
+    public_host = _configured_public_hostname()
+    return bool(public_host and _request_public_hostname() == public_host)
+
+
+_LAN_HANDOFF_TTL_SEC = 60
+_LAN_HANDOFF_USED = {}
+_LAN_HANDOFF_LOCK = threading.Lock()
+
+
+def _remote_auth_exempt_path(path_value):
+    if request.method == "OPTIONS":
+        return True
+    if path_value in {"/api/ping", "/remote/login", "/remote/logout"}:
+        return True
+    if path_value.startswith("/admin") or path_value.startswith("/api/admin/"):
+        return True
+    return False
+
+
+def _safe_local_next(value, fallback="/"):
+    value = str(value or "").strip()
+    if not value.startswith("/") or value.startswith("//"):
+        return fallback
+    return value
+
+
+def _is_direct_lan_request():
+    if is_remote_cloudflare_request():
+        return False
+    try:
+        ip_obj = ipaddress.ip_address(str(request.remote_addr or "").split("%", 1)[0])
+        return bool(ip_obj.is_private or ip_obj.is_loopback)
+    except ValueError:
+        return False
+
+
+def _lan_handoff_secret():
+    raw = app.secret_key or CONFIG.get("admin_session_secret") or ""
+    if isinstance(raw, bytes):
+        return raw
+    return str(raw).encode("utf-8")
+
+
+def _b64url_encode(raw):
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def _b64url_decode(value):
+    raw = str(value).encode("ascii")
+    raw += b"=" * ((4 - len(raw) % 4) % 4)
+    return base64.urlsafe_b64decode(raw)
+
+
+def _mint_lan_handoff_ticket(path_value):
+    path_value = _safe_local_next(path_value, "/")
+    payload = {
+        "p": path_value,
+        "iat": int(time.time()),
+        "n": secrets.token_urlsafe(12),
+    }
+    encoded = _b64url_encode(
+        json.dumps(payload, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+    )
+    signature = _b64url_encode(
+        hmac.new(
+            _lan_handoff_secret(),
+            ("lan-handoff:" + encoded).encode("ascii"),
+            hashlib.sha256,
+        ).digest()
+    )
+    return encoded + "." + signature
+
+
+def _consume_lan_handoff_ticket(ticket, expected_path):
+    try:
+        encoded, supplied_signature = str(ticket or "").split(".", 1)
+        expected_signature = _b64url_encode(
+            hmac.new(
+                _lan_handoff_secret(),
+                ("lan-handoff:" + encoded).encode("ascii"),
+                hashlib.sha256,
+            ).digest()
+        )
+        if not hmac.compare_digest(supplied_signature, expected_signature):
+            return False
+        payload = json.loads(_b64url_decode(encoded).decode("utf-8"))
+        issued_at = int(payload.get("iat") or 0)
+        nonce = str(payload.get("n") or "")
+        target_path = _safe_local_next(payload.get("p"), "")
+        age = int(time.time()) - issued_at
+        if not nonce or target_path != expected_path or age < 0 or age > _LAN_HANDOFF_TTL_SEC:
+            return False
+        with _LAN_HANDOFF_LOCK:
+            now_ts = int(time.time())
+            expired = [key for key, expiry in _LAN_HANDOFF_USED.items() if expiry < now_ts]
+            for key in expired:
+                _LAN_HANDOFF_USED.pop(key, None)
+            if nonce in _LAN_HANDOFF_USED:
+                return False
+            _LAN_HANDOFF_USED[nonce] = issued_at + _LAN_HANDOFF_TTL_SEC
+        return True
+    except Exception:
+        return False
+
+
+def _request_path_without_lan_ticket():
+    pairs = [(key, value) for key, value in request.args.items(multi=True) if key != "lan_ticket"]
+    query = urlencode(pairs)
+    return request.path + (("?" + query) if query else "")
+
+
+@app.before_request
+def enforce_remote_access_auth():
+    """LAN stays open; public Cloudflare access requires viewer authentication."""
+    if not is_remote_cloudflare_request() or _remote_auth_exempt_path(request.path):
+        return None
+    if session.get("admin_authenticated") is True or session.get("remote_authenticated") is True:
+        return None
+    ticket = request.args.get("lan_ticket")
+    if request.method == "GET" and ticket and _consume_lan_handoff_ticket(ticket, request.path):
+        session["remote_authenticated"] = True
+        session["remote_authenticated_at"] = int(time.time())
+        session["remote_auth_source"] = "lan_handoff"
+        return redirect(_request_path_without_lan_ticket(), code=302)
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "Cần đăng nhập để truy cập từ ngoài mạng quán."}), 401
+    destination = _request_path_without_lan_ticket()
+    return redirect(url_for("remote_login", next=destination))
+
+
 def _is_replay_license_path(path_value):
     exact = {"/merge"}
     prefixes = (
@@ -3757,13 +3930,10 @@ def check_github_update(repo=GITHUB_REPO, token=None):
             assets = data.get("assets", [])
             download_url = None
             asset_name = None
-            # Delta assets are valid only for their exact base release. Legacy
-            # source ZIPs must never be installed as executable releases.
-            has_native_manifest = os.path.isfile(os.path.join(BASE_DIR, "release_manifest.json"))
-            patch_name = f"{new_version}-from-{APP_VERSION}.patch.zip"
+            # Cambida 2.3+ always installs the complete release ZIP. The
+            # updater is layout-independent, so structural changes never need
+            # a chain of version-specific delta migrations.
             eligible = [asset for asset in assets if asset.get("name") == f"{new_version}.zip"]
-            if has_native_manifest:
-                eligible = [asset for asset in assets if asset.get("name") == patch_name] + eligible
             for asset in eligible:
                 name = asset.get("name", "")
                 if name.lower().endswith(".zip"):
@@ -3792,13 +3962,13 @@ def check_github_update(repo=GITHUB_REPO, token=None):
 
 
 def apply_github_update(download_url, new_version, token=None):
-    """Download zip update, extract, launch updater.cmd, and exit gracefully."""
+    """Download and stage a full release, then hand off to the universal updater."""
     from native_update import prepare_archive
+
     if not re.fullmatch(r"\d+\.\d+\.\d+", new_version):
-        raise ValueError("Phiên bản cập nhật không hợp lệ")
-    update_root = os.path.join(BASE_DIR, ".updates")
-    os.makedirs(update_root, exist_ok=True)
-    temp_dir = tempfile.mkdtemp(prefix="update-", dir=update_root)
+        raise ValueError("Invalid update version")
+
+    temp_dir = tempfile.mkdtemp(prefix="cambida-update-", dir=tempfile.gettempdir())
     zip_path = os.path.join(temp_dir, "release.zip")
     extract_dir = os.path.join(temp_dir, "payload")
     os.makedirs(extract_dir, exist_ok=True)
@@ -3810,79 +3980,72 @@ def apply_github_update(download_url, new_version, token=None):
         headers["Authorization"] = f"Bearer {actual_token}"
         headers["Accept"] = "application/octet-stream"
 
-    logger.info("[AutoUpdate] Bắt đầu tải bản cập nhật v%s từ %s...", new_version, download_url)
+    logger.info("[AutoUpdate] Downloading full release v%s from %s", new_version, download_url)
     resp = requests.get(download_url, headers=headers, stream=True, timeout=180)
     resp.raise_for_status()
-
     with open(zip_path, "wb") as f:
         for chunk in resp.iter_content(chunk_size=65536):
             if chunk:
                 f.write(chunk)
 
-    logger.info("[AutoUpdate] Đang giải nén và kiểm tra file cập nhật...")
+    logger.info("[AutoUpdate] Extracting and verifying release manifest/hash")
     prepare_archive(zip_path, extract_dir, BASE_DIR, new_version)
 
-    # Ghi nhận marker để khi app mới khởi động sẽ gửi Telegram báo thành công
     marker_file = os.path.join(BASE_DIR, ".pending_update_notification")
     try:
         with open(marker_file, "w", encoding="utf-8") as f:
             json.dump({
                 "previous_version": APP_VERSION,
                 "new_version": new_version,
-                "updated_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                "updated_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
             }, f, ensure_ascii=False, indent=2)
     except Exception as exc:
-        logger.warning("[AutoUpdate] Không thể tạo file marker thông báo: %s", exc)
+        logger.warning("[AutoUpdate] Cannot create pending update marker: %s", exc)
 
-    updater_exe = os.path.join(extract_dir, "updater.exe")
-    if not os.path.isfile(updater_exe):
-        updater_exe = os.path.join(BASE_DIR, "updater.exe")
-    updater_cmd = os.path.join(extract_dir, "updater.cmd")
-    if not os.path.isfile(updater_cmd):
-        updater_cmd = os.path.join(BASE_DIR, "updater.cmd")
-
-    updater_bin = updater_exe if os.path.isfile(updater_exe) else (updater_cmd if os.path.isfile(updater_cmd) else None)
-    if not updater_bin:
-        logger.error("[AutoUpdate] Không tìm thấy updater.exe hoặc updater.cmd")
+    updater_source = os.path.join(BASE_DIR, "updater.ps1")
+    if not os.path.isfile(updater_source):
+        updater_source = os.path.join(extract_dir, "updater.ps1")
+    if not os.path.isfile(updater_source):
+        logger.error("[AutoUpdate] Missing schema-2 updater.ps1")
+        shutil.rmtree(temp_dir, ignore_errors=True)
         return False
 
-    # Dừng các tiến trình ghi hình camera, tunnel và giải phóng mutex trước khi chạy updater
-    logger.info("[AutoUpdate] Đang dừng tất cả tiến trình ghi hình camera và tunnel...")
+    runner_dir = tempfile.mkdtemp(prefix="cambida-updater-", dir=tempfile.gettempdir())
+    runner = os.path.join(runner_dir, "updater.ps1")
+    shutil.copy2(updater_source, runner)
+
+    logger.info("[AutoUpdate] Stopping Cambida-owned workers before updater handoff")
     try:
         _stop_all_recordings()
     except Exception as exc:
-        logger.warning("[AutoUpdate] Lỗi khi dừng ghi hình: %s", exc)
-
+        logger.warning("[AutoUpdate] Failed to stop recording workers: %s", exc)
     try:
         stop_cloudflared_tunnel()
     except Exception:
         pass
-
     try:
         _release_single_instance()
     except Exception:
         pass
 
     current_pid = os.getpid()
-    logger.info("[AutoUpdate] Kích hoạt updater (PID: %s): %s...", current_pid, updater_bin)
     flags = subprocess.CREATE_NEW_PROCESS_GROUP
     if hasattr(subprocess, "DETACHED_PROCESS"):
         flags |= subprocess.DETACHED_PROCESS
     if hasattr(subprocess, "CREATE_NO_WINDOW"):
         flags |= subprocess.CREATE_NO_WINDOW
 
-    if updater_bin.lower().endswith(".exe"):
-        run_cmd = [updater_bin, str(current_pid), extract_dir, BASE_DIR]
-    else:
-        run_cmd = ["cmd.exe", "/c", updater_bin, str(current_pid), extract_dir, BASE_DIR]
-
-    subprocess.Popen(
-        run_cmd,
-        creationflags=flags,
-        close_fds=True,
-    )
-
-    time.sleep(1)
+    run_cmd = [
+        "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+        "-File", runner,
+        "-OldPid", str(current_pid),
+        "-Payload", extract_dir,
+        "-Target", BASE_DIR,
+        "-CleanupRoot", temp_dir,
+    ]
+    logger.info("[AutoUpdate] Handing v%s to external full-package updater", new_version)
+    subprocess.Popen(run_cmd, creationflags=flags, close_fds=True)
+    time.sleep(0.5)
     os._exit(0)
 
 
@@ -4525,19 +4688,31 @@ _TUNNEL_ONLINE = True
 _TUNNEL_LAST_CHECK = 0
 _TUNNEL_CHECK_INTERVAL = 15
 _cloudflared_proc = None
+_CONTROLHUB_PAIRING_CODE = ""
 
 
 def start_cloudflared_tunnel():
-    global _cloudflared_proc
+    global _cloudflared_proc, _CONTROLHUB_PAIRING_CODE
     try:
         from controlhub_claim import claim_once as _controlhub_claim_once
 
         claim_result = _controlhub_claim_once(BASE_DIR)
+        pairing_code = str(claim_result.get("pairing_code") or "").strip()
+        if pairing_code:
+            _CONTROLHUB_PAIRING_CODE = pairing_code
         if claim_result.get("claimed"):
             public_url = str(claim_result.get("public_base_url") or "").strip()
+            subdomain = str(claim_result.get("subdomain") or "").strip()
             if public_url:
                 CONFIG["public_base_url"] = public_url
-            logger.info("[ControlHub] Đã claim cấu hình quán và lưu Tunnel Token riêng thành công")
+            if subdomain:
+                CONFIG["cloudflare_subdomain"] = subdomain
+                CONFIG["cloudflare_bound_subdomain"] = subdomain
+                CONFIG["cloudflare_bound_port"] = int(CONFIG.get("server_port") or 8000)
+            _CONTROLHUB_PAIRING_CODE = ""
+            logger.info("[ControlHub] Đã tự nhận quán, lưu Tunnel Token và cấu hình Cloudflare thành công")
+        elif claim_result.get("status") == "waiting-assignment":
+            logger.info("[ControlHub] Máy đã tự đăng ký, đang chờ ControlHub gán quán (mã %s)", pairing_code or "?")
     except Exception as exc:
         logger.warning(f"[ControlHub] Chưa thể hoàn tất claim tự động: {exc}")
 
@@ -4676,6 +4851,8 @@ def tunnel_health_loop():
             else:
                 _TUNNEL_ONLINE = False
             _TUNNEL_LAST_CHECK = time.time()
+            if not _TUNNEL_ONLINE:
+                start_cloudflared_tunnel()
         except Exception:
             _TUNNEL_ONLINE = False
         time.sleep(_TUNNEL_CHECK_INTERVAL)
@@ -4700,11 +4877,14 @@ def replay_cam(cam_id):
     if public_base and is_tunnel_online():
         ua = request.headers.get("User-Agent", "")
         is_ios = bool(re.search(r"iPhone|iPad|iPod", ua, re.IGNORECASE))
-        if is_ios:
-            pub_host = urlparse(public_base).netloc.lower()
-            if request.host.lower() != pub_host:
-                query = request.query_string.decode("utf-8", "ignore")
-                target = f"{public_base}/replay/cam{cam_id}" + (f"?{query}" if query else "")
+        if is_ios and _is_direct_lan_request():
+            pub_host = (urlparse(public_base).hostname or "").lower()
+            if _request_public_hostname() != pub_host:
+                target_path = f"/replay/cam{cam_id}"
+                query_pairs = list(request.args.items(multi=True))
+                query_pairs.append(("lan_ticket", _mint_lan_handoff_ticket(target_path)))
+                target_query = urlencode(query_pairs)
+                target = f"{public_base}{target_path}" + (f"?{target_query}" if target_query else "")
                 return redirect(target, code=302)
     cam = CAMERA_LIST[cam_id - 1]
     has_nvr = camera_has_nvr(cam)
@@ -5116,6 +5296,36 @@ def stats_data():
         return jsonify({"error": "Lỗi dữ liệu"}), 500
 
 
+@app.route("/remote/login", methods=["GET", "POST"])
+def remote_login():
+    if session.get("remote_authenticated") is True or session.get("admin_authenticated") is True:
+        return redirect(_safe_local_next(request.args.get("next"), "/"))
+    error = None
+    if request.method == "POST":
+        auth = CONFIG.get("admin_auth", {})
+        username = str(request.form.get("username", ""))
+        password = str(request.form.get("password", ""))
+        expected_username = str(auth.get("username", "admin"))
+        expected_password = str(auth.get("password", ""))
+        if (
+            expected_password
+            and hmac.compare_digest(username, expected_username)
+            and hmac.compare_digest(password, expected_password)
+        ):
+            session["remote_authenticated"] = True
+            session["remote_authenticated_at"] = int(time.time())
+            return redirect(_safe_local_next(request.args.get("next"), "/"))
+        error = "Sai tên đăng nhập hoặc mật khẩu."
+    return render_template("remote_login.html", site=get_site_config(), error=error)
+
+
+@app.route("/remote/logout", methods=["POST"])
+def remote_logout():
+    session.pop("remote_authenticated", None)
+    session.pop("remote_authenticated_at", None)
+    return redirect(url_for("remote_login"))
+
+
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     if session.get("admin_authenticated"):
@@ -5167,6 +5377,23 @@ def admin_config():
         return jsonify({"ok": False, "error": error}), 400
     try:
         cleaned = clean_config_for_saving(candidate)
+        try:
+            old_subdomain = _normalize_cloudflare_subdomain(CONFIG.get("cloudflare_subdomain"))
+        except ValueError:
+            old_subdomain = ""
+        new_subdomain = _normalize_cloudflare_subdomain(cleaned.get("cloudflare_subdomain"))
+        subdomain_changed = old_subdomain != new_subdomain
+        cleaned["cloudflare_subdomain"] = new_subdomain
+        cleaned["controlhub_url"] = str(cleaned.get("controlhub_url") or "https://server.hhan24.org").strip().rstrip("/")
+        cleaned["public_base_url"] = ("https://" + new_subdomain) if new_subdomain else ""
+        if subdomain_changed:
+            cleaned["cloudflare_bound_subdomain"] = ""
+            cleaned["cloudflare_bound_port"] = 0
+            tunnel_cfg = cleaned.get("cloudflare_tunnel")
+            if isinstance(tunnel_cfg, dict) and tunnel_cfg.get("token"):
+                tunnel_cfg = dict(tunnel_cfg)
+                tunnel_cfg.pop("token", None)
+                cleaned["cloudflare_tunnel"] = tunnel_cfg
         for key in ("server_port", "record_duration_sec", "record_timeout_sec", "camera_stall_sec", "max_merge_minutes"):
             if key in cleaned:
                 cleaned[key] = int(cleaned[key])
@@ -5176,6 +5403,15 @@ def admin_config():
         if license_error:
             return jsonify({"ok": False, "error": license_error}), 403
         save_config(cleaned)
+        if subdomain_changed:
+            for token_path in (
+                os.path.join(BASE_DIR, "tunnel_token.txt"),
+                os.path.join(BASE_DIR, "cloudflared_setup", "tunnel_token.txt"),
+            ):
+                try:
+                    os.remove(token_path)
+                except FileNotFoundError:
+                    pass
         CONFIG = cleaned
         CAMERA_LIST = CONFIG.get("cameras", [])
         logger.info("Đã lưu cấu hình từ trang quản trị; một số thay đổi cần khởi động lại.")
@@ -5898,6 +6134,10 @@ def restart_server():
     def _do_restart():
         time.sleep(0.8)
         logger.info("[Server] Đang khởi động lại hệ thống theo yêu cầu...")
+        try:
+            stop_cloudflared_tunnel()
+        except Exception:
+            pass
         _release_single_instance()
         if getattr(sys, "frozen", False):
             exe_path = sys.executable
@@ -5969,6 +6209,9 @@ def api_admin_tunnel_status():
     elif is_proc_running:
         status = "connecting"
         msg = "Tiến trình cloudflared đang chạy, đang kết nối Cloudflare..."
+    elif _CONTROLHUB_PAIRING_CODE:
+        status = "waiting"
+        msg = f"Máy đã tự đăng ký ControlHub, đang chờ gán quán (mã {_CONTROLHUB_PAIRING_CODE})"
     else:
         status = "offline"
         msg = "Chưa kết nối (Tiến trình cloudflared chưa chạy)"
@@ -5980,6 +6223,7 @@ def api_admin_tunnel_status():
         "process_running": is_proc_running,
         "enabled": enabled,
         "public_url": pub_url,
+        "pairing_code": _CONTROLHUB_PAIRING_CODE,
         "message": msg,
     })
 
@@ -7290,11 +7534,8 @@ def main():
     server_port = int(CONFIG.get("server_port", 8000))
     logger.info(f"🌐 Máy chủ web đang chạy tại http://0.0.0.0:{server_port}")
 
-    if not any(arg in sys.argv for arg in ("--no-browser", "--hidden", "--headless", "/hidden")):
-        def _delayed_open():
-            time.sleep(1.2)
-            _open_server_page(server_port)
-        threading.Thread(target=_delayed_open, daemon=True).start()
+    # Server startup is intentionally headless. Opening the web UI is an
+    # explicit user action via the tray menu, never a startup side effect.
 
     def run_server():
         for attempt in range(20):

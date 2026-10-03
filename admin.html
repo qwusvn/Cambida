@@ -181,6 +181,19 @@
       color: var(--text-muted) !important;
       font-size: 0.8rem;
     }
+    .text-muted {
+      color: var(--text-muted) !important;
+    }
+    .list-group-item {
+      color: var(--text);
+    }
+    .list-group-item .fw-semibold {
+      color: var(--text);
+    }
+    .form-control::placeholder {
+      color: var(--text-muted);
+      opacity: 0.78;
+    }
 
     /* Buttons */
     .btn-brand {
@@ -720,9 +733,9 @@
               <div class="form-text">0.9 = video đạt ít nhất 90% thời lượng danh nghĩa.</div>
             </div>
             <div class="col-md-8">
-              <label class="form-label" for="publicBaseUrl">URL quét QR / Tên miền Cloudflare từ xa</label>
-              <input id="publicBaseUrl" class="form-control" placeholder="https://bida-club.example.com hoặc http://192.168.1.10:8000">
-              <div class="form-text">Điền IP LAN cố định hoặc domain Cloudflare Tunnel để khách quét QR kết nối đúng.</div>
+              <label class="form-label" for="publicBaseUrl">Subdomain Cloudflare</label>
+              <input id="publicBaseUrl" class="form-control" placeholder="Tự nhận từ ControlHub 2.3.1" autocomplete="off">
+              <div class="form-text">Từ 2.3.1, máy tự đăng ký với ControlHub. Chỉ cần gán máy vào quán trên ControlHub; Cambida tự nhận subdomain + Tunnel Token. Ô này vẫn cho phép nhập tay để tương thích cấu hình cũ.</div>
             </div>
             <div class="col-12">
               <div class="p-3 rounded" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border);">
@@ -1095,7 +1108,7 @@
     $('maxJobs').value=config.max_concurrent_jobs||1;
     $('minFreeDisk').value=config.minimum_free_disk_gb||10;
     $('minRecordingRatio').value=config.minimum_recording_ratio||0.9;
-    $('publicBaseUrl').value=config.public_base_url||'';
+    $('publicBaseUrl').value=config.cloudflare_subdomain||String(config.public_base_url||'').replace(/^https?:\/\//i,'').replace(/\/.*$/,'');
     $('runOnStartup').checked=asYesNo(config.run_on_startup);
     $('runInTray').checked=asYesNo(config.run_in_tray);
     $('telegramToken').value=config.telegram_token||'';
@@ -1132,7 +1145,7 @@
       max_concurrent_jobs:Number($('maxJobs').value),
       minimum_free_disk_gb:Number($('minFreeDisk').value),
       minimum_recording_ratio:Number($('minRecordingRatio').value),
-      public_base_url:$('publicBaseUrl').value.trim(),
+      cloudflare_subdomain:$('publicBaseUrl').value.trim(),
       run_on_startup:$('runOnStartup').checked?'yes':'no',
       run_in_tray:$('runInTray').checked?'yes':'no',
       telegram_token:$('telegramToken').value.trim(),
@@ -1853,6 +1866,10 @@
         } else if (data.status === 'connecting') {
           if (badge) { badge.className = 'badge rounded-pill bg-warning text-dark ms-2'; badge.innerText = '🟡 Đang kết nối...'; }
           if (navBadge) { navBadge.className = 'badge rounded-pill bg-warning text-dark ms-2'; navBadge.innerText = 'Cloudflare: 🟡 Đang kết nối'; }
+        } else if (data.status === 'waiting') {
+          const code = data.pairing_code ? (' · Mã ' + data.pairing_code) : '';
+          if (badge) { badge.className = 'badge rounded-pill bg-warning text-dark ms-2'; badge.innerText = '🟡 Chờ gán máy' + code; }
+          if (navBadge) { navBadge.className = 'badge rounded-pill bg-warning text-dark ms-2'; navBadge.innerText = 'Cloudflare: 🟡 Chờ gán'; }
         } else {
           if (badge) { badge.className = 'badge rounded-pill bg-danger ms-2'; badge.innerText = '🔴 Chưa kết nối (Offline)'; }
           if (navBadge) { navBadge.className = 'badge rounded-pill bg-danger ms-2'; navBadge.innerText = 'Cloudflare: 🔴 Offline'; }
