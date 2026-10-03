@@ -225,6 +225,17 @@ class UniversalUpdateTests(unittest.TestCase):
                 json.loads((target / "update.json").read_text(encoding="utf-8"))["version"],
                 "2.4.0",
             )
+            transaction = json.loads(
+                (target / ".watchdog-update.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(transaction["stage"], "monitoring")
+            self.assertEqual(transaction["new_version"], "2.4.0")
+            journal_names = {entry["relative"] for entry in transaction["journal"]}
+            self.assertIn("old-layout.bin", journal_names)
+            self.assertIn("new-layout.bin", journal_names)
+            self.assertIn("release_manifest.json", journal_names)
+            self.assertIn("update.json", journal_names)
+            self.assertNotIn("config.json", journal_names)
 
 
     def test_updater_health_uses_preserved_runtime_server_port(self):
@@ -246,6 +257,20 @@ class UniversalUpdateTests(unittest.TestCase):
         payload_choice = app_source.index('updater_source = os.path.join(extract_dir, "updater.ps1")')
         installed_fallback = app_source.index('updater_source = os.path.join(BASE_DIR, "updater.ps1")', payload_choice)
         self.assertLess(payload_choice, installed_fallback)
+
+    def test_233_builder_and_updater_include_independent_watchdog_contract(self):
+        builder_source = (ROOT / "scripts" / "build_native.py").read_text(encoding="utf-8-sig")
+        updater_source = (ROOT / "scripts" / "universal_updater.ps1").read_text(encoding="utf-8-sig")
+        launcher_source = (ROOT / "scripts" / "release_launcher.cmd").read_text(encoding="utf-8-sig")
+        app_source = (ROOT / "1.py").read_text(encoding="utf-8-sig")
+        self.assertIn("watchdog_runtime()", builder_source)
+        self.assertIn("CambidaWatchdog.exe", builder_source)
+        self.assertIn(".watchdog-update.json", updater_source)
+        self.assertIn("Write-Transaction", updater_source)
+        self.assertIn("Install-Watchdog", updater_source)
+        self.assertIn("$transaction['stage'] = 'monitoring'", updater_source)
+        self.assertIn("CambidaWatchdog.exe", launcher_source)
+        self.assertIn("_ensure_external_watchdog()", app_source)
 
     def test_native_builder_ignores_invalid_sync_copy_module_names(self):
         spec = importlib.util.spec_from_file_location(

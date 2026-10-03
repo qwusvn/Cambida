@@ -5,7 +5,9 @@ client self-registration with ControlHub: a client no longer needs a
 server-generated installer ZIP or a manually entered Cloudflare subdomain.
 Cambida 2.3.2 is the updater bridge for 2.3.0 clients: release health checks no
 longer contain a fixed localhost port, and the running app prefers the updater
-shipped inside the release being installed.
+shipped inside the release being installed. Cambida 2.3.3 adds an independent
+watchdog installed outside the Cambida application tree so application/update
+failure no longer removes the recovery path.
 
 ## Automatic ControlHub provisioning (2.3.1+)
 
@@ -43,6 +45,28 @@ backward compatibility.
 11. From 2.3.2 onward, Cambida copies and launches the `updater.ps1` from the
     downloaded payload first; the installed updater is fallback only.
 
+## Independent watchdog (2.3.3+)
+
+- The release carries `CambidaWatchdog.exe`, but installation copies it to a
+  versioned executable under `%LOCALAPPDATA%\CambidaWatchdog` and registers it
+  in the current user's Windows Run key. It therefore survives replacement of
+  the Cambida directory.
+- Cambida and `Chay_CCTV.cmd` also refresh the external watchdog on normal
+  startup, covering fresh/manual installations.
+- The updater creates the protected `.watchdog-update.json` transaction before
+  stopping Cambida. Every release file is backed up and journaled before it is
+  modified. Runtime/shop data is never journaled.
+- While an update is applying or starting, the watchdog does not interfere. If
+  that transaction is left stale by a crash/reboot, the watchdog restores the
+  journaled files from `.update-backups` and starts the previous release.
+- After updater health succeeds, the transaction enters a stabilization window.
+  If the new release repeatedly crashes, the watchdog restarts it up to three
+  times and then rolls back. A stable release is marked `healthy`.
+- Outside an update transaction, the watchdog probes `/api/ping` on the
+  preserved `config.json.server_port`; it only terminates a process whose
+  full executable path exactly matches the configured installation's
+  `Cambida.exe`.
+
 The update protocol does not require a specific executable name, module layout
 or programming language. Future releases may change those as long as they keep
 schema 2 `release_manifest.json` + `update.json`.
@@ -52,7 +76,8 @@ schema 2 `release_manifest.json` + `update.json`.
 At minimum: `config.json`, `analytics.db`, `device_id.key`,
 `tunnel_token.txt`, `controlhub_machine_id.txt`,
 `controlhub_client_secret.txt`, `controlhub_bootstrap.json`, `logs/`,
-`cctv_videos/`, `nvr_cache/`, `.updates/` and `.update-backups/`.
+`cctv_videos/`, `nvr_cache/`, `.updates/`, `.update-backups/` and the
+watchdog transaction `.watchdog-update.json`.
 
 ## Browser behavior
 
@@ -61,10 +86,10 @@ automatically. The tray menu remains the explicit way to open the local UI.
 
 ## Packaging
 
-Build 2.3.2 with:
+Build 2.3.3 with:
 
 ```powershell
-.\package_2.3.2.ps1
+.\package_2.3.3.ps1
 ```
 
 Every GitHub release from 2.3.0 onward must attach the complete

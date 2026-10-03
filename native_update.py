@@ -15,7 +15,7 @@ PROTECTED = {
     'config.json', 'analytics.db', 'device_id.key', 'tunnel_token.txt',
     'controlhub_machine_id.txt', 'controlhub_client_secret.txt', 'controlhub_bootstrap.json',
     'logs', 'cctv_videos', 'nvr_cache', '.git', '.project', '.updates',
-    '.update-backups', '.pending_update_notification', 'native-update.log',
+    '.update-backups', '.pending_update_notification', '.watchdog-update.json', 'native-update.log',
 }
 
 

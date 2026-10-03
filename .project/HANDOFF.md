@@ -649,3 +649,12 @@ elease\2.1.0\index.html synchronized with source.
 - Full ZIP acceptance: current parser PASS; actual 2.3.0 native parser PASS on all 235 manifest files; forbidden runtime/shop state = none; legacy `health` absent; `health_v2.mode=config_port` present; fixed `:8004` absent.
 - GitHub `v2.3.2` published public/latest, asset state uploaded, anonymous range download HTTP 206, GitHub digest/size match local exactly. Tag points to `0e51add552eb39dd1eac2eb9539dd8535770231a`.
 - Release URL: https://github.com/qwusvn/Cambida/releases/tag/v2.3.2
+
+## 2026-10-03 — Cambida 2.3.3 independent watchdog
+- Thêm `CambidaWatchdog.exe` one-file độc lập. Runtime cài bản versioned ra `%LOCALAPPDATA%\CambidaWatchdog`, đăng ký HKCU Run, target là thư mục Cambida; app và Chay_CCTV đều refresh watchdog khi khởi động.
+- Watchdog chỉ nhận/kill PID có full image path đúng `<target>\Cambida.exe`; health probe dùng `/api/ping` tại `config.json.server_port`.
+- Updater 2.3.3 tạo `.watchdog-update.json` trước khi dừng app; từng release file được backup+journal trước khi thay. Config/DB/video/token/client secret và runtime state bị cấm vào journal.
+- Crash/reboot khi transaction `applying/starting` bị stale sẽ rollback từ `.update-backups`; sau update thành công watchdog giữ stabilization 120s, thử restart tối đa 3 lần rồi rollback nếu bản mới tiếp tục chết.
+- Watchdog binary migration dùng desired_exe versioned + named mutex; binary ngoài app tree sống qua overlay/update.
+- Verification trước release: 51/51 pytest PASS; PowerShell parser PASS; Windows process enumeration + mutex PASS; frozen one-file watchdog build/smoke `--status` PASS.
+- Version target: 2.3.3; pending commit/full build/GitHub publish checkpoint.

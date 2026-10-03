@@ -202,6 +202,36 @@ def make_zip(folder, target, files=None):
             archive.write(folder / path, path)
 
 
+def watchdog_runtime():
+    source = ROOT / 'scripts/cambida_watchdog.py'
+    dist = BUILD / 'watchdog-dist'
+    work = BUILD / 'watchdog-work'
+    spec_dir = BUILD / 'watchdog-spec'
+    output = dist / 'CambidaWatchdog.exe'
+    cache_file = BUILD / 'watchdog-cache.json'
+    fingerprint = key({
+        'source': digest(source),
+        'python': sys.version,
+        'pyinstaller': importlib.metadata.version('PyInstaller'),
+        'mode': 'onefile-noconsole-v1',
+    })
+    cache = read_json(cache_file, {})
+    if cache.get('input') != fingerprint or not output.is_file() or cache.get('output') != digest(output):
+        dist.mkdir(parents=True, exist_ok=True)
+        work.mkdir(parents=True, exist_ok=True)
+        spec_dir.mkdir(parents=True, exist_ok=True)
+        run([
+            sys.executable, '-m', 'PyInstaller', '--noconfirm',
+            '--onefile', '--noconsole', '--name', 'CambidaWatchdog',
+            '--distpath', str(dist), '--workpath', str(work),
+            '--specpath', str(spec_dir), str(source),
+        ])
+        write_json(cache_file, {'input': fingerprint, 'output': digest(output)})
+    else:
+        print('Watchdog unchanged: reusing CambidaWatchdog.exe', flush=True)
+    return output
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--version', required=True)
@@ -222,11 +252,12 @@ def main():
     inputs = [p for p, _ in modules.values()] + [ROOT / name for name in sidecars]
     inputs += [ROOT / 'tools/cloudflared_setup' / name for name in cloud_files]
     inputs += [ROOT / name for name in ('scripts/native_launcher.py', 'scripts/native_runtime.spec',
-               'scripts/universal_updater.ps1',
+               'scripts/universal_updater.ps1', 'scripts/cambida_watchdog.py',
                'scripts/release_launcher.cmd', 'config.release.json', 'NATIVE_RELEASE.md')]
     snapshot = {str(p.relative_to(ROOT)): digest(p) for p in inputs}
     entries = compile_modules(modules)
     runtime_dir, runtime_id = runtime(modules, version=args.version)
+    watchdog_exe = watchdog_runtime()
     release.mkdir(parents=True)
     shutil.copytree(runtime_dir, release, dirs_exist_ok=True)
     for entry in entries.values():
@@ -245,6 +276,7 @@ def main():
         (release / filename).write_text(args.version + '\n', encoding='utf-8')
     shutil.copy2(ROOT / 'scripts/release_launcher.cmd', release / 'Chay_CCTV.cmd')
     shutil.copy2(ROOT / 'scripts/universal_updater.ps1', release / 'updater.ps1')
+    shutil.copy2(watchdog_exe, release / 'CambidaWatchdog.exe')
     shutil.copy2(ROOT / 'NATIVE_RELEASE.md', release / 'README_RELEASE.md')
     write_json(release / 'BUILD_INFO.json', {
         'version': args.version, 'source': snapshot, 'runtime_id': runtime_id,
@@ -260,7 +292,7 @@ def main():
     forbidden = {
         'config.json', 'analytics.db', 'device_id.key', 'tunnel_token.txt',
         'controlhub_machine_id.txt', 'controlhub_client_secret.txt', 'controlhub_bootstrap.json',
-        'logs', 'cctv_videos', 'nvr_cache', '.updates', '.update-backups',
+        'logs', 'cctv_videos', 'nvr_cache', '.updates', '.update-backups', '.watchdog-update.json',
     }
     for path in release.rglob('*'):
         # Third-party runtime packages such as OpenCV need their bootstrap .py

@@ -142,6 +142,30 @@ def _load_app_version():
 
 APP_VERSION = _load_app_version()
 
+
+def _ensure_external_watchdog():
+    """Install/refresh the independent watchdog when the release carries it."""
+    if sys.platform != "win32":
+        return
+    watchdog = os.path.join(BASE_DIR, "CambidaWatchdog.exe")
+    if not os.path.isfile(watchdog):
+        return
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+    try:
+        completed = subprocess.run(
+            [watchdog, "--install", "--target", BASE_DIR],
+            cwd=BASE_DIR,
+            timeout=12,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=flags,
+        )
+        if completed.returncode != 0:
+            logger.warning("[Watchdog] Install returned code %s", completed.returncode)
+    except Exception as exc:
+        logger.warning("[Watchdog] Cannot install external watchdog: %s", exc)
+
+
 def _ensure_first_run_files():
     if not os.path.exists(CONFIG_FILE) and os.path.isfile(EMBEDDED_CONFIG_FILE):
         created_config = False
@@ -7489,6 +7513,7 @@ def main():
     """Start source mode or the separately compiled release application."""
     if not acquire_single_instance():
         sys.exit()
+    _ensure_external_watchdog()
     init_db()
     license_active = initialize_license_enforcement()
     threading.Thread(

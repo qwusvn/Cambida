@@ -14,7 +14,7 @@ $Protected = @(
     'config.json','analytics.db','device_id.key','tunnel_token.txt',
     'controlhub_machine_id.txt','controlhub_client_secret.txt','controlhub_bootstrap.json',
     'logs','cctv_videos','nvr_cache','.git','.project','.updates',
-    '.update-backups','.pending_update_notification','native-update.log'
+    '.update-backups','.pending_update_notification','.watchdog-update.json','native-update.log'
 )
 
 function Resolve-SafeFile([string]$Root, [string]$Relative) {
@@ -148,12 +148,56 @@ function Stop-OwnedProcess([int]$PidToStop) {
     }
 }
 
+function Unix-Now {
+    return [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+}
+
+function Write-JsonAtomic([string]$Path, $Value) {
+    $temp = $Path + '.tmp'
+    $json = $Value | ConvertTo-Json -Depth 10
+    [IO.File]::WriteAllText($temp, $json + [Environment]::NewLine, [Text.UTF8Encoding]::new($false))
+    Move-Item -LiteralPath $temp -Destination $Path -Force
+}
+
+function Install-Watchdog {
+    $watchdog = Join-Path $Payload 'CambidaWatchdog.exe'
+    if (-not (Test-Path -LiteralPath $watchdog -PathType Leaf)) {
+        return
+    }
+    $targetArg = '--target="' + $Target.Replace('"','') + '"'
+    $process = Start-Process -FilePath $watchdog -ArgumentList @('--install',$targetArg) -WorkingDirectory $Payload -WindowStyle Hidden -PassThru
+    if (-not $process.WaitForExit(30000)) {
+        try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
+        throw 'Cambida watchdog installation timed out'
+    }
+    if ($process.ExitCode -ne 0) {
+        throw "Cambida watchdog installation failed with code $($process.ExitCode)"
+    }
+}
+
 $journal = [Collections.Generic.List[object]]::new()
 $backup = $null
 $newProcess = $null
 $oldUpdate = $null
 $oldManifest = $null
 $didModify = $false
+$oldProcessStopped = $false
+$transactionPath = Join-Path $Target '.watchdog-update.json'
+$transaction = $null
+
+function Write-Transaction {
+    if (-not $script:transaction) { return }
+    $items = @()
+    foreach ($entry in $script:journal) {
+        $items += [ordered]@{
+            relative = [string]$entry.Relative
+            existed = [bool]$entry.Existed
+        }
+    }
+    $script:transaction['journal'] = $items
+    $script:transaction['updated_at'] = Unix-Now
+    Write-JsonAtomic $script:transactionPath $script:transaction
+}
 
 function Save-BeforeChange([string]$Relative) {
     $dest = Resolve-SafeFile $Target $Relative
@@ -164,6 +208,7 @@ function Save-BeforeChange([string]$Relative) {
         Copy-Item -LiteralPath $dest -Destination $saved -Force
     }
     $journal.Add([pscustomobject]@{Relative=$Relative; Destination=$dest; Backup=$saved; Existed=$existed})
+    Write-Transaction
 }
 
 try {
@@ -208,15 +253,35 @@ try {
     $oldNames = Get-ManifestNames $oldManifest
     $staleNames = @($oldNames | Where-Object { $_ -notin $newNames })
 
+    Install-Watchdog
+
+    $backupId = [Guid]::NewGuid().ToString('N')
+    $backupRel = '.update-backups/' + $backupId
+    $backup = Join-Path $Target ('.update-backups\' + $backupId)
+    New-Item -ItemType Directory -Force -Path $backup | Out-Null
+    $now = Unix-Now
+    $transaction = [ordered]@{
+        schema = 1
+        stage = 'applying'
+        new_version = [string]$manifest.version
+        old_version = if ($oldManifest) { [string]$oldManifest.version } else { '' }
+        backup_rel = $backupRel
+        updater_pid = $PID
+        watchdog_failures = 0
+        started_at = $now
+        updated_at = $now
+        journal = @()
+    }
+    Write-Transaction
+
     Stop-OwnedProcess $OldPid
+    if ($OldPid -gt 0) { $oldProcessStopped = $true }
 
     $touchNames = @($newNames + $staleNames + @('release_manifest.json','update.json') | Select-Object -Unique)
     foreach ($name in $touchNames) {
         Test-FileUnlocked (Resolve-SafeFile $Target $name)
     }
 
-    $backup = Join-Path $Target ('.update-backups\' + [Guid]::NewGuid().ToString('N'))
-    New-Item -ItemType Directory -Force -Path $backup | Out-Null
 
     foreach ($name in $staleNames) {
         Save-BeforeChange $name
@@ -253,10 +318,18 @@ try {
     }
 
     "Installed $($manifest.version); backup: $backup" | Set-Content -LiteralPath (Join-Path $Target 'native-update.log') -Encoding UTF8
+    $transaction['stage'] = 'starting'
+    Write-Transaction
     $newProcess = Start-Release $update $Target
+    $transaction['new_pid'] = $newProcess.Id
+    Write-Transaction
     if (-not (Wait-Health $update $Target)) {
         throw "Updated release did not become healthy within the configured timeout"
     }
+    $transaction['stage'] = 'monitoring'
+    $transaction['watchdog_failures'] = 0
+    $transaction['stabilize_seconds'] = 120
+    Write-Transaction
 
     if ($CleanupRoot) {
         try { Remove-Item -LiteralPath $CleanupRoot -Recurse -Force -ErrorAction Stop } catch {}
@@ -293,9 +366,15 @@ catch {
     "Update failed: $failure; rollback errors: $($restoreErrors -join '; '); backup: $backup" |
         Set-Content -LiteralPath (Join-Path $Target 'native-update.log') -Encoding UTF8
 
+    if ($transaction) {
+        $transaction['failure'] = $failure
+        $transaction['stage'] = if ($restoreErrors.Count -eq 0) { 'rolled_back' } else { 'rollback_failed' }
+        try { Write-Transaction } catch {}
+    }
+
     $oldStart = $null
     if ($oldUpdate) { $oldStart = $oldUpdate.PSObject.Properties['start'] }
-    if ($didModify -and $restoreErrors.Count -eq 0 -and $oldStart -and $oldStart.Value) {
+    if (($didModify -or $oldProcessStopped) -and $restoreErrors.Count -eq 0 -and $oldStart -and $oldStart.Value) {
         try { Start-Release $oldUpdate $Target | Out-Null } catch {}
     }
     Write-Error $failure
