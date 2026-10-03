@@ -218,6 +218,20 @@ class UniversalUpdateTests(unittest.TestCase):
         self.assertIn("Wait-Health $update $Target", script)
         self.assertIn("controlhub_client_secret.txt", script)
 
+    def test_232_bridge_avoids_fixed_health_port_and_prefers_payload_updater(self):
+        builder_source = (ROOT / "scripts" / "build_native.py").read_text(encoding="utf-8-sig")
+        self.assertIn("'health': {'mode': 'config_port', 'path': '/', 'timeout_seconds': 90}", builder_source)
+        self.assertNotIn("'health': {'url': 'http://127.0.0.1:8004/'", builder_source)
+
+        updater_source = (ROOT / "scripts" / "universal_updater.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("$mode -eq 'config_port'", updater_source)
+        self.assertIn('$url = "http://127.0.0.1:$runtimePort$healthPath"', updater_source)
+
+        app_source = (ROOT / "1.py").read_text(encoding="utf-8-sig")
+        payload_choice = app_source.index('updater_source = os.path.join(extract_dir, "updater.ps1")')
+        installed_fallback = app_source.index('updater_source = os.path.join(BASE_DIR, "updater.ps1")', payload_choice)
+        self.assertLess(payload_choice, installed_fallback)
+
     def test_native_builder_ignores_invalid_sync_copy_module_names(self):
         spec = importlib.util.spec_from_file_location(
             "build_native_tested", ROOT / "scripts" / "build_native.py"

@@ -633,3 +633,10 @@ elease\2.1.0\index.html synchronized with source.
 
 - GitHub Release v2.3.1: https://github.com/qwusvn/Cambida/releases/tag/v2.3.1
 - Final ZIP: 220716997 bytes; SHA-256 b52740a1c2d39a8fff3c934199cc18798d9a6b99929d8d6047e858c58e40cfe5. GitHub asset digest/size match local exactly; latest release confirmed.
+
+## 2026-10-03 — Cambida 2.3.2 updater bridge
+- Root cause 2.3.0 -> 2.3.1 crash: 2.3.0 copied its installed updater.ps1 first; that updater health-checked fixed http://127.0.0.1:8004 even when shop config used port 8000, then killed/rolled back the healthy new process.
+- Fix 2.3.2: release update.json health uses mode=config_port + path only, no fixed health.url. Legacy 2.3.0 updater therefore skips the incompatible health probe; 2.3.2+ updater resolves config.json.server_port itself.
+- Auto-update now prefers updater.ps1 from the downloaded payload; installed updater is fallback only.
+- Regression: 25 targeted unittest PASS; 44 accumulated pytest PASS. Legacy 2.3.0 updater simulation with server_port=8000 -> 2.3.2 bridge PASS in ~0.54s, config preserved, no rollback. New updater config_port health simulation PASS.
+- 2.3.2 source is ready for commit/build/publish; do not use v2.3.1 as latest after v2.3.2 release.

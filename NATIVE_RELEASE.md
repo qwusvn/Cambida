@@ -3,6 +3,9 @@
 Cambida 2.3.0 is the first schema-2 full-package baseline. Cambida 2.3.1 adds
 client self-registration with ControlHub: a client no longer needs a
 server-generated installer ZIP or a manually entered Cloudflare subdomain.
+Cambida 2.3.2 is the updater bridge for 2.3.0 clients: release health checks no
+longer contain a fixed localhost port, and the running app prefers the updater
+shipped inside the release being installed.
 
 ## Automatic ControlHub provisioning (2.3.1+)
 
@@ -32,7 +35,12 @@ backward compatibility.
    backed up and removed; the complete new release is then overlaid.
 8. Shop/runtime data is never part of a release and is preserved.
 9. The start entrypoint declared by the new `update.json` is launched.
-10. The updater waits for the local health URL; failures restore the backup.
+10. Release health metadata uses `mode=config_port`; the 2.3.2+ updater builds
+    the localhost health URL from the preserved `config.json.server_port`.
+    Legacy 2.3.0 updaters see no fixed `health.url`, so they do not incorrectly
+    kill/rollback a healthy installation running on port 8000 or another port.
+11. From 2.3.2 onward, Cambida copies and launches the `updater.ps1` from the
+    downloaded payload first; the installed updater is fallback only.
 
 The update protocol does not require a specific executable name, module layout
 or programming language. Future releases may change those as long as they keep
@@ -52,10 +60,10 @@ automatically. The tray menu remains the explicit way to open the local UI.
 
 ## Packaging
 
-Build 2.3.1 with:
+Build 2.3.2 with:
 
 ```powershell
-.\package_2.3.1.ps1
+.\package_2.3.2.ps1
 ```
 
 Every GitHub release from 2.3.0 onward must attach the complete

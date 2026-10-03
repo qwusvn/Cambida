@@ -4002,9 +4002,12 @@ def apply_github_update(download_url, new_version, token=None):
     except Exception as exc:
         logger.warning("[AutoUpdate] Cannot create pending update marker: %s", exc)
 
-    updater_source = os.path.join(BASE_DIR, "updater.ps1")
+    # Always prefer the updater shipped by the release being installed.
+    # Using the installed updater can resurrect old assumptions (notably the
+    # 2.3.0 fixed :8004 health check) and incorrectly roll back a healthy app.
+    updater_source = os.path.join(extract_dir, "updater.ps1")
     if not os.path.isfile(updater_source):
-        updater_source = os.path.join(extract_dir, "updater.ps1")
+        updater_source = os.path.join(BASE_DIR, "updater.ps1")
     if not os.path.isfile(updater_source):
         logger.error("[AutoUpdate] Missing schema-2 updater.ps1")
         shutil.rmtree(temp_dir, ignore_errors=True)

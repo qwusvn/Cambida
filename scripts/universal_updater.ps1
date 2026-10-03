@@ -88,23 +88,38 @@ function Wait-Health($Update, [string]$Root) {
     $healthProp = $Update.PSObject.Properties['health']
     if (-not $healthProp -or -not $healthProp.Value) { return $true }
     $health = $healthProp.Value
+    $modeProp = $health.PSObject.Properties['mode']
+    $mode = if ($modeProp -and $modeProp.Value) { [string]$modeProp.Value } else { '' }
     $urlProp = $health.PSObject.Properties['url']
-    if (-not $urlProp -or -not [string]$urlProp.Value) { return $true }
-    $url = [string]$urlProp.Value
+    $url = if ($urlProp -and $urlProp.Value) { [string]$urlProp.Value } else { '' }
     $configPath = Join-Path $Root 'config.json'
+    $runtimePort = 0
     if (Test-Path -LiteralPath $configPath -PathType Leaf) {
         try {
             $runtimeConfig = Read-Json $configPath
             $runtimePort = [int]$runtimeConfig.server_port
-            if ($runtimePort -ge 1 -and $runtimePort -le 65535) {
+            if ($runtimePort -lt 1 -or $runtimePort -gt 65535) { $runtimePort = 0 }
+        } catch { $runtimePort = 0 }
+    }
+    if ($mode -eq 'config_port') {
+        if ($runtimePort -le 0) { return $true }
+        $pathProp = $health.PSObject.Properties['path']
+        $healthPath = if ($pathProp -and $pathProp.Value) { [string]$pathProp.Value } else { '/' }
+        if (-not $healthPath.StartsWith('/')) { $healthPath = '/' + $healthPath }
+        $url = "http://127.0.0.1:$runtimePort$healthPath"
+    } elseif ($url) {
+        if ($runtimePort -gt 0) {
+            try {
                 $uri = [Uri]$url
                 if ($uri.Host -in @('127.0.0.1','localhost','::1')) {
                     $builder = [UriBuilder]$uri
                     $builder.Port = $runtimePort
                     $url = $builder.Uri.AbsoluteUri
                 }
-            }
-        } catch {}
+            } catch {}
+        }
+    } else {
+        return $true
     }
     $timeout = 60
     $timeoutProp = $health.PSObject.Properties['timeout_seconds']
