@@ -692,3 +692,13 @@ Cập nhật: 2026-09-30 +07
 - Fresh release seed/default and packaged Cloudflare helper fallbacks are now 8000. Existing configured ports remain untouched; tests retain explicit 8004 cases to prove arbitrary ports still work.
 - Startup order changed: load/restore config -> start WebServer -> verify configured local port is listening -> ControlHub claim/poll -> Named Tunnel start. TunnelHealth also gates restart on local origin readiness.
 - Regression: targeted 47 PASS + 2 subtests; accumulated updater/config/ControlHub/Cloudflare/watchdog/launcher/camera regression 66 PASS + 2 subtests. PowerShell/Python syntax gates PASS.
+
+## 2026-10-03 - FINAL 2.3.3 RELEASE
+- Status: COMPLETED and published as GitHub latest v2.3.3.
+- Code/tag target: c9643ae5460b0de3885a5f68c21aaf79418a7d8b; origin/main contained watchdog + runtime-state preservation fixes before release.
+- Final artifact: release/2.3.3.zip, 228516291 bytes, SHA-256 5e195e93f978863271f5fa9f40adfd5d1ed0a6b8b76f09068c9a4e261e26dbda.
+- Artifact acceptance: 237/237 manifest files match in directory and ZIP; no protected shop/runtime state; health_v2.mode=config_port; fresh seed server_port=8000; watchdog + runtime_state native module present.
+- Compatibility: actual release/2.3.0/modules/native_update*.pyd parsed/extracted the final 2.3.3 ZIP successfully; legacy health key absent.
+- Regression before build: 203 tracked Python tests PASS + 5 subtests; 33 Node UI tests PASS. PowerShell updater parser PASS; frozen watchdog --status with explicit target PASS.
+- GitHub verification: release v2.3.3 is public/latest, asset state uploaded, server digest matches local SHA-256, anonymous range download returned HTTP 206 and total size 228516291.
+- Pre-final artifact was preserved under staging/prefinal-c9643ae/ before the final rebuild.

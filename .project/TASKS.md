@@ -522,6 +522,6 @@ elease\2.1.0\index.html byte-identically with source index.html.
 - [2026-10-03] 2.3.2 health_v2 compatibility: COMPLETED; final full ZIP and GitHub asset verified.
 
 
-- [2026-10-03] 2.3.3 independent watchdog + durable update journal: IMPLEMENTED, 51/51 regression PASS, frozen watchdog smoke PASS; pending full build/publish.
+- [2026-10-03] 2.3.3 independent watchdog + durable update journal: COMPLETED; final rebuild PASS, frozen watchdog status smoke PASS, GitHub v2.3.3 published/latest.
 
-- [2026-10-03] 2.3.3 manual-copy runtime-state/port/tunnel fix: IMPLEMENTED + 66 regression PASS + 2 subtests; pending final rebuild/artifact acceptance/publish.
+- [2026-10-03] 2.3.3 manual-copy runtime-state/port/tunnel fix: COMPLETED; final artifact accepted, 203 tracked Python tests + 5 subtests PASS, 33 Node UI tests PASS, legacy 2.3.0 parser accepts final ZIP.
