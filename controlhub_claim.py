@@ -18,6 +18,8 @@ import urllib.parse
 import urllib.request
 import uuid
 
+from runtime_state import snapshot_runtime_state
+
 
 BOOTSTRAP_FILE = "controlhub_bootstrap.json"
 MACHINE_ID_FILE = "controlhub_machine_id.txt"
@@ -326,7 +328,13 @@ def claim_once(base_dir: str | os.PathLike | None = None, timeout: float = 12.0,
     cfg = _read_json(base / CONFIG_FILE)
     subdomain_result = _claim_by_subdomain(base, cfg, timeout, opener)
     if subdomain_result.get("status") != "no-subdomain":
-        return subdomain_result
-    if (base / BOOTSTRAP_FILE).is_file():
-        return _claim_legacy_bootstrap(base, timeout, opener)
-    return _register_client(base, cfg, timeout, opener)
+        result = subdomain_result
+    elif (base / BOOTSTRAP_FILE).is_file():
+        result = _claim_legacy_bootstrap(base, timeout, opener)
+    else:
+        result = _register_client(base, cfg, timeout, opener)
+    try:
+        snapshot_runtime_state(base)
+    except Exception:
+        pass
+    return result

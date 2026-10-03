@@ -17,13 +17,77 @@ class AutoUpdateAndPrimaryLocalTests(unittest.TestCase):
         self.old_config = dict(APP.CONFIG)
         self.old_camera_list = list(APP.CAMERA_LIST)
         self.old_base_dir = APP.BASE_DIR
+        self.old_tunnel_proc = APP._cloudflared_proc
         APP.BASE_DIR = self.temp_dir.name
+        APP._cloudflared_proc = None
 
     def tearDown(self):
         APP.CONFIG = self.old_config
         APP.CAMERA_LIST = self.old_camera_list
         APP.BASE_DIR = self.old_base_dir
+        APP._cloudflared_proc = self.old_tunnel_proc
         self.temp_dir.cleanup()
+
+    def test_first_run_seed_is_8000_and_never_overwrites_existing_config(self):
+        config_path = os.path.join(self.temp_dir.name, "config.json")
+        seed_path = os.path.join(ROOT, "config.release.json")
+        with patch.object(APP, "CONFIG_FILE", config_path), patch.object(
+            APP, "EMBEDDED_CONFIG_FILE", seed_path
+        ):
+            APP._ensure_first_run_files()
+            first = json.load(open(config_path, encoding="utf-8"))
+            self.assertEqual(first["server_port"], 8000)
+
+            first["server_port"] = 8123
+            first["keep"] = "existing"
+            with open(config_path, "w", encoding="utf-8") as stream:
+                json.dump(first, stream)
+            APP._ensure_first_run_files()
+            second = json.load(open(config_path, encoding="utf-8"))
+            self.assertEqual(second["server_port"], 8123)
+            self.assertEqual(second["keep"], "existing")
+
+    def test_existing_token_and_subdomain_start_named_tunnel(self):
+        cloudflared = os.path.join(self.temp_dir.name, "cloudflared.exe")
+        token_file = os.path.join(self.temp_dir.name, "tunnel_token.txt")
+        open(cloudflared, "wb").close()
+        with open(token_file, "w", encoding="utf-8") as stream:
+            stream.write("shop-token\n")
+        APP.CONFIG = {
+            "server_port": 8000,
+            "cloudflare_subdomain": "shop.example.com",
+            "cloudflare_bound_subdomain": "shop.example.com",
+            "cloudflare_bound_port": 8000,
+            "public_base_url": "https://shop.example.com",
+        }
+        fake_proc = MagicMock()
+        fake_proc.pid = 4321
+        fake_proc.poll.return_value = None
+        with patch("controlhub_claim.claim_once", return_value={
+            "status": "already-provisioned",
+            "claimed": False,
+            "public_base_url": "https://shop.example.com",
+        }), patch.object(APP, "psutil", None), patch.object(
+            APP.subprocess, "Popen", return_value=fake_proc
+        ) as popen:
+            APP.start_cloudflared_tunnel()
+
+        self.assertIs(APP._cloudflared_proc, fake_proc)
+        argv = popen.call_args.args[0]
+        self.assertEqual(argv[0], cloudflared)
+        self.assertEqual(argv[1:4], ["tunnel", "run", "--token"])
+        self.assertEqual(argv[4], "shop-token")
+
+    def test_web_server_starts_before_tunnel_claim_and_health_loop(self):
+        source = open(os.path.join(ROOT, "1.py"), encoding="utf-8-sig").read()
+        main = source[source.index("def main():"):]
+        server_start = main.index("server_thread.start()")
+        tunnel_thread = main.index("target=tunnel_health_loop")
+        tunnel_start = main.index("start_cloudflared_tunnel()", server_start)
+        self.assertLess(server_start, tunnel_thread)
+        self.assertLess(server_start, tunnel_start)
+        health_source = source[source.index("def tunnel_health_loop():"):source.index("def ", source.index("def tunnel_health_loop():") + 5)]
+        self.assertIn("_wait_for_server(local_port, timeout=0.5)", health_source)
 
     def test_parse_version_tuple(self):
         self.assertEqual(APP._parse_version_tuple("v2.1.1"), (2, 1, 1))

@@ -25,6 +25,26 @@ failure no longer removes the recovery path.
 Manual subdomain claim and legacy one-time bootstrap remain supported for
 backward compatibility.
 
+## Runtime-state preservation (2.3.3+)
+
+- Release ZIPs never contain `config.json`, database, shop identity, Tunnel
+  Token, ControlHub client secret, video, logs or caches. Copying/extracting a
+  full package over an existing Cambida directory therefore does not overwrite
+  those files.
+- Small identity-critical state (`config.json`, `tunnel_token.txt`,
+  `controlhub_machine_id.txt`, `controlhub_client_secret.txt` and legacy
+  `controlhub_bootstrap.json`) is additionally mirrored outside the install
+  tree under `%LOCALAPPDATA%\Cambida\runtime-state`.
+- A frozen Cambida release restores only missing files from that vault before
+  the first-run seed is considered. Existing runtime files always win, so
+  repeating migration/startup is idempotent.
+- The watchdog snapshots this state before an updater stops Cambida and while a
+  healthy release is running. A Tunnel Token is tied to the subdomain that was
+  active when it was captured, so an old token is not revived after a deliberate
+  subdomain change.
+- `config.release.json` is only a clean first-install seed. It is never merged
+  over an existing runtime config. Its web-server default is 8000.
+
 ## Update flow
 
 1. Cambida checks the latest GitHub Release for `qwusvn/Cambida`.
@@ -44,6 +64,10 @@ backward compatibility.
     kill/rollback a healthy installation running on port 8000 or another port.
 11. From 2.3.2 onward, Cambida copies and launches the `updater.ps1` from the
     downloaded payload first; the installed updater is fallback only.
+12. Startup order is: restore/load runtime config -> start the local web server
+    on the preserved `server_port` -> wait for that listener -> ControlHub
+    claim/poll -> start the Named Tunnel. The TunnelHealth loop also refuses to
+    start cloudflared while the local origin is not listening.
 
 ## Independent watchdog (2.3.3+)
 

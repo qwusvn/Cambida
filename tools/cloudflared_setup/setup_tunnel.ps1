@@ -40,7 +40,7 @@ try {
     exit 1
 }
 
-$port = 8004
+$port = 8000
 if ($config.server_port) {
     $port = $config.server_port
 }

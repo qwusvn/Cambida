@@ -238,6 +238,63 @@ class UniversalUpdateTests(unittest.TestCase):
             self.assertNotIn("config.json", journal_names)
 
 
+    def test_230_and_231_update_preserve_all_local_runtime_state(self):
+        script = ROOT / "scripts" / "universal_updater.ps1"
+        cmd = Path(os.environ["WINDIR"]) / "System32" / "cmd.exe"
+        for old_version in ("2.3.0", "2.3.1"):
+            with self.subTest(old_version=old_version), tempfile.TemporaryDirectory() as td:
+                base = Path(td)
+                target = base / "target"
+                payload = base / "payload"
+                target.mkdir()
+                protected = {
+                    "config.json": b'{"server_port":8000,"cloudflare_subdomain":"shop.example.com"}',
+                    "analytics.db": b"db",
+                    "device_id.key": b"device",
+                    "tunnel_token.txt": b"token",
+                    "controlhub_machine_id.txt": b"machine",
+                    "controlhub_client_secret.txt": b"client-secret",
+                    "controlhub_bootstrap.json": b'{"site_id":"site"}',
+                }
+                for name, data in protected.items():
+                    (target / name).write_bytes(data)
+                (target / "old.bin").write_bytes(b"old")
+                (target / "release_manifest.json").write_text(json.dumps({
+                    "schema": 2,
+                    "version": old_version,
+                    "files": {"old.bin": digest(target / "old.bin")},
+                }), encoding="utf-8")
+                (target / "update.json").write_text(json.dumps({
+                    "schema": 2,
+                    "kind": "full",
+                    "version": old_version,
+                    "start": {"path": "old.bin", "args": []},
+                }), encoding="utf-8")
+
+                write_release(
+                    payload,
+                    "2.3.3",
+                    {"server.exe": cmd, "new.bin": b"new"},
+                    start="server.exe",
+                    args=["/d", "/c", "echo updated>updated.marker"],
+                )
+                completed = subprocess.run([
+                    "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                    "-File", str(script), "-OldPid", "0",
+                    "-Payload", str(payload), "-Target", str(target),
+                ], capture_output=True, text=True, timeout=30)
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+                for name, expected in protected.items():
+                    self.assertEqual((target / name).read_bytes(), expected, name)
+
+                marker = target / "updated.marker"
+                for _ in range(40):
+                    if marker.exists():
+                        break
+                    time.sleep(0.05)
+                self.assertTrue(marker.exists())
+                time.sleep(0.1)
+
     def test_updater_health_uses_preserved_runtime_server_port(self):
         script = (ROOT / "scripts" / "universal_updater.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("$runtimeConfig.server_port", script)

@@ -11,7 +11,7 @@ if (Test-Path "$ScriptDir\config.json") {
     $ConfigPath = "D:\1\cambida\config.json"
 }
 
-$port = 8004
+$port = 8000
 if ($ConfigPath -and (Test-Path $ConfigPath)) {
     try {
         $cfg = (Get-Content $ConfigPath -Raw -Encoding UTF8) | ConvertFrom-Json

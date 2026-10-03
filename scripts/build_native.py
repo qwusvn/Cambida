@@ -50,6 +50,7 @@ def run(argv, **kwargs):
 def source_modules():
     result = {'cambida_app': (ROOT / '1.py', False),
               'native_update': (ROOT / 'native_update.py', False),
+              'runtime_state': (ROOT / 'runtime_state.py', False),
               'controlhub_claim': (ROOT / 'controlhub_claim.py', False),
               'dahua_37777': (ROOT / 'dahua_37777.py', False)}
     for package in PACKAGES:
@@ -211,6 +212,7 @@ def watchdog_runtime():
     cache_file = BUILD / 'watchdog-cache.json'
     fingerprint = key({
         'source': digest(source),
+        'runtime_state': digest(ROOT / 'runtime_state.py'),
         'python': sys.version,
         'pyinstaller': importlib.metadata.version('PyInstaller'),
         'mode': 'onefile-noconsole-v1',

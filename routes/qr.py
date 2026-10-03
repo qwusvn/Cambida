@@ -32,7 +32,7 @@ def generate_table_qr(table_id, tables, server_port, req_host, url_root):
     if not table or not table.get("camera_id"):
         return None, "Bàn không tồn tại hoặc chưa gán camera", 404
 
-    port = int(server_port or 8004)
+    port = int(server_port or 8000)
     req_host_clean = req_host.split(":")[0].strip().lower()
     is_lan = False
     try:

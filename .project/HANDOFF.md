@@ -658,3 +658,12 @@ elease\2.1.0\index.html synchronized with source.
 - Watchdog binary migration dùng desired_exe versioned + named mutex; binary ngoài app tree sống qua overlay/update.
 - Verification trước release: 51/51 pytest PASS; PowerShell parser PASS; Windows process enumeration + mutex PASS; frozen one-file watchdog build/smoke `--status` PASS.
 - Version target: 2.3.3; pending commit/full build/GitHub publish checkpoint.
+
+## 2026-10-03 — 2.3.3 runtime-state preservation + port/tunnel startup fix
+- Root cause manual 2.3.2: generic ZIP intentionally omits runtime files; auto-updater protected them, but manual deployment had no external recovery layer. If config.json was absent at first 2.3.2 startup, `_ensure_first_run_files` seeded from config.release.json whose server_port was 8004. Admin UI itself already falls back to 8000 and does not force 8004.
+- Added native `runtime_state` vault for config.json, Tunnel Token, machine ID, client secret and legacy bootstrap under `%LOCALAPPDATA%\\Cambida\\runtime-state`; frozen app restores missing state before first-run seed, existing files always win, repeated restore is idempotent.
+- Watchdog snapshots critical runtime state before updater stop and periodically while healthy. Token restore is subdomain-bound so a stale token is not resurrected after deliberate subdomain change.
+- Fresh release seed/default and packaged Cloudflare helper fallbacks are now 8000. Existing configured ports remain untouched; tests retain explicit 8004 cases to prove arbitrary ports still work.
+- Startup order changed: load/restore config -> start WebServer -> verify configured local port is listening -> ControlHub claim/poll -> Named Tunnel start. TunnelHealth also gates restart on local origin readiness.
+- Regression: targeted 47 PASS + 2 subtests; accumulated updater/config/ControlHub/Cloudflare/watchdog/launcher/camera regression 66 PASS + 2 subtests. PowerShell/Python syntax gates PASS.
+- 2.3.3 must be rebuilt after this checkpoint; prior local 2.3.3 artifact predates runtime-state fix and is not publishable.

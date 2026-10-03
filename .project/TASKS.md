@@ -523,3 +523,5 @@ elease\2.1.0\index.html byte-identically with source index.html.
 
 
 - [2026-10-03] 2.3.3 independent watchdog + durable update journal: IMPLEMENTED, 51/51 regression PASS, frozen watchdog smoke PASS; pending full build/publish.
+
+- [2026-10-03] 2.3.3 manual-copy runtime-state/port/tunnel fix: IMPLEMENTED + 66 regression PASS + 2 subtests; pending final rebuild/artifact acceptance/publish.

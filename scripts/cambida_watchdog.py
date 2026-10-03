@@ -21,6 +21,8 @@ import sys
 import time
 import urllib.request
 
+from runtime_state import snapshot_runtime_state
+
 WATCHDOG_STATE = "watchdog.json"
 TRANSACTION = ".watchdog-update.json"
 LOG_NAME = "watchdog.log"
@@ -119,6 +121,10 @@ def save_state(data: dict) -> None:
 
 def install_watchdog(target: Path) -> Path:
     target = target.resolve()
+    try:
+        snapshot_runtime_state(target)
+    except Exception as exc:
+        log(f"runtime-state snapshot before install failed: {exc}")
     source = Path(sys.executable if getattr(sys, "frozen", False) else __file__).resolve()
     root = local_root()
     root.mkdir(parents=True, exist_ok=True)
@@ -375,6 +381,7 @@ def monitor(target: Path) -> int:
     unhealthy_since = None
     restart_times: deque[float] = deque()
     tx_healthy_since = None
+    last_state_snapshot = 0.0
 
     while True:
         state = load_state()
@@ -416,6 +423,12 @@ def monitor(target: Path) -> int:
 
         if healthy:
             unhealthy_since = None
+            if now - last_state_snapshot >= 60:
+                try:
+                    snapshot_runtime_state(target)
+                    last_state_snapshot = now
+                except Exception as exc:
+                    log(f"runtime-state periodic snapshot failed: {exc}")
             time.sleep(CHECK_SECONDS)
             continue
 

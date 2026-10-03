@@ -15,7 +15,7 @@ HƯỚNG DẪN DÀNH CHO KỸ THUẬT VIÊN / MÁY MỚI:
    [ install_tunnel.bat ]
 
 3. Script sẽ tự động:
-   - Nhận diện cổng máy chủ web từ file config.json (mặc định 8004).
+   - Nhận diện cổng máy chủ web từ file config.json (mặc định 8000).
    - Khởi động Cloudflare Tunnel và lấy URL HTTPS bảo mật (dạng https://xxxx.trycloudflare.com).
    - Tự động ghi URL này vào "public_base_url" trong file config.json.
    - Hỏi: "Bạn có muốn cài đặt để Cloudflared tự chạy ngầm mỗi khi khởi động máy không? (Y/N)"

@@ -3,7 +3,7 @@
 Được đóng gói thành setup_cloudflare.exe (onefile).
 Hỗ trợ:
 - Tự động nhận diện config.json và cloudflared.exe
-- Tự động dò tìm cổng máy chủ (8004, 8000, hoặc cổng đang chạy thực tế của camhl.exe)
+- Tự động dò tìm cổng máy chủ (8000, 8004, hoặc cổng đang chạy thực tế của camhl.exe)
 - Tự động provision Named Tunnel + ingress + DNS từ public_base_url khi chưa có tunnel_token.txt
 - Lấy Tunnel Token qua Cloudflare API và tự sinh tunnel_token.txt; API Token quản trị chỉ dùng trong RAM
 - Khởi động Cloudflare Named Tunnel bằng token riêng của từng quán
@@ -399,15 +399,15 @@ def detect_server_port(cfg: dict) -> int:
             pass
 
     # 3. Thử các cổng ứng viên thông dụng
-    candidates = [8004, 8000, 8080, 8888]
+    candidates = [8000, 8004, 8080, 8888]
     if cfg_port and cfg_port not in candidates:
         candidates.insert(0, cfg_port)
     for c_port in candidates:
         if ping_port(c_port):
             return c_port
 
-    # 4. Fallback về cổng cấu hình hoặc 8004
-    return cfg_port or 8004
+    # 4. Fallback về cổng cấu hình hoặc 8000
+    return cfg_port or 8000
 
 
 def stop_cloudflared_processes():
@@ -682,7 +682,7 @@ def action_status():
     print(f"- Tiến trình cloudflared.exe: {'🟢 ĐANG CHẠY' if running else '🔴 CHƯA CHẠY'}", flush=True)
 
     cfg = read_config()
-    port = cfg.get("server_port", 8004)
+    port = cfg.get("server_port", 8000)
     server_running = ping_port(port)
     print(f"- Web Server nội bộ (port {port}): {'🟢 HOẠT ĐỘNG' if server_running else '🔴 CHƯA PHẢN HỒI'}", flush=True)
 
@@ -744,7 +744,7 @@ def main():
     args = parser.parse_args()
 
     if args.daemon:
-        daemon_mode(args.port or 8004)
+        daemon_mode(args.port or 8000)
         return
 
     if args.status:

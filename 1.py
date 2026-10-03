@@ -68,6 +68,7 @@ from flask import (
 from PIL import Image, ImageDraw
 
 from dahua_37777 import Dahua37777Adapter, Dahua37777Error, netsdk_available
+from runtime_state import restore_runtime_state, snapshot_runtime_state
 
 try:
     from camera_modules.policy import (
@@ -123,6 +124,31 @@ INSTANCE_MUTEX_HANDLE = None
 
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 EMBEDDED_CONFIG_FILE = os.path.join(BUNDLE_DIR, "config.release.json")
+
+
+def _runtime_state_vault_enabled():
+    return bool(
+        getattr(sys, "frozen", False)
+        or os.environ.get("CAMBIDA_ENABLE_RUNTIME_STATE_VAULT") == "1"
+    )
+
+
+def _restore_runtime_state_best_effort():
+    if not _runtime_state_vault_enabled():
+        return []
+    try:
+        return restore_runtime_state(BASE_DIR)
+    except Exception:
+        return []
+
+
+def _snapshot_runtime_state_best_effort():
+    if not _runtime_state_vault_enabled():
+        return None
+    try:
+        return snapshot_runtime_state(BASE_DIR)
+    except Exception:
+        return None
 
 def _load_app_version():
     candidates = [
@@ -195,6 +221,7 @@ def _ensure_first_run_files():
             )
             sys.exit(1)
 
+_restore_runtime_state_best_effort()
 _ensure_first_run_files()
 
 
@@ -569,6 +596,8 @@ except json.JSONDecodeError as e:
         f"File 'config.json' bị lỗi định dạng JSON:\n{e}",
     )
     sys.exit(1)
+
+_snapshot_runtime_state_best_effort()
 
 
 if not os.path.exists(FFMPEG_PATH):
@@ -2318,6 +2347,7 @@ def save_config(candidate):
         json.dump(candidate, f, ensure_ascii=False, indent=2)
         f.write("\n")
     os.replace(tmp_file, config_file)
+    _snapshot_runtime_state_best_effort()
 
 
 def admin_required(view):
@@ -4745,14 +4775,6 @@ def start_cloudflared_tunnel():
 
     if _cloudflared_proc and _cloudflared_proc.poll() is None:
         return
-    if psutil:
-        try:
-            for p in psutil.process_iter(["name"]):
-                if "cloudflared" in (p.info["name"] or "").lower():
-                    return
-        except Exception:
-            pass
-
     cf_candidates = [
         os.path.join(BASE_DIR, "cloudflared.exe"),
         os.path.join(BUNDLE_DIR, "cloudflared.exe"),
@@ -4761,6 +4783,17 @@ def start_cloudflared_tunnel():
     cf_bin = next((p for p in cf_candidates if os.path.isfile(p)), None)
     if not cf_bin:
         return
+    if psutil:
+        try:
+            expected_cf = os.path.normcase(os.path.abspath(cf_bin))
+            for p in psutil.process_iter(["name", "exe"]):
+                if "cloudflared" not in (p.info.get("name") or "").lower():
+                    continue
+                running_exe = p.info.get("exe")
+                if running_exe and os.path.normcase(os.path.abspath(running_exe)) == expected_cf:
+                    return
+        except Exception:
+            pass
 
     token = None
     tunnel_cfg = CONFIG.get("cloudflare_tunnel", {})
@@ -4878,7 +4911,11 @@ def tunnel_health_loop():
             else:
                 _TUNNEL_ONLINE = False
             _TUNNEL_LAST_CHECK = time.time()
-            if not _TUNNEL_ONLINE:
+            try:
+                local_port = int(CONFIG.get("server_port") or 8000)
+            except (TypeError, ValueError):
+                local_port = 8000
+            if not _TUNNEL_ONLINE and _wait_for_server(local_port, timeout=0.5):
                 start_cloudflared_tunnel()
         except Exception:
             _TUNNEL_ONLINE = False
@@ -6283,7 +6320,7 @@ def table_qr(table_id):
     )
     if not table or not table.get("camera_id"):
         return "Bàn không tồn tại hoặc chưa gán camera", 404
-    port = int(CONFIG.get("server_port") or 8004)
+    port = int(CONFIG.get("server_port") or 8000)
     req_host = request.host.split(":")[0].strip().lower()
     is_lan = False
     try:
@@ -7534,10 +7571,6 @@ def main():
     threading.Thread(
         target=start_recording_loop, daemon=True, name="Recorder"
     ).start()
-    threading.Thread(
-        target=tunnel_health_loop, daemon=True, name="TunnelHealth"
-    ).start()
-    start_cloudflared_tunnel()
     check_and_notify_pending_update()
     start_github_update_worker()
     if license_active:
@@ -7589,6 +7622,13 @@ def main():
         name="WebServer",
     )
     server_thread.start()
+    threading.Thread(
+        target=tunnel_health_loop, daemon=True, name="TunnelHealth"
+    ).start()
+    if _wait_for_server(server_port, timeout=15):
+        start_cloudflared_tunnel()
+    else:
+        logger.warning("[Tunnel] WebServer chưa sẵn sàng; TunnelHealth sẽ thử lại sau.")
     if run_tray:
         setup_tray()
     server_thread.join()
