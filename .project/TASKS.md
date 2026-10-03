@@ -517,6 +517,7 @@ elease\2.1.0\index.html byte-identically with source index.html.
 - [2026-10-03] 2.3.1 self-registration/ControlHub: COMPLETED; GitHub Release v2.3.1 published, full 2.3.1.zip verified as latest for auto-update.
 
 
-- [2026-10-03] 2.3.2 updater bridge: FIXED + REGRESSION PASS; pending build/publish checkpoint.
+- [2026-10-03] 2.3.2 updater bridge: COMPLETED; full release built, verified with actual 2.3.0 parser/updater, and published as GitHub latest.
 
-- [2026-10-03] 2.3.2 health_v2 compatibility: VERIFIED against actual 2.3.0 native parser + updater; pending final rebuild/publish.
+- [2026-10-03] 2.3.2 health_v2 compatibility: COMPLETED; final full ZIP and GitHub asset verified.
+

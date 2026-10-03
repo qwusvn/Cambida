@@ -672,3 +672,7 @@ Cập nhật: 2026-09-30 +07
 - Bridge compatibility refinement: moved new health metadata to `health_v2` (no legacy `health` key). Actual `release\2.3.0\modules\native_update*.pyd` accepted a synthetic 2.3.2 archive with health_v2: PASS.
 - Actual 2.3.0 updater + health_v2 payload + preserved server_port=8000: PASS in ~0.52s, config preserved, no rollback. New updater health_v2/config_port integration: PASS.
 - Regression after refinement: 45/45 pytest PASS; PowerShell parser PASS.
+
+- FINAL 2.3.2 RELEASE: `D:\1\Cambida\release\2.3.2.zip`, 220717159 bytes, SHA-256 `aea2ac9d28908a8d8f3f41375375f9f381fdc1f823f2a23834d51320164fe866`.
+- Full ZIP acceptance: current parser PASS; actual 2.3.0 native parser PASS on all 235 manifest files; forbidden runtime/shop state = none; legacy `health` absent; `health_v2.mode=config_port` present; fixed `:8004` absent.
+- GitHub `v2.3.2` published public/latest, asset state uploaded, anonymous range download HTTP 206, GitHub digest/size match local exactly. Tag points to `0e51add552eb39dd1eac2eb9539dd8535770231a`.
