@@ -35,9 +35,10 @@ backward compatibility.
    backed up and removed; the complete new release is then overlaid.
 8. Shop/runtime data is never part of a release and is preserved.
 9. The start entrypoint declared by the new `update.json` is launched.
-10. Release health metadata uses `mode=config_port`; the 2.3.2+ updater builds
+10. Release health metadata uses `health_v2.mode=config_port`; the 2.3.2+ updater builds
     the localhost health URL from the preserved `config.json.server_port`.
-    Legacy 2.3.0 updaters see no fixed `health.url`, so they do not incorrectly
+    Legacy 2.3.0 parsers/updaters do not know the `health_v2` key and therefore
+    see no legacy `health.url`, so they do not incorrectly
     kill/rollback a healthy installation running on port 8000 or another port.
 11. From 2.3.2 onward, Cambida copies and launches the `updater.ps1` from the
     downloaded payload first; the installed updater is fallback only.

@@ -85,7 +85,10 @@ function Start-Release($Update, [string]$Root) {
 }
 
 function Wait-Health($Update, [string]$Root) {
-    $healthProp = $Update.PSObject.Properties['health']
+    $healthProp = $Update.PSObject.Properties['health_v2']
+    if (-not $healthProp -or -not $healthProp.Value) {
+        $healthProp = $Update.PSObject.Properties['health']
+    }
     if (-not $healthProp -or -not $healthProp.Value) { return $true }
     $health = $healthProp.Value
     $modeProp = $health.PSObject.Properties['mode']
@@ -252,7 +255,7 @@ try {
     "Installed $($manifest.version); backup: $backup" | Set-Content -LiteralPath (Join-Path $Target 'native-update.log') -Encoding UTF8
     $newProcess = Start-Release $update $Target
     if (-not (Wait-Health $update $Target)) {
-        throw "Updated release did not become healthy within $($update.health.timeout_seconds) seconds"
+        throw "Updated release did not become healthy within the configured timeout"
     }
 
     if ($CleanupRoot) {

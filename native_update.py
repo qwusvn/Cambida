@@ -50,18 +50,29 @@ def _load_json(path):
 
 
 def _validate_local_health(update):
-    health = update.get('health')
+    health = update.get('health_v2') or update.get('health')
     if not health:
         return
+    if not isinstance(health, dict):
+        raise ValueError('Health metadata is invalid')
+
+    timeout = int(health.get('timeout_seconds') or 60)
+    if timeout < 5 or timeout > 300:
+        raise ValueError('Health timeout is out of range')
+
+    mode = str(health.get('mode') or '').strip().lower()
+    if mode == 'config_port':
+        path = str(health.get('path') or '/').strip()
+        if not path.startswith('/') or '://' in path:
+            raise ValueError('Health path is invalid')
+        return
+
     raw = str(health.get('url') or '').strip()
     if not raw:
         raise ValueError('Health URL is empty')
     parsed = urllib.parse.urlparse(raw)
     if parsed.scheme != 'http' or parsed.hostname not in {'127.0.0.1', 'localhost', '::1'}:
         raise ValueError('Health URL must use local HTTP')
-    timeout = int(health.get('timeout_seconds') or 60)
-    if timeout < 5 or timeout > 300:
-        raise ValueError('Health timeout is out of range')
 
 
 def prepare_archive(archive, destination, installed, version):

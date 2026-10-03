@@ -518,3 +518,5 @@ elease\2.1.0\index.html byte-identically with source index.html.
 
 
 - [2026-10-03] 2.3.2 updater bridge: FIXED + REGRESSION PASS; pending build/publish checkpoint.
+
+- [2026-10-03] 2.3.2 health_v2 compatibility: VERIFIED against actual 2.3.0 native parser + updater; pending final rebuild/publish.

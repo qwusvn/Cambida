@@ -640,3 +640,7 @@ elease\2.1.0\index.html synchronized with source.
 - Auto-update now prefers updater.ps1 from the downloaded payload; installed updater is fallback only.
 - Regression: 25 targeted unittest PASS; 44 accumulated pytest PASS. Legacy 2.3.0 updater simulation with server_port=8000 -> 2.3.2 bridge PASS in ~0.54s, config preserved, no rollback. New updater config_port health simulation PASS.
 - 2.3.2 source is ready for commit/build/publish; do not use v2.3.1 as latest after v2.3.2 release.
+
+- Bridge compatibility refinement: moved new health metadata to `health_v2` (no legacy `health` key). Actual `release\2.3.0\modules\native_update*.pyd` accepted a synthetic 2.3.2 archive with health_v2: PASS.
+- Actual 2.3.0 updater + health_v2 payload + preserved server_port=8000: PASS in ~0.52s, config preserved, no rollback. New updater health_v2/config_port integration: PASS.
+- Regression after refinement: 45/45 pytest PASS; PowerShell parser PASS.

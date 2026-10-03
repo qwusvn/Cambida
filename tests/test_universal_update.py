@@ -21,7 +21,7 @@ def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def write_release(folder, version, files, *, start="server.exe", args=None, health=None):
+def write_release(folder, version, files, *, start="server.exe", args=None, health=None, health_v2=None):
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
     for name, source in files.items():
@@ -47,6 +47,8 @@ def write_release(folder, version, files, *, start="server.exe", args=None, heal
     }
     if health:
         update["health"] = health
+    if health_v2:
+        update["health_v2"] = health_v2
     (folder / "release_manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
     )
@@ -83,6 +85,19 @@ class UniversalUpdateTests(unittest.TestCase):
             )
             self.assertEqual(result["manifest"]["schema"], 2)
             self.assertEqual(result["update"]["start"]["path"], "server.exe")
+
+    def test_health_v2_config_port_metadata_is_valid(self):
+        NATIVE_UPDATE._validate_local_health({
+            "health_v2": {"mode": "config_port", "path": "/", "timeout_seconds": 90}
+        })
+        with self.assertRaisesRegex(ValueError, "Health path is invalid"):
+            NATIVE_UPDATE._validate_local_health({
+                "health_v2": {
+                    "mode": "config_port",
+                    "path": "https://bad.example/",
+                    "timeout_seconds": 90,
+                }
+            })
 
     def test_prepare_archive_rejects_shop_state_inside_release(self):
         with tempfile.TemporaryDirectory() as td:
@@ -220,7 +235,7 @@ class UniversalUpdateTests(unittest.TestCase):
 
     def test_232_bridge_avoids_fixed_health_port_and_prefers_payload_updater(self):
         builder_source = (ROOT / "scripts" / "build_native.py").read_text(encoding="utf-8-sig")
-        self.assertIn("'health': {'mode': 'config_port', 'path': '/', 'timeout_seconds': 90}", builder_source)
+        self.assertIn("'health_v2': {'mode': 'config_port', 'path': '/', 'timeout_seconds': 90}", builder_source)
         self.assertNotIn("'health': {'url': 'http://127.0.0.1:8004/'", builder_source)
 
         updater_source = (ROOT / "scripts" / "universal_updater.ps1").read_text(encoding="utf-8-sig")

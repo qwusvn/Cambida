@@ -278,11 +278,11 @@ def main():
         'kind': 'full',
         'version': args.version,
         'start': {'path': 'Cambida.exe', 'args': []},
-        # No fixed localhost port here. The legacy 2.3.0 updater sees no
-        # health.url and therefore does not roll back a healthy :8000 install;
-        # the 2.3.2+ updater understands mode=config_port and checks the
-        # preserved config.json server_port instead.
-        'health': {'mode': 'config_port', 'path': '/', 'timeout_seconds': 90},
+        # Compatibility bridge: 2.3.0 only knows the legacy `health` key.
+        # Keeping that key absent makes its parser/updater safely skip the
+        # fixed-port probe, while 2.3.2+ understands `health_v2` and resolves
+        # the preserved config.json server_port at runtime.
+        'health_v2': {'mode': 'config_port', 'path': '/', 'timeout_seconds': 90},
     })
     destination.parent.mkdir(parents=True, exist_ok=True)
     archive_temp = BUILD / (args.version + '-' + uuid.uuid4().hex[:8] + '.zip')
