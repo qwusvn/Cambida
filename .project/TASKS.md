@@ -525,3 +525,5 @@ elease\2.1.0\index.html byte-identically with source index.html.
 - [2026-10-03] 2.3.3 independent watchdog + durable update journal: COMPLETED; final rebuild PASS, frozen watchdog status smoke PASS, GitHub v2.3.3 published/latest.
 
 - [2026-10-03] 2.3.3 manual-copy runtime-state/port/tunnel fix: COMPLETED; final artifact accepted, 203 tracked Python tests + 5 subtests PASS, 33 Node UI tests PASS, legacy 2.3.0 parser accepts final ZIP.
+
+- [2026-10-03] 2.3.0 -> 2.3.3 clean autoupdate E2E: BLOCKED; discovery/download/parser PASS, exact 2.3.0 apply_github_update handoff FAIL because updater.exe/updater.cmd are absent.

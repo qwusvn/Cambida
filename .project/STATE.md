@@ -702,3 +702,13 @@ Cập nhật: 2026-09-30 +07
 - Regression before build: 203 tracked Python tests PASS + 5 subtests; 33 Node UI tests PASS. PowerShell updater parser PASS; frozen watchdog --status with explicit target PASS.
 - GitHub verification: release v2.3.3 is public/latest, asset state uploaded, server digest matches local SHA-256, anonymous range download returned HTTP 206 and total size 228516291.
 - Pre-final artifact was preserved under staging/prefinal-c9643ae/ before the final rebuild.
+
+## 2026-10-03 - 2.3.0 -> 2.3.3 autoupdate E2E verification
+- Result: BLOCKED/FAIL for a clean 2.3.0 installation.
+- Exact 2.3.0 source commit: 6eac3d73f4c7380aa6492e1275dfb3e8de00afda. Its apply_github_update() only accepts updater.exe or updater.cmd for handoff.
+- Live GitHub discovery from the exact 2.3.0 check_github_update() sees latest v2.3.3 and selects 2.3.3.zip correctly.
+- Full public asset download PASS: 228516291 bytes, SHA-256 5e195e93f978863271f5fa9f40adfd5d1ed0a6b8b76f09068c9a4e261e26dbda.
+- Actual release/2.3.0/modules/native_update*.pyd parses/extracts the final 2.3.3 ZIP successfully; health_v2 is tolerated and legacy health is absent.
+- Handoff FAIL: payload has updater.ps1 but no updater.exe/updater.cmd; clean release/2.3.0 also has neither. Exact sandboxed apply_github_update() returns False with missing updater.exe/updater.cmd.
+- Therefore v2.3.3 must NOT be considered reliably auto-updatable from every clean 2.3.0 install until a compatibility bridge acceptable to 2.3.0 is published.
+- A machine that happens to retain legacy updater.cmd from an older overlay may behave differently, but that is not guaranteed by the 2.3.0 release and is not accepted as compatibility proof.
