@@ -47,33 +47,44 @@ def main():
     print(f"[*] Kiểm tra GitHub Release cho tag {TAG_NAME}...", flush=True)
     r = requests.get(f"https://api.github.com/repos/{REPO}/releases/tags/{TAG_NAME}", headers=headers)
     release_data = None
+    payload = {
+        "tag_name": TAG_NAME,
+        "target_commitish": "main",
+        "name": f"Cambida v{VERSION} — Adaptive Storage Engine & Hardened Updater",
+        "body": (
+            f"### Cambida v{VERSION}\n\n"
+            "- **Cơ chế dọn dẹp & giải phóng bộ nhớ thông minh (Adaptive Storage Engine)**:\n"
+            "  - Quét 1 lần duy nhất ($O(N \\log N)$) qua `os.scandir`, loại bỏ hoàn toàn hiện tượng nghẽn I/O khi có hàng chục ngàn file video của nhiều camera.\n"
+            "  - Tự động nhận diện phân vùng ổ đĩa (`get_disk_partition_usage`), tự co giãn giới hạn lưu trữ phù hợp với dung lượng thực tế của từng quán.\n"
+            "  - Dọn dẹp đa tầng: tự xóa file rác tạm (`.part`, `.dav`, `.ps`, `.tmp`), xóa video ghép hết hạn, xóa theo số ngày lưu trữ cấu hình, và xoay vòng FIFO khi dung lượng vượt ngưỡng.\n"
+            "  - Bảo vệ chống lỗi khóa file trên Windows (skip file đang ghi), tự động dọn dẹp đồng bộ bản ghi trong SQLite `video_segments`.\n"
+            "- **Tự động dọn dẹp giải phóng ổ C & Thư mục tạm (Drive C Temp Auto-Cleanup)**:\n"
+            "  - Tự động dọn dẹp các thư mục rác tạm trên ổ C (`%TEMP%\\_MEI*`, `%TEMP%\\cambida-update-*`, `%TEMP%\\cambida-updater-*`) ngay khi hoàn tất hoặc khi update gặp sự cố, chấm dứt hoàn toàn hiện tượng tràn ổ đĩa C.\n"
+            "  - Tự động tỉa gọn và chỉ lưu 1 bản sao lưu mới nhất trong `.update-backups`, dọn dẹp các file thực thi watchdog lỗi thời trong `%LOCALAPPDATA%\\CambidaWatchdog`.\n"
+            "- **Trình cập nhật vạn năng hoàn thiện (Universal Updater Robustness)**:\n"
+            "  - Bổ sung cơ chế fallback tính SHA-256 trực tiếp bằng .NET Cryptography khi lệnh `Get-FileHash` bị hạn chế trong môi trường PowerShell.\n"
+            "  - Khắc phục lỗi `ArgumentList` rỗng trên Windows PowerShell 5.1 chuẩn.\n"
+            "  - Tối ưu hóa vòng đời Watchdog (khởi chạy tách biệt độc lập qua `start`), ngăn ngừa triệt để treo tiến trình hoặc giữ khóa tệp tin khi nâng cấp.\n"
+            "- **Kiểm thử nâng cấp tự động hoàn chỉnh (E2E Verified)**:\n"
+            "  - Kiểm thử nâng cấp tự động từ 2.3.3 sang 2.3.4 thành công 100%, bảo toàn nguyên vẹn cấu hình quán (`config.json`), dữ liệu hóa đơn (`analytics.db`), khóa token Cloudflare/ControlHub và toàn bộ video hiện có.\n"
+            "  - Toàn bộ 211/211 bài kiểm thử tự động trong test suite đều vượt qua tuyệt đối."
+        ),
+        "draft": False,
+        "prerelease": False,
+    }
     if r.status_code == 200:
         release_data = r.json()
-        print(f"[+] Đã tồn tại Release ID {release_data['id']}", flush=True)
+        print(f"[+] Đã tồn tại Release ID {release_data['id']}, đang cập nhật release notes...", flush=True)
+        patch_res = requests.patch(
+            f"https://api.github.com/repos/{REPO}/releases/{release_data['id']}",
+            headers=headers,
+            json={"body": payload["body"], "name": payload["name"]},
+        )
+        if patch_res.status_code == 200:
+            release_data = patch_res.json()
+            print(f"[+] Cập nhật release notes thành công!", flush=True)
     elif r.status_code == 404:
         print(f"[*] Đang tạo mới GitHub Release {TAG_NAME}...", flush=True)
-        payload = {
-            "tag_name": TAG_NAME,
-            "target_commitish": "main",
-            "name": f"Cambida v{VERSION} — Adaptive Storage Engine & Hardened Updater",
-            "body": (
-                f"### Cambida v{VERSION}\n\n"
-                "- **Cơ chế dọn dẹp & giải phóng bộ nhớ thông minh (Adaptive Storage Engine)**:\n"
-                "  - Quét 1 lần duy nhất ($O(N \\log N)$) qua `os.scandir`, loại bỏ hoàn toàn hiện tượng nghẽn I/O khi có hàng chục ngàn file video của nhiều camera.\n"
-                "  - Tự động nhận diện phân vùng ổ đĩa (`get_disk_partition_usage`), tự co giãn giới hạn lưu trữ phù hợp với dung lượng thực tế của từng quán.\n"
-                "  - Dọn dẹp đa tầng: tự xóa file rác tạm (`.part`, `.dav`, `.ps`, `.tmp`), xóa video ghép hết hạn, xóa theo số ngày lưu trữ cấu hình, và xoay vòng FIFO khi dung lượng vượt ngưỡng.\n"
-                "  - Bảo vệ chống lỗi khóa file trên Windows (skip file đang ghi), tự động dọn dẹp đồng bộ bản ghi trong SQLite `video_segments`.\n"
-                "- **Trình cập nhật vạn năng hoàn thiện (Universal Updater Robustness)**:\n"
-                "  - Bổ sung cơ chế fallback tính SHA-256 trực tiếp bằng .NET Cryptography khi lệnh `Get-FileHash` bị hạn chế trong môi trường PowerShell.\n"
-                "  - Khắc phục lỗi `ArgumentList` rỗng trên Windows PowerShell 5.1 chuẩn.\n"
-                "  - Tối ưu hóa vòng đời Watchdog và thử lại khi mở khóa file trên Windows, chống xung đột tệp tin khi ghi đè nhị phân.\n"
-                "- **Kiểm thử nâng cấp tự động hoàn chỉnh (E2E Verified)**:\n"
-                "  - Kiểm thử nâng cấp tự động từ 2.3.3 sang 2.3.4 thành công 100%, bảo toàn nguyên vẹn cấu hình quán (`config.json`), dữ liệu hóa đơn (`analytics.db`), khóa token Cloudflare/ControlHub và toàn bộ video hiện có.\n"
-                "  - Toàn bộ 210/210 bài kiểm thử tự động trong test suite đều vượt qua tuyệt đối."
-            ),
-            "draft": False,
-            "prerelease": False,
-        }
         create_res = requests.post(
             f"https://api.github.com/repos/{REPO}/releases",
             headers=headers,
