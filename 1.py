@@ -2314,6 +2314,13 @@ def validate_config(candidate):
             return "'disk_limit_gb' phải là số."
         if not math.isfinite(disk_limit) or disk_limit <= 0:
             return "'disk_limit_gb' phải lớn hơn 0."
+    if "minimum_free_disk_gb" in candidate:
+        try:
+            min_free = float(candidate["minimum_free_disk_gb"])
+        except (TypeError, ValueError):
+            return "'minimum_free_disk_gb' phải là số."
+        if not math.isfinite(min_free) or min_free < 0:
+            return "'minimum_free_disk_gb' phải lớn hơn hoặc bằng 0."
     if int(candidate.get("record_timeout_sec", TIMEOUT)) <= int(candidate.get("record_duration_sec", DURATION)):
         return "record_timeout_sec phải lớn hơn record_duration_sec."
     tables = candidate.get("tables", [])
@@ -3724,19 +3731,60 @@ def start_recording_loop():
         time.sleep(0.5)
 
 
+def get_disk_partition_usage(path=None):
+    """Return (total_gb, used_gb, free_gb) for the filesystem partition hosting the path."""
+    target_path = path or VIDEO_DIR
+    try:
+        usage = shutil.disk_usage(target_path)
+        return (
+            usage.total / (1024 ** 3),
+            usage.used / (1024 ** 3),
+            usage.free / (1024 ** 3),
+        )
+    except Exception as exc:
+        logger.warning(f"[Storage] Không thể đọc dung lượng phân vùng ổ đĩa: {exc}")
+        return (0.0, 0.0, 0.0)
+
+
+def get_effective_disk_limit_gb():
+    """Determine practical video directory quota in GB, auto-adapting to host disk size."""
+    total_gb, _, _ = get_disk_partition_usage()
+    try:
+        min_free = float(CONFIG.get("minimum_free_disk_gb", 10.0))
+    except (TypeError, ValueError):
+        min_free = 10.0
+    cfg_limit = CONFIG.get("disk_limit_gb")
+    if cfg_limit in (None, "", 0, "auto"):
+        return round(max(5.0, total_gb - min_free), 2)
+    try:
+        val = float(cfg_limit)
+        precision = 3 if val < 1.0 else 2
+        return round(val if val > 0 else max(5.0, total_gb - min_free), precision)
+    except (TypeError, ValueError):
+        return round(max(5.0, total_gb - min_free), 2)
+
+
 def get_video_files_sorted_by_mtime():
+    """Fast single-pass discovery of valid completed video files, sorted oldest first."""
     files = []
     try:
-        for f in os.listdir(VIDEO_DIR):
-            if not (f.lower().endswith(".mp4") or f.lower().endswith(".h264")):
-                continue
-            path = os.path.join(VIDEO_DIR, f)
-            if not os.path.isfile(path):
-                continue
-            files.append(path)
+        with os.scandir(VIDEO_DIR) as it:
+            for entry in it:
+                try:
+                    if not entry.is_file(follow_symlinks=False):
+                        continue
+                    name_lower = entry.name.lower()
+                    if name_lower.endswith(".mp4") or name_lower.endswith(".h264"):
+                        if not name_lower.endswith(".part") and ".part." not in name_lower and not name_lower.startswith("."):
+                            st = entry.stat(follow_symlinks=False)
+                            files.append((entry.path, st.st_mtime))
+                except OSError:
+                    continue
+        files.sort(key=lambda item: item[1])
+        return [f[0] for f in files]
     except Exception as e:
         logger.error(f"[Cleanup] Không thể đọc thư mục {VIDEO_DIR}: {e}")
-    return sorted(files, key=os.path.getmtime)
+        return []
 
 
 def is_complete_mp4(path):
@@ -3764,82 +3812,267 @@ def is_complete_mp4(path):
 
 
 def get_total_size_gb():
-    total_size = 0
+    """Fast calculation of total size in VIDEO_DIR using os.scandir."""
+    total_bytes = 0
     try:
-        for f in os.listdir(VIDEO_DIR):
-            path = os.path.join(VIDEO_DIR, f)
-            if not os.path.isfile(path):
-                continue
-            if not (path.lower().endswith(".mp4") or path.lower().endswith(".h264")):
-                continue
-            total_size += os.path.getsize(path)
+        with os.scandir(VIDEO_DIR) as it:
+            for entry in it:
+                try:
+                    if entry.is_file(follow_symlinks=False):
+                        total_bytes += entry.stat(follow_symlinks=False).st_size
+                except OSError:
+                    pass
     except Exception as e:
         logger.error(f"[Cleanup] Không thể tính dung lượng: {e}")
-    return total_size / 1_073_741_824
+    return total_bytes / (1024 ** 3)
+
+
+def get_locked_video_filenames():
+    """Return set of filenames marked as locked/protected in video_segments."""
+    try:
+        if "db_connection" not in globals():
+            return set()
+        with db_connection() as connection:
+            if "_ensure_db_schema" in globals():
+                _ensure_db_schema(connection)
+            rows = connection.execute("SELECT filename FROM video_segments WHERE locked = 1").fetchall()
+            return {row["filename"] for row in rows}
+    except Exception:
+        return set()
+
+
+def _delete_video_segments_from_db(filenames):
+    """Prune deleted filenames from video_segments database table."""
+    if not filenames or "db_connection" not in globals():
+        return
+    try:
+        with db_connection() as connection:
+            if "_ensure_db_schema" in globals():
+                _ensure_db_schema(connection)
+            for i in range(0, len(filenames), 500):
+                batch = filenames[i : i + 500]
+                placeholders = ",".join("?" for _ in batch)
+                connection.execute(f"DELETE FROM video_segments WHERE filename IN ({placeholders})", batch)
+            connection.commit()
+    except Exception as exc:
+        logger.warning(f"[Storage] Lỗi dọn bản ghi DB video_segments: {exc}")
+
+
+def _safe_remove_file(path):
+    """Safely remove a file, clearing Windows read-only attribute if needed."""
+    try:
+        os.remove(path)
+        return True
+    except OSError:
+        try:
+            os.chmod(path, stat.S_IWRITE)
+            os.remove(path)
+            return True
+        except OSError:
+            return False
+
+
+def cleanup_orphan_temp_files(min_age_seconds=1800):
+    """Delete abandoned partial/temporary recording files older than min_age_seconds (default 30m)."""
+    now = time.time()
+    deleted_count = 0
+    freed_bytes = 0
+    try:
+        with os.scandir(VIDEO_DIR) as it:
+            for entry in it:
+                try:
+                    if not entry.is_file(follow_symlinks=False):
+                        continue
+                    name_lower = entry.name.lower()
+                    is_temp = (
+                        name_lower.endswith(".part")
+                        or ".part." in name_lower
+                        or name_lower.endswith(".ps")
+                        or name_lower.endswith(".tmp")
+                        or (name_lower.endswith(".dav") and not name_lower.startswith("cam"))
+                        or entry.name.startswith(".tmp")
+                    )
+                    if not is_temp:
+                        continue
+                    st = entry.stat(follow_symlinks=False)
+                    if (now - st.st_mtime) >= min_age_seconds:
+                        if _safe_remove_file(entry.path):
+                            deleted_count += 1
+                            freed_bytes += st.st_size
+                except OSError:
+                    continue
+    except Exception as exc:
+        logger.warning(f"[Storage] Lỗi quét dọn file tạm mồ côi: {exc}")
+    if deleted_count > 0:
+        logger.info(
+            f"[Storage] Đã dọn dẹp {deleted_count} file rác/ghi dở dang mồ côi, giải phóng {freed_bytes / (1024**2):.1f} MB."
+        )
+    return freed_bytes
+
+
+def delete_expired_merged_videos(max_age_seconds=10800):
+    """Delete only completed merged MP4 files older than max_age_seconds (default 3 hours)."""
+    cutoff = time.time() - max_age_seconds
+    deleted_count = 0
+    freed_bytes = 0
+    try:
+        with os.scandir(VIDEO_DIR) as it:
+            for entry in it:
+                try:
+                    if not entry.is_file(follow_symlinks=False):
+                        continue
+                    if not (entry.name.startswith("merge_") and entry.name.lower().endswith(".mp4")):
+                        continue
+                    st = entry.stat(follow_symlinks=False)
+                    if st.st_mtime < cutoff:
+                        if _safe_remove_file(entry.path):
+                            deleted_count += 1
+                            freed_bytes += st.st_size
+                            logger.info(f"[Cleanup] Đã xóa video ghép quá {max_age_seconds // 3600} giờ: {entry.name}")
+                except OSError as exc:
+                    logger.warning(f"[Cleanup] Không thể dọn video ghép {entry.name}: {exc}")
+    except Exception as exc:
+        logger.warning(f"[Cleanup] Lỗi dọn video ghép: {exc}")
+    return freed_bytes
 
 
 def delete_expired_videos():
-    """Delete recordings (including merged files) older than retention_days."""
+    """Delete recordings older than retention_days, respecting locked/protected videos."""
     try:
         retention_days = int(CONFIG.get("retention_days", RETENTION_DAYS))
         cutoff = time.time() - retention_days * 86_400
-        for path in get_video_files_sorted_by_mtime():
-            if os.path.getmtime(path) >= cutoff:
-                continue
-            try:
-                os.remove(path)
-                logger.info(f"[Cleanup] Đã xóa video quá hạn: {os.path.basename(path)}")
-            except OSError as exc:
-                logger.warning(f"[Cleanup] Không thể xóa video quá hạn {path}: {exc}")
+        locked_files = get_locked_video_filenames()
+        deleted_filenames = []
+        freed_bytes = 0
+        with os.scandir(VIDEO_DIR) as it:
+            for entry in it:
+                try:
+                    if not entry.is_file(follow_symlinks=False):
+                        continue
+                    name_lower = entry.name.lower()
+                    if not (name_lower.endswith(".mp4") or name_lower.endswith(".h264")):
+                        continue
+                    if entry.name in locked_files:
+                        continue
+                    st = entry.stat(follow_symlinks=False)
+                    if st.st_mtime < cutoff:
+                        if _safe_remove_file(entry.path):
+                            deleted_filenames.append(entry.name)
+                            freed_bytes += st.st_size
+                            logger.info(f"[Cleanup] Đã xóa video quá hạn ({retention_days} ngày): {entry.name}")
+                except OSError:
+                    continue
+        if deleted_filenames:
+            _delete_video_segments_from_db(deleted_filenames)
+        return freed_bytes
     except Exception as exc:
         logger.warning(f"[Cleanup] Không thể dọn video theo ngày: {exc}")
+        return 0
 
 
-def delete_expired_merged_videos():
-    """Delete only completed merged MP4 files older than three hours."""
-    cutoff = time.time() - 3 * 60 * 60
+def run_adaptive_disk_cleanup():
+    """High-performance, adaptive single-pass storage cleanup engine for all camera types and disk sizes."""
+    # Tầng 1: Dọn dẹp file tạm, file ghi dở dang mồ côi (> 30 phút tuổi)
+    cleanup_orphan_temp_files(min_age_seconds=1800)
+
+    # Tầng 2: Dọn dẹp video ghép tạm của khách (> 3 giờ tuổi)
+    delete_expired_merged_videos()
+
+    # Tầng 3: Dọn dẹp video quá hạn lưu trữ theo ngày (retention_days)
+    delete_expired_videos()
+
+    # Tầng 4: Kiểm tra ngưỡng dung lượng ổ đĩa và thư mục video
+    total_partition_gb, _, free_partition_gb = get_disk_partition_usage()
     try:
-        filenames = os.listdir(VIDEO_DIR)
-    except OSError as exc:
-        logger.warning(f"[Cleanup] Không thể đọc thư mục video ghép {VIDEO_DIR}: {exc}")
+        min_free_disk_gb = float(CONFIG.get("minimum_free_disk_gb", 10.0))
+    except (TypeError, ValueError):
+        min_free_disk_gb = 10.0
+
+    effective_limit_gb = get_effective_disk_limit_gb()
+
+    # Quét 1 lượt duy nhất toàn bộ video trong thư mục bằng os.scandir
+    video_entries = []
+    total_video_bytes = 0
+    now = time.time()
+    try:
+        with os.scandir(VIDEO_DIR) as it:
+            for entry in it:
+                try:
+                    if not entry.is_file(follow_symlinks=False):
+                        continue
+                    st = entry.stat(follow_symlinks=False)
+                    total_video_bytes += st.st_size
+                    name_lower = entry.name.lower()
+                    # Ứng viên xoá FIFO: video .mp4, .h264 có tuổi > 2 phút (bảo vệ video đang ghi)
+                    if (name_lower.endswith(".mp4") or name_lower.endswith(".h264")) and not name_lower.startswith("."):
+                        if (now - st.st_mtime) > 120:
+                            video_entries.append((entry.path, entry.name, st.st_size, st.st_mtime))
+                except OSError:
+                    continue
+    except Exception as exc:
+        logger.error(f"[Storage] Lỗi quét thư mục video: {exc}")
         return
 
-    for filename in filenames:
-        if not filename.startswith("merge_") or not filename.lower().endswith(".mp4"):
+    used_video_gb = total_video_bytes / (1024 ** 3)
+
+    # Tính toán lượng byte cần giải phóng:
+    # 1. Thư mục video vượt hạn mức cấu hình
+    bytes_over_video_limit = max(0, total_video_bytes - int(effective_limit_gb * (1024 ** 3)))
+    # 2. Phân vùng ổ đĩa còn ít hơn mức trống tối thiểu (ví dụ < 10GB)
+    bytes_below_min_free = max(0, int((min_free_disk_gb - free_partition_gb) * (1024 ** 3)))
+
+    excess_bytes = max(bytes_over_video_limit, bytes_below_min_free)
+    if excess_bytes <= 0:
+        return  # Dung lượng nằm trong khoảng an toàn
+
+    # Cơ chế High/Low Watermark: Thêm khoảng đệm an toàn (headroom) 10% hạn mức (tối đa 10 GB)
+    headroom_bytes = min(10 * (1024 ** 3), int(effective_limit_gb * 0.1 * (1024 ** 3)))
+    target_bytes_to_free = excess_bytes + headroom_bytes
+
+    logger.warning(
+        f"[Storage] Dung lượng kích hoạt dọn dẹp: Video {used_video_gb:.1f}/{effective_limit_gb:.1f} GB, "
+        f"Trống ổ: {free_partition_gb:.1f}/{min_free_disk_gb:.1f} GB. Mục tiêu giải phóng: {target_bytes_to_free / (1024**3):.2f} GB."
+    )
+
+    # Sắp xếp ứng viên từ cũ nhất đến mới nhất
+    video_entries.sort(key=lambda item: item[3])
+    locked_files = get_locked_video_filenames()
+
+    freed_bytes = 0
+    deleted_filenames = []
+    skipped_locked = 0
+    skipped_busy = 0
+
+    for path, filename, size, mtime in video_entries:
+        if freed_bytes >= target_bytes_to_free:
+            break
+        if filename in locked_files:
+            skipped_locked += 1
             continue
-        path = os.path.join(VIDEO_DIR, filename)
-        try:
-            file_stat = os.lstat(path)
-            if not stat.S_ISREG(file_stat.st_mode) or file_stat.st_mtime >= cutoff:
-                continue
-            os.remove(path)
-            logger.info(f"[Cleanup] Đã xóa video ghép quá 3 giờ: {filename}")
-        except OSError as exc:
-            logger.warning(f"[Cleanup] Không thể dọn video ghép {path}: {exc}")
+        if _safe_remove_file(path):
+            freed_bytes += size
+            deleted_filenames.append(filename)
+        else:
+            # File đang bị khóa hoặc bận - KHÔNG ĐƯỢC KẸT VÒNG LẶP, chuyển sang file cũ tiếp theo
+            skipped_busy += 1
+            logger.debug(f"[Storage] Bỏ qua file đang bận: {filename}")
+
+    if deleted_filenames:
+        _delete_video_segments_from_db(deleted_filenames)
+        logger.info(
+            f"[Storage] Đã giải phóng {freed_bytes / (1024**3):.2f} GB ({len(deleted_filenames)} video). "
+            f"(Bỏ qua: {skipped_locked} video bảo vệ, {skipped_busy} file đang bận)."
+        )
 
 
 def start_cleanup_loop():
-    logger.info(
-        f"🚨 Bắt đầu giám sát dung lượng video (Giới hạn: {SIZE_LIMIT_GB} GB)..."
-    )
+    logger.info("🚨 Bắt đầu engine giám sát và tự động điều tiết dung lượng video...")
     check_interval = 60
     while True:
         try:
-            delete_expired_merged_videos()
-            delete_expired_videos()
-            used_gb = get_total_size_gb()
-            while used_gb > SIZE_LIMIT_GB:
-                files = get_video_files_sorted_by_mtime()
-                if not files:
-                    break
-                oldest = files[0]
-                try:
-                    os.remove(oldest)
-                    used_gb = get_total_size_gb()
-                except Exception as e:
-                    logger.error(f"❌ Lỗi xoá {oldest}: {e}")
+            run_adaptive_disk_cleanup()
         except Exception as e:
-            logger.error(f"[Cleanup] Lỗi dọn dẹp: {e}")
+            logger.error(f"[Cleanup] Lỗi dọn dẹp: {e}", exc_info=True)
         time.sleep(check_interval)
 
 
@@ -3914,6 +4147,8 @@ def daily_report_task():
             except Exception as db_e:
                 logger.error(f"Lỗi truy vấn DB thống kê: {db_e}")
 
+            _, _, free_part_gb = get_disk_partition_usage()
+            effective_lim = get_effective_disk_limit_gb()
             msg = (
                 f"📅 **BÁO CÁO NGÀY {datetime.now().strftime('%d/%m/%Y')}**\n"
                 "⏰ Khung giờ: 00:00 - 23:59\n"
@@ -3921,7 +4156,7 @@ def daily_report_task():
                 f"📥 Tổng lượt tải về: {total_dl}\n"
                 f"🔗 Video ghép đã tải: {merge_dl}\n"
                 "➖➖➖➖➖➖➖➖➖➖\n"
-                f"✅ Ổ cứng: {get_total_size_gb():.1f}/{SIZE_LIMIT_GB} GB"
+                f"✅ Ổ cứng: {get_total_size_gb():.1f}/{effective_lim:.1f} GB (Trống: {free_part_gb:.1f} GB)"
             )
             send_telegram_alert(msg)
             time.sleep(61)
@@ -4269,6 +4504,8 @@ def monitor_telegram_commands():
                         continue
                     if text == "/status":
                         hdd_used = get_total_size_gb()
+                        _, _, free_part_gb = get_disk_partition_usage()
+                        effective_lim = get_effective_disk_limit_gb()
                         active_cams = sum(1 for w in CAM_WORKERS.values() if w and w.is_alive())
                         total_cams = len(CAMERA_LIST) if isinstance(CAMERA_LIST, list) else 0
                         state = get_license_snapshot()
@@ -4277,7 +4514,7 @@ def monitor_telegram_commands():
                             "📊 **TRẠNG THÁI HỆ THỐNG**\n"
                             f"🔹 Phiên bản: **v{APP_VERSION}**\n"
                             f"📹 Camera: **{active_cams}/{total_cams}** đang ghi hình\n"
-                            f"💾 Dung lượng video: **{hdd_used:.1f} / {SIZE_LIMIT_GB} GB**\n"
+                            f"💾 Dung lượng video: **{hdd_used:.1f} / {effective_lim:.1f} GB** (Trống ổ: **{free_part_gb:.1f} GB**)\n"
                             f"🔐 Bản quyền xem lại: **{lic_txt}**"
                         )
                         send_telegram_alert(msg, target_chat_id=chat_id, message_thread_id=thread_id)
@@ -5463,6 +5700,11 @@ def admin_config():
                 cleaned[key] = int(cleaned[key])
         if "disk_limit_gb" in cleaned:
             cleaned["disk_limit_gb"] = float(cleaned["disk_limit_gb"])
+        if "minimum_free_disk_gb" in cleaned:
+            try:
+                cleaned["minimum_free_disk_gb"] = float(cleaned["minimum_free_disk_gb"])
+            except (TypeError, ValueError):
+                pass
         license_error = _table_add_license_error(cleaned)
         if license_error:
             return jsonify({"ok": False, "error": license_error}), 403
@@ -5478,6 +5720,8 @@ def admin_config():
                     pass
         CONFIG = cleaned
         CAMERA_LIST = CONFIG.get("cameras", [])
+        global SIZE_LIMIT_GB
+        SIZE_LIMIT_GB = CONFIG.get("disk_limit_gb", SIZE_LIMIT_GB)
         logger.info("Đã lưu cấu hình từ trang quản trị; một số thay đổi cần khởi động lại.")
         return jsonify(
             {
@@ -5520,9 +5764,10 @@ def restore_config_backup():
         if license_error:
             return jsonify({"ok": False, "error": license_error}), 403
         save_config(cleaned)
-        global CONFIG, CAMERA_LIST
+        global CONFIG, CAMERA_LIST, SIZE_LIMIT_GB
         CONFIG = cleaned
         CAMERA_LIST = CONFIG.get("cameras", [])
+        SIZE_LIMIT_GB = CONFIG.get("disk_limit_gb", SIZE_LIMIT_GB)
         logger.info("Đã khôi phục config.json từ bản backup.")
         return jsonify({"ok": True, "message": "Đã khôi phục cấu hình. Hãy khởi động lại ứng dụng."})
     except OSError as exc:
@@ -5555,12 +5800,31 @@ def api_status():
                     "last_error": CAM_LAST_ERROR.get(cam_id) if records_locally else None,
                 }
             )
+    total_gb, _, free_gb = get_disk_partition_usage()
+    effective_limit = get_effective_disk_limit_gb()
+    orphan_count = 0
+    try:
+        with os.scandir(VIDEO_DIR) as it:
+            for entry in it:
+                try:
+                    if entry.is_file(follow_symlinks=False):
+                        nl = entry.name.lower()
+                        if nl.endswith(".part") or ".part." in nl or nl.endswith(".ps") or nl.endswith(".tmp") or (nl.endswith(".dav") and not nl.startswith("cam")):
+                            orphan_count += 1
+                except OSError:
+                    pass
+    except OSError:
+        pass
+
     return jsonify(
         {
             "version": APP_VERSION,
             "site": get_site_config()["name"],
             "video_used_gb": round(get_total_size_gb(), 2),
-            "video_limit_gb": SIZE_LIMIT_GB,
+            "video_limit_gb": round(effective_limit, 2),
+            "disk_free_gb": round(free_gb, 2),
+            "disk_total_gb": round(total_gb, 2),
+            "orphan_part_files": orphan_count,
             "cameras": cameras,
             "server_port": CONFIG.get("server_port", 8000),
         }

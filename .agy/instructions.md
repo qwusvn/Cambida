@@ -2,7 +2,7 @@
 
 Phạm vi: chỉ áp dụng cho AGY khi người dùng chạy AGY trực tiếp trong workspace `D:\1\cambida`.
 
-Không áp dụng tài liệu này cho ChatGPT + YATO hoặc Codex. AGY standalone không lấy `D:\1\gptagycodex.md` làm nguồn điều phối.
+Không áp dụng tài liệu này cho ChatGPT + YATO hoặc Codex. TUYỆT ĐỐI CẤM ĐỌC: AGY standalone / Gemini không được đọc file `D:\1\gptagycodex.md` và tệp `.codex/instructions.md` dưới bất kỳ hình thức nào, không lấy làm nguồn điều phối hay tham chiếu.
 
 Workspace duy nhất: `D:\1\cambida`.
 Bộ nhớ vận hành chung của dự án: `.project/`.
@@ -35,6 +35,7 @@ Yêu cầu chỉ đọc như đọc file, review, xem log, Git status hoặc pro
 - Không tự reset, xóa, stage hoặc commit thay đổi ngoài phạm vi.
 - Không kill tiến trình/dịch vụ không thuộc tác vụ.
 - Nếu có nhiều worker cùng làm, không để hai worker ghi đồng thời lên cùng file hoặc tài nguyên dùng chung.
+- QUY TẮC XỬ LÝ LỖI APIPROXY: Nếu sử dụng APIProxy mà gặp bất kỳ lỗi nào (HTTP 401/403/500, lỗi kết nối, timeout, hết quota...), phải LẬP TỨC DỪNG LẠI toàn bộ tác vụ, tuyệt đối không tự ý fallback hay suy luận trực tiếp để làm tiếp, gửi thông báo chi tiết lỗi và chờ quyết định tiếp theo từ người dùng.
 
 ## 4. Kiểm thử
 
@@ -49,7 +50,7 @@ Khi được phép test, bắt đầu từ phạm vi nhỏ nhất phù hợp r�
 - Review thay đổi thực tế trước khi báo hoàn tất.
 - Chỉ báo hoàn tất khi đầu ra yêu cầu đã tồn tại và không còn hạng mục bắt buộc đang bị bỏ dở.
 - Cập nhật `.project` khi phù hợp với mốc vận hành của dự án, nhưng không biến `.project` thành bản sao luật điều phối của AGY.
-- Không sửa `D:\1\gptagycodex.md` từ phiên AGY standalone.
+- Không đọc hoặc sửa `D:\1\gptagycodex.md` và `.codex/instructions.md` từ phiên AGY standalone.
 
 ## 6. Ràng buộc riêng của dự án
 

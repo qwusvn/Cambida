@@ -1,5 +1,14 @@
 # DECISIONS — Cambida
 
+## 2026-10-02 ? Update contract t? 2.3.0
+- 2.3.0 l? baseline manual-copy; c?c b?n sau d?ng full-package updater schema 2.
+- Kh?ng d?ng delta/bridge chain khi ??i ki?n tr?c. GitHub updater ch? ch?n asset <version>.zip.
+- Manifest s? h?u file ch??ng tr?nh; updater ???c x?a file thu?c manifest c? nh?ng kh?ng c?n ? b?n m?i sau khi backup.
+- Runtime/shop state tuy?t ??i kh?ng ???c ??ng g?i; path guard b?o v? config/DB/device/tunnel/ControlHub/log/video/cache.
+- Entry point + health check n?m trong update.json, kh?ng hard-code c?u tr?c ?ng d?ng v?o updater.
+- Updater ch?y t? TEMP ngo?i install tree ?? t? thay ch?nh updater v? c?c file ch??ng tr?nh kh?c.
+- Server startup kh?ng t? m? web; browser ch? m? t? h?nh ??ng ng??i d?ng.
+
 ## 2026-09-12 — Chuẩn điều phối hiện hành
 
 - Thứ tự ưu tiên khi xung đột: yêu cầu mới nhất của người dùng → chỉ thị riêng project → source/Git thực tế → `.project` → CodeGraph index → quy chuẩn chung → thông tin cũ.
@@ -206,4 +215,3 @@
   4. Giao diện người dùng tiếp tục theo mô hình Sidecar HTML (`index.html`, `admin.html`...), chỉnh sửa là F5 nhận ngay lập tức (Hot-Reload).
   5. Bộ ba thực thi nhị phân chuẩn gồm: `camhl.exe` (Host Loader), `updater.exe` (Trình cập nhật tự động), `setup_cloudflare.exe` (Trình thiết lập Cloudflare Tunnel).
   6. Toàn bộ cấu trúc phát hành được đồng bộ trực tiếp vào thư mục gốc workspace để phục vụ kiểm thử runtime.
-

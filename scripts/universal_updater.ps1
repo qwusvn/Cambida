@@ -44,7 +44,17 @@ function Resolve-SafeFile([string]$Root, [string]$Relative) {
 }
 
 function File-Hash([string]$Path) {
-    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    if (Get-Command Get-FileHash -ErrorAction SilentlyContinue) {
+        return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        $bytes = $sha.ComputeHash($stream)
+        return [System.BitConverter]::ToString($bytes).Replace("-", "").ToLowerInvariant()
+    } finally {
+        $stream.Close()
+    }
 }
 
 function Read-Json([string]$Path) {
@@ -58,8 +68,19 @@ function Get-ManifestNames($Manifest) {
 
 function Test-FileUnlocked([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
-    $handle = [IO.File]::Open($Path, 'Open', 'ReadWrite', 'None')
-    $handle.Dispose()
+    $deadline = (Get-Date).AddSeconds(5)
+    while ($true) {
+        try {
+            $handle = [IO.File]::Open($Path, 'Open', 'ReadWrite', 'None')
+            $handle.Dispose()
+            return
+        } catch {
+            if ((Get-Date) -ge $deadline) {
+                throw
+            }
+            Start-Sleep -Milliseconds 250
+        }
+    }
 }
 
 function Start-Release($Update, [string]$Root) {
@@ -81,7 +102,10 @@ function Start-Release($Update, [string]$Root) {
     if ($argsProp -and $argsProp.Value) {
         $args = @($argsProp.Value | ForEach-Object { [string]$_ })
     }
-    return Start-Process -FilePath $entry -ArgumentList $args -WorkingDirectory $Root -WindowStyle Hidden -PassThru
+    if ($args.Count -gt 0) {
+        return Start-Process -FilePath $entry -ArgumentList $args -WorkingDirectory $Root -WindowStyle Hidden -PassThru
+    }
+    return Start-Process -FilePath $entry -WorkingDirectory $Root -WindowStyle Hidden -PassThru
 }
 
 function Wait-Health($Update, [string]$Root) {
@@ -253,8 +277,6 @@ try {
     $oldNames = Get-ManifestNames $oldManifest
     $staleNames = @($oldNames | Where-Object { $_ -notin $newNames })
 
-    Install-Watchdog
-
     $backupId = [Guid]::NewGuid().ToString('N')
     $backupRel = '.update-backups/' + $backupId
     $backup = Join-Path $Target ('.update-backups\' + $backupId)
@@ -276,6 +298,14 @@ try {
 
     Stop-OwnedProcess $OldPid
     if ($OldPid -gt 0) { $oldProcessStopped = $true }
+
+    $targetExe = (Join-Path $Target 'Cambida.exe').ToLowerInvariant()
+    Get-Process | Where-Object {
+        try { $_.Path -and $_.Path.ToLowerInvariant() -eq $targetExe } catch { $false }
+    } | ForEach-Object {
+        Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+    }
+
 
     $touchNames = @($newNames + $staleNames + @('release_manifest.json','update.json') | Select-Object -Unique)
     foreach ($name in $touchNames) {
@@ -318,6 +348,7 @@ try {
     }
 
     "Installed $($manifest.version); backup: $backup" | Set-Content -LiteralPath (Join-Path $Target 'native-update.log') -Encoding UTF8
+    Install-Watchdog
     $transaction['stage'] = 'starting'
     Write-Transaction
     $newProcess = Start-Release $update $Target
