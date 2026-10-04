@@ -255,14 +255,17 @@ function Install-Watchdog {
     if (-not (Test-Path -LiteralPath $watchdog -PathType Leaf)) {
         return
     }
-    $targetArg = '--target="' + $Target.Replace('"','') + '"'
-    $process = Start-Process -FilePath $watchdog -ArgumentList @('--install',$targetArg) -WorkingDirectory $Payload -WindowStyle Hidden -PassThru
-    if (-not $process.WaitForExit(30000)) {
-        try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
+    $targetClean = $Target.Replace('"','')
+    $psi = [Diagnostics.ProcessStartInfo]::new($watchdog, "--install `"--target=$targetClean`"")
+    $psi.UseShellExecute = $true
+    $psi.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
+    $p = [Diagnostics.Process]::Start($psi)
+    if (-not $p.WaitForExit(30000)) {
+        try { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue } catch {}
         throw 'Cambida watchdog installation timed out'
     }
-    if ($process.ExitCode -ne 0) {
-        throw "Cambida watchdog installation failed with code $($process.ExitCode)"
+    if ($p.ExitCode -ne 0) {
+        throw "Cambida watchdog installation failed with code $($p.ExitCode)"
     }
 }
 
@@ -300,6 +303,40 @@ function Save-BeforeChange([string]$Relative) {
     }
     $journal.Add([pscustomobject]@{Relative=$Relative; Destination=$dest; Backup=$saved; Existed=$existed})
     Write-Transaction
+}
+
+function Clean-DiskArtifacts([string]$TargetRoot, [string]$Cleanup) {
+    if ($Cleanup -and (Test-Path -LiteralPath $Cleanup)) {
+        try { Remove-Item -LiteralPath $Cleanup -Recurse -Force -ErrorAction SilentlyContinue } catch {}
+    }
+    try {
+        $now = Get-Date
+        Get-ChildItem -Path $env:TEMP -Directory -ErrorAction SilentlyContinue | Where-Object {
+            $_.Name -like 'cambida-update-*' -or $_.Name -like 'cambida-updater-*'
+        } | ForEach-Object {
+            if (($now - $_.LastWriteTime).TotalMinutes -gt 15) {
+                try { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue } catch {}
+            }
+        }
+    } catch {}
+
+    try {
+        Get-ChildItem -Path $env:TEMP -Directory -Filter '_MEI*' -ErrorAction SilentlyContinue | ForEach-Object {
+            try { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop } catch {}
+        }
+    } catch {}
+
+    if ($TargetRoot -and (Test-Path -LiteralPath (Join-Path $TargetRoot '.update-backups'))) {
+        try {
+            $backups = @(Get-ChildItem -Path (Join-Path $TargetRoot '.update-backups') -Directory -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending)
+            if ($backups.Count -gt 1) {
+                $backups | Select-Object -Skip 1 | ForEach-Object {
+                    try { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue } catch {}
+                }
+            }
+        } catch {}
+    }
 }
 
 try {
@@ -344,6 +381,7 @@ try {
     $oldNames = Get-ManifestNames $oldManifest
     $staleNames = @($oldNames | Where-Object { $_ -notin $newNames })
 
+    Clean-DiskArtifacts $Target ''
     $backupId = [Guid]::NewGuid().ToString('N')
     $backupRel = '.update-backups/' + $backupId
     $backup = Join-Path $Target ('.update-backups\' + $backupId)
@@ -434,9 +472,7 @@ try {
     $transaction['stabilize_seconds'] = 120
     Write-Transaction
 
-    if ($CleanupRoot) {
-        try { Remove-Item -LiteralPath $CleanupRoot -Recurse -Force -ErrorAction Stop } catch {}
-    }
+    Clean-DiskArtifacts $Target $CleanupRoot
     exit 0
 }
 catch {
@@ -480,6 +516,7 @@ catch {
     if (($didModify -or $oldProcessStopped) -and $restoreErrors.Count -eq 0 -and $oldStart -and $oldStart.Value) {
         try { Start-Release $oldUpdate $Target | Out-Null } catch {}
     }
+    Clean-DiskArtifacts $Target $CleanupRoot
     Write-Error $failure
     exit 1
 }

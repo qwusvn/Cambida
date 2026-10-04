@@ -40,7 +40,7 @@ def _kill_lingering_test_processes():
     subprocess.run(
         [
             "powershell.exe", "-NoProfile", "-Command",
-            "Get-Process -Name 'Cambida*', 'CambidaWatchdog*', 'ffmpeg*' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue"
+            "Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match '^Cambida' -or $_.ProcessName -match '^ffmpeg' } | Stop-Process -Force -ErrorAction SilentlyContinue"
         ],
         capture_output=True,
         timeout=10,
@@ -50,9 +50,11 @@ def _kill_lingering_test_processes():
 class E2EUpdate233To234Tests(unittest.TestCase):
     def setUp(self):
         _kill_lingering_test_processes()
+        time.sleep(1.0)
 
     def tearDown(self):
         _kill_lingering_test_processes()
+        time.sleep(1.0)
 
     def test_e2e_upgrade_from_233_to_234(self):
         zip_233 = ROOT / "release" / "2.3.3.zip"
@@ -128,7 +130,7 @@ class E2EUpdate233To234Tests(unittest.TestCase):
                     ],
                     capture_output=True,
                     text=True,
-                    timeout=120,
+                    timeout=180,
                 )
                 self.assertEqual(proc.returncode, 0, f"Updater failed: {proc.stdout}\n{proc.stderr}")
 

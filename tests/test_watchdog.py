@@ -113,6 +113,23 @@ class WatchdogTests(unittest.TestCase):
         age = WATCHDOG.transaction_age({"updated_at": int(time.time()) - 300})
         self.assertGreaterEqual(age, 299)
 
+    def test_cleanup_disk_artifacts_prunes_backups_and_temp(self):
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td)
+            backup_root = target / ".update-backups"
+            backup_root.mkdir()
+            b1 = backup_root / "backup_old"
+            b1.mkdir()
+            (b1 / "file.txt").write_text("old")
+            time.sleep(0.01)
+            b2 = backup_root / "backup_new"
+            b2.mkdir()
+            (b2 / "file.txt").write_text("new")
+
+            WATCHDOG.cleanup_disk_artifacts(target)
+            self.assertTrue(b2.is_dir())
+            self.assertFalse(b1.is_dir())
+
 
 if __name__ == "__main__":
     unittest.main()

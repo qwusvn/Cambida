@@ -169,10 +169,36 @@ def _load_app_version():
 APP_VERSION = _load_app_version()
 
 
+def _cleanup_stale_update_temp_files():
+    """Clean up stale update downloads, extracted payloads, and orphaned PyInstaller _MEI* dirs in %TEMP%."""
+    try:
+        temp_dir = tempfile.gettempdir()
+        now = time.time()
+        for entry in os.scandir(temp_dir):
+            try:
+                name = entry.name
+                if name.startswith("cambida-update-") or name.startswith("cambida-updater-"):
+                    if entry.is_dir():
+                        mtime = entry.stat().st_mtime
+                        if (now - mtime) > 900:  # 15 minutes
+                            shutil.rmtree(entry.path, ignore_errors=True)
+                elif name.startswith("_MEI"):
+                    if entry.is_dir():
+                        try:
+                            shutil.rmtree(entry.path, ignore_errors=False)
+                        except OSError:
+                            pass
+            except OSError:
+                pass
+    except Exception:
+        pass
+
+
 def _ensure_external_watchdog():
     """Install/refresh the independent watchdog when the release carries it."""
     if sys.platform != "win32":
         return
+    _cleanup_stale_update_temp_files()
     watchdog = os.path.join(BASE_DIR, "CambidaWatchdog.exe")
     if not os.path.isfile(watchdog):
         return
@@ -4257,6 +4283,7 @@ def apply_github_update(download_url, new_version, token=None):
     if not re.fullmatch(r"\d+\.\d+\.\d+", new_version):
         raise ValueError("Invalid update version")
 
+    _cleanup_stale_update_temp_files()
     temp_dir = tempfile.mkdtemp(prefix="cambida-update-", dir=tempfile.gettempdir())
     zip_path = os.path.join(temp_dir, "release.zip")
     extract_dir = os.path.join(temp_dir, "payload")
@@ -4269,16 +4296,20 @@ def apply_github_update(download_url, new_version, token=None):
         headers["Authorization"] = f"Bearer {actual_token}"
         headers["Accept"] = "application/octet-stream"
 
-    logger.info("[AutoUpdate] Downloading full release v%s from %s", new_version, download_url)
-    resp = requests.get(download_url, headers=headers, stream=True, timeout=180)
-    resp.raise_for_status()
-    with open(zip_path, "wb") as f:
-        for chunk in resp.iter_content(chunk_size=65536):
-            if chunk:
-                f.write(chunk)
+    try:
+        logger.info("[AutoUpdate] Downloading full release v%s from %s", new_version, download_url)
+        resp = requests.get(download_url, headers=headers, stream=True, timeout=180)
+        resp.raise_for_status()
+        with open(zip_path, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=65536):
+                if chunk:
+                    f.write(chunk)
 
-    logger.info("[AutoUpdate] Extracting and verifying release manifest/hash")
-    prepare_archive(zip_path, extract_dir, BASE_DIR, new_version)
+        logger.info("[AutoUpdate] Extracting and verifying release manifest/hash")
+        prepare_archive(zip_path, extract_dir, BASE_DIR, new_version)
+    except Exception as exc:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise exc
 
     marker_file = os.path.join(BASE_DIR, ".pending_update_notification")
     try:
@@ -4430,7 +4461,7 @@ def start_github_update_worker():
                                 continue
                     except Exception:
                         pass
-
+                _cleanup_stale_update_temp_files()
                 res = check_github_update()
                 if res.get("has_update") and res.get("download_url"):
                     new_v = res["new_version"]

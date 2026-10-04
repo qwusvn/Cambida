@@ -18,6 +18,7 @@ from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 
@@ -119,8 +120,78 @@ def save_state(data: dict) -> None:
     atomic_write_json(state_path(), data)
 
 
+def cleanup_disk_artifacts(target: Path | None = None) -> None:
+    """Clean up orphaned PyInstaller _MEI* dirs, stale update temp folders, and old backups."""
+    temp_dir = Path(tempfile.gettempdir())
+    now = time.time()
+
+    # 1. Clean up orphaned _MEI* folders in Temp (unlocked by dead PyInstaller processes)
+    try:
+        for mei_dir in temp_dir.glob("_MEI*"):
+            if not mei_dir.is_dir():
+                continue
+            try:
+                shutil.rmtree(mei_dir, ignore_errors=False)
+            except OSError:
+                pass
+    except Exception as exc:
+        log(f"MEI cleanup warning: {exc}")
+
+    # 2. Clean up stale update and updater directories older than 15 minutes
+    try:
+        for prefix in ("cambida-update-*", "cambida-updater-*"):
+            for upd_dir in temp_dir.glob(prefix):
+                if not upd_dir.is_dir():
+                    continue
+                try:
+                    mtime = upd_dir.stat().st_mtime
+                    if (now - mtime) > 900:  # 15 minutes
+                        shutil.rmtree(upd_dir, ignore_errors=True)
+                except OSError:
+                    pass
+    except Exception as exc:
+        log(f"update temp cleanup warning: {exc}")
+
+    # 3. Clean up older watchdog executables in %LOCALAPPDATA%\CambidaWatchdog
+    try:
+        root = local_root()
+        state = load_state()
+        desired_str = str(state.get("desired_exe") or "").casefold()
+        for old_exe in root.glob("CambidaWatchdog-*.exe"):
+            if str(old_exe.resolve()).casefold() != desired_str:
+                try:
+                    old_exe.unlink(missing_ok=True)
+                except OSError:
+                    pass
+    except Exception:
+        pass
+
+    # 4. Prune old .update-backups in target: keep at most 1 recent backup
+    if target and target.is_dir():
+        try:
+            backup_root = target / ".update-backups"
+            if backup_root.is_dir():
+                backups = sorted(
+                    [p for p in backup_root.iterdir() if p.is_dir()],
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True
+                )
+                for stale_backup in backups[1:]:
+                    try:
+                        shutil.rmtree(stale_backup, ignore_errors=True)
+                        log(f"pruned old backup: {stale_backup.name}")
+                    except OSError:
+                        pass
+        except Exception as exc:
+            log(f"backup pruning warning: {exc}")
+
+
 def install_watchdog(target: Path) -> Path:
     target = target.resolve()
+    try:
+        cleanup_disk_artifacts(target)
+    except Exception as exc:
+        log(f"cleanup_disk_artifacts warning during install: {exc}")
     try:
         snapshot_runtime_state(target)
     except Exception as exc:
@@ -136,6 +207,14 @@ def install_watchdog(target: Path) -> Path:
         temp = root / (desired.name + ".new")
         shutil.copy2(source, temp)
         os.replace(temp, desired)
+
+    desired_resolved = desired.resolve()
+    for old_exe in root.glob("CambidaWatchdog-*.exe"):
+        if old_exe.resolve() != desired_resolved:
+            try:
+                old_exe.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     data = load_state()
     data.update({
@@ -154,11 +233,31 @@ def install_watchdog(target: Path) -> Path:
     except Exception as exc:
         log(f"registry install failed: {exc}")
 
-    flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
-    try:
-        subprocess.Popen([str(desired), "--run"], cwd=str(root), creationflags=flags, close_fds=True)
-    except OSError as exc:
-        log(f"watchdog launch failed during install: {exc}")
+    desired_str = str(desired.resolve()).casefold()
+    already_running = False
+    for pid, path in process_paths():
+        if str(path.resolve()).casefold() == desired_str:
+            already_running = True
+            break
+
+    if not already_running:
+        flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
+        try:
+            cmd = f'start "" "{desired}" --run'
+            subprocess.Popen(
+                ["cmd.exe", "/c", cmd],
+                cwd=str(root),
+                creationflags=flags,
+                close_fds=True,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError as exc:
+            log(f"watchdog launch failed during install: {exc}")
+    else:
+        log(f"watchdog already running desired={desired}")
+
     log(f"installed desired={desired} target={target}")
     return desired
 
@@ -312,7 +411,15 @@ def launch_release(target: Path) -> bool:
             log(f"cannot launch missing entrypoint: {entry}")
             return False
         flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
-        subprocess.Popen([str(entry), *args], cwd=str(target), creationflags=flags, close_fds=True)
+        subprocess.Popen(
+            [str(entry), *args],
+            cwd=str(target),
+            creationflags=flags,
+            close_fds=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
         log(f"launched {entry.name}")
         return True
     except Exception as exc:
@@ -382,6 +489,12 @@ def monitor(target: Path) -> int:
     restart_times: deque[float] = deque()
     tx_healthy_since = None
     last_state_snapshot = 0.0
+    last_cleanup = time.time()
+
+    try:
+        cleanup_disk_artifacts(target)
+    except Exception as exc:
+        log(f"initial disk cleanup warning: {exc}")
 
     while True:
         state = load_state()
@@ -429,6 +542,12 @@ def monitor(target: Path) -> int:
                     last_state_snapshot = now
                 except Exception as exc:
                     log(f"runtime-state periodic snapshot failed: {exc}")
+            if now - last_cleanup >= 3600:
+                try:
+                    cleanup_disk_artifacts(target)
+                    last_cleanup = now
+                except Exception as exc:
+                    log(f"periodic disk cleanup warning: {exc}")
             time.sleep(CHECK_SECONDS)
             continue
 
