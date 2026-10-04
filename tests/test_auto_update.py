@@ -145,7 +145,7 @@ class AutoUpdateAndPrimaryLocalTests(unittest.TestCase):
                 "updated_at": "22/09/2026 23:00:00"
             }, f)
 
-        with patch.object(APP, "send_telegram_alert") as mock_telegram:
+        with patch.object(APP, "APP_VERSION", "2.1.2"), patch.object(APP, "send_telegram_alert") as mock_telegram:
             APP.check_and_notify_pending_update()
             mock_telegram.assert_called_once()
             call_msg = mock_telegram.call_args[0][0]

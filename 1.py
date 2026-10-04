@@ -4291,6 +4291,30 @@ def apply_github_update(download_url, new_version, token=None):
     except Exception as exc:
         logger.warning("[AutoUpdate] Cannot create pending update marker: %s", exc)
 
+    # Pre-emptively write .watchdog-update.json so any running Watchdog
+    # enters stage="applying" and does not prematurely restart Cambida
+    # during the PowerShell spawn window.
+    tx_file = os.path.join(BASE_DIR, ".watchdog-update.json")
+    try:
+        now_ts = int(time.time())
+        tmp_tx = tx_file + ".tmp"
+        with open(tmp_tx, "w", encoding="utf-8") as f:
+            json.dump({
+                "schema": 1,
+                "stage": "applying",
+                "new_version": new_version,
+                "old_version": APP_VERSION,
+                "updater_pid": 0,
+                "watchdog_failures": 0,
+                "started_at": now_ts,
+                "updated_at": now_ts,
+                "journal": [],
+            }, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_tx, tx_file)
+        logger.info("[AutoUpdate] Initialized early watchdog update transaction (stage=applying)")
+    except Exception as exc:
+        logger.warning("[AutoUpdate] Cannot initialize watchdog transaction: %s", exc)
+
     # Always prefer the updater shipped by the release being installed.
     # Using the installed updater can resurrect old assumptions (notably the
     # 2.3.0 fixed :8004 health check) and incorrectly roll back a healthy app.
@@ -4342,26 +4366,35 @@ def apply_github_update(download_url, new_version, token=None):
 
 
 def check_and_notify_pending_update():
-    """If .pending_update_notification exists on startup, send success alert to Telegram."""
+    """If .pending_update_notification exists on startup, send success alert to Telegram only if running target version."""
     marker_file = os.path.join(BASE_DIR, ".pending_update_notification")
     if not os.path.isfile(marker_file):
         return
     try:
         with open(marker_file, "r", encoding="utf-8") as f:
             info = json.load(f)
-        prev_v = info.get("previous_version", "cũ")
-        new_v = info.get("new_version", APP_VERSION)
+        prev_v = str(info.get("previous_version") or "cũ").strip().lstrip("vV")
+        new_v = str(info.get("new_version") or "").strip().lstrip("vV")
+        curr_v = str(APP_VERSION).strip().lstrip("vV")
         updated_at = info.get("updated_at", datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
+
+        if not new_v or curr_v != new_v:
+            logger.warning(
+                "[AutoUpdate] Bỏ qua thông báo cập nhật vì phiên bản thực tế (%s) khác phiên bản đích (%s) (có thể đã rollback).",
+                curr_v, new_v
+            )
+            return
+
         msg = (
             f"🎉 **CAMBIDA CCTV ĐÃ TỰ ĐỘNG CẬP NHẬT THÀNH CÔNG!**\n"
             f"➖➖➖➖➖➖➖➖➖➖\n"
-            f"🔹 **Phiên bản mới:** v{new_v}\n"
+            f"🔹 **Phiên bản mới:** v{curr_v}\n"
             f"🔹 **Phiên bản trước:** v{prev_v}\n"
             f"⏱ **Thời gian:** {updated_at}\n"
             f"✅ Ứng dụng đã khởi động phiên bản mới."
         )
         send_telegram_alert(msg)
-        logger.info("[AutoUpdate] Đã gửi thông báo Telegram cập nhật thành công lên v%s", new_v)
+        logger.info("[AutoUpdate] Đã gửi thông báo Telegram cập nhật thành công lên v%s", curr_v)
     except Exception as exc:
         logger.warning("[AutoUpdate] Lỗi xử lý marker cập nhật: %s", exc)
     finally:
@@ -4377,6 +4410,27 @@ def start_github_update_worker():
         time.sleep(30)
         while True:
             try:
+                # Anti-loop guard: If a recent update rolled back within the last hour, back off
+                tx_file = os.path.join(BASE_DIR, ".watchdog-update.json")
+                if os.path.isfile(tx_file):
+                    try:
+                        with open(tx_file, "r", encoding="utf-8") as f:
+                            tx_data = json.load(f)
+                        stage = tx_data.get("stage")
+                        if stage in ("rolled_back", "rollback_failed"):
+                            failed_ver = str(tx_data.get("new_version") or "").strip().lstrip("vV")
+                            failed_ts = float(tx_data.get("updated_at") or tx_data.get("started_at") or 0)
+                            elapsed = time.time() - failed_ts
+                            if elapsed < 3600:
+                                logger.warning(
+                                    "[AutoUpdate] Bản cập nhật v%s đã bị rollback gần đây (%ds trước). Tạm hoãn kiểm tra cập nhật 1 giờ để chống lặp.",
+                                    failed_ver, int(elapsed)
+                                )
+                                time.sleep(3600)
+                                continue
+                    except Exception:
+                        pass
+
                 res = check_github_update()
                 if res.get("has_update") and res.get("download_url"):
                     new_v = res["new_version"]

@@ -108,6 +108,48 @@ function Start-Release($Update, [string]$Root) {
     return Start-Process -FilePath $entry -WorkingDirectory $Root -WindowStyle Hidden -PassThru
 }
 
+function Test-HttpEndpoint([string]$ProbeUrl) {
+    if (-not $ProbeUrl) { return $false }
+    try {
+        $request = [System.Net.HttpWebRequest]::Create($ProbeUrl)
+        $request.Timeout = 2500
+        $request.ReadWriteTimeout = 2500
+        $request.AllowAutoRedirect = $true
+        $request.MaximumAutomaticRedirections = 5
+        $request.Proxy = $null
+        $request.UserAgent = 'Cambida-Health/1'
+        $response = $request.GetResponse()
+        $code = [int]$response.StatusCode
+        $response.Close()
+        if ($code -ge 200 -and $code -lt 500) { return $true }
+    } catch {
+        try {
+            $ex = $_.Exception
+            if ($ex -is [System.Net.WebException] -and $ex.Response) {
+                $code = [int]$ex.Response.StatusCode
+                $ex.Response.Close()
+                if ($code -ge 200 -and $code -lt 500) { return $true }
+            }
+        } catch {}
+    }
+    return $false
+}
+
+function Test-TcpPort([string]$HostName, [int]$Port) {
+    if ($Port -le 0 -or $Port -gt 65535) { return $false }
+    try {
+        $client = [System.Net.Sockets.TcpClient]::new()
+        $iar = $client.BeginConnect($HostName, $Port, $null, $null)
+        if ($iar.AsyncWaitHandle.WaitOne(1000, $false)) {
+            $client.EndConnect($iar)
+            $client.Close()
+            return $true
+        }
+        $client.Close()
+    } catch {}
+    return $false
+}
+
 function Wait-Health($Update, [string]$Root) {
     $healthProp = $Update.PSObject.Properties['health_v2']
     if (-not $healthProp -or -not $healthProp.Value) {
@@ -128,12 +170,18 @@ function Wait-Health($Update, [string]$Root) {
             if ($runtimePort -lt 1 -or $runtimePort -gt 65535) { $runtimePort = 0 }
         } catch { $runtimePort = 0 }
     }
+    if ($runtimePort -le 0) { $runtimePort = 8000 }
+
+    $urlsToProbe = [Collections.Generic.List[string]]::new()
     if ($mode -eq 'config_port') {
-        if ($runtimePort -le 0) { return $true }
         $pathProp = $health.PSObject.Properties['path']
         $healthPath = if ($pathProp -and $pathProp.Value) { [string]$pathProp.Value } else { '/' }
         if (-not $healthPath.StartsWith('/')) { $healthPath = '/' + $healthPath }
         $url = "http://127.0.0.1:$runtimePort$healthPath"
+        $urlsToProbe.Add($url)
+        if ($healthPath -ne '/api/ping') {
+            $urlsToProbe.Add("http://127.0.0.1:$runtimePort/api/ping")
+        }
     } elseif ($url) {
         if ($runtimePort -gt 0) {
             try {
@@ -141,22 +189,41 @@ function Wait-Health($Update, [string]$Root) {
                 if ($uri.Host -in @('127.0.0.1','localhost','::1')) {
                     $builder = [UriBuilder]$uri
                     $builder.Port = $runtimePort
-                    $url = $builder.Uri.AbsoluteUri
+                    $urlsToProbe.Add($builder.Uri.AbsoluteUri)
+                } else {
+                    $urlsToProbe.Add($url)
                 }
-            } catch {}
+            } catch {
+                $urlsToProbe.Add($url)
+            }
+        } else {
+            $urlsToProbe.Add($url)
         }
+        $urlsToProbe.Add("http://127.0.0.1:$runtimePort/api/ping")
     } else {
         return $true
     }
-    $timeout = 60
+
+    $timeout = 90
     $timeoutProp = $health.PSObject.Properties['timeout_seconds']
-    if ($timeoutProp -and $timeoutProp.Value) { $timeout = [Math]::Max(5, [int]$timeoutProp.Value) }
+    if ($timeoutProp -and $timeoutProp.Value) { $timeout = [Math]::Max(10, [int]$timeoutProp.Value) }
     $deadline = (Get-Date).AddSeconds($timeout)
+    $tcpOpenCount = 0
+
     do {
-        try {
-            $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 3 -MaximumRedirection 0
-            if ([int]$response.StatusCode -ge 200 -and [int]$response.StatusCode -lt 400) { return $true }
-        } catch {}
+        foreach ($probeUrl in $urlsToProbe) {
+            if (Test-HttpEndpoint $probeUrl) { return $true }
+            try {
+                $response = Invoke-WebRequest -Uri $probeUrl -UseBasicParsing -TimeoutSec 3 -MaximumRedirection 5
+                if ([int]$response.StatusCode -ge 200 -and [int]$response.StatusCode -lt 500) { return $true }
+            } catch {}
+        }
+        if (Test-TcpPort '127.0.0.1' $runtimePort) {
+            $tcpOpenCount++
+            if ($tcpOpenCount -ge 6) { return $true }
+        } else {
+            $tcpOpenCount = 0
+        }
         Start-Sleep -Milliseconds 500
     } while ((Get-Date) -lt $deadline)
     return $false
@@ -300,8 +367,13 @@ try {
     if ($OldPid -gt 0) { $oldProcessStopped = $true }
 
     $targetExe = (Join-Path $Target 'Cambida.exe').ToLowerInvariant()
+    $targetWatchdog = (Join-Path $Target 'CambidaWatchdog.exe').ToLowerInvariant()
     Get-Process | Where-Object {
-        try { $_.Path -and $_.Path.ToLowerInvariant() -eq $targetExe } catch { $false }
+        try {
+            if (-not $_.Path) { return $false }
+            $p = $_.Path.ToLowerInvariant()
+            return ($p -eq $targetExe -or $p -eq $targetWatchdog)
+        } catch { $false }
     } | ForEach-Object {
         Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
     }
