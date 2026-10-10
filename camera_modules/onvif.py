@@ -22,8 +22,6 @@ import base64
 import datetime
 import hashlib
 import os
-import re
-import socket
 import subprocess
 import threading
 import time

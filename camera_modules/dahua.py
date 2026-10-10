@@ -22,17 +22,12 @@ Follows .project/CAMERA_MODULE_CONTRACT_20260924.md:
 
 from __future__ import annotations
 
-import copy
 import hashlib
 import logging
 import os
-import queue
-import re
 import socket
 import struct
-import subprocess
 import sys
-import tempfile
 import threading
 import time
 from dataclasses import dataclass, field

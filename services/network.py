@@ -20,11 +20,10 @@ _TUNNEL_CHECK_INTERVAL = 15
 def get_local_lan_ip():
     """Detect the private LAN IPv4 of this host, avoiding loopback."""
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.settimeout(0.5)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.settimeout(0.5)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
         if ip and not ip.startswith("127."):
             return ip
     except Exception:

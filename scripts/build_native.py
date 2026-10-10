@@ -49,7 +49,6 @@ def run(argv, **kwargs):
 
 def source_modules():
     result = {'cambida_app': (ROOT / '1.py', False),
-              'native_update': (ROOT / 'native_update.py', False),
               'runtime_state': (ROOT / 'runtime_state.py', False),
               'controlhub_claim': (ROOT / 'controlhub_claim.py', False),
               'dahua_37777': (ROOT / 'dahua_37777.py', False)}
@@ -203,19 +202,19 @@ def make_zip(folder, target, files=None):
             archive.write(folder / path, path)
 
 
-def watchdog_runtime():
-    source = ROOT / 'scripts/cambida_watchdog.py'
-    dist = BUILD / 'watchdog-dist'
-    work = BUILD / 'watchdog-work'
-    spec_dir = BUILD / 'watchdog-spec'
-    output = dist / 'CambidaWatchdog.exe'
-    cache_file = BUILD / 'watchdog-cache.json'
+def updater_runtime():
+    source = ROOT / 'scripts/updater.py'
+    dist = BUILD / 'updater-dist'
+    work = BUILD / 'updater-work'
+    spec_dir = BUILD / 'updater-spec'
+    output = dist / 'updater.exe'
+    cache_file = BUILD / 'updater-cache.json'
     fingerprint = key({
         'source': digest(source),
-        'runtime_state': digest(ROOT / 'runtime_state.py'),
         'python': sys.version,
+        'psutil': importlib.metadata.version('psutil'),
         'pyinstaller': importlib.metadata.version('PyInstaller'),
-        'mode': 'onefile-noconsole-v1',
+        'mode': 'standalone-onefile-noconsole-v1',
     })
     cache = read_json(cache_file, {})
     if cache.get('input') != fingerprint or not output.is_file() or cache.get('output') != digest(output):
@@ -224,13 +223,13 @@ def watchdog_runtime():
         spec_dir.mkdir(parents=True, exist_ok=True)
         run([
             sys.executable, '-m', 'PyInstaller', '--noconfirm',
-            '--onefile', '--noconsole', '--name', 'CambidaWatchdog',
+            '--onefile', '--noconsole', '--name', 'updater',
             '--distpath', str(dist), '--workpath', str(work),
             '--specpath', str(spec_dir), str(source),
         ])
         write_json(cache_file, {'input': fingerprint, 'output': digest(output)})
     else:
-        print('Watchdog unchanged: reusing CambidaWatchdog.exe', flush=True)
+        print('Updater unchanged: reusing updater.exe', flush=True)
     return output
 
 
@@ -248,18 +247,15 @@ def main():
     release = BUILD / ('package-' + args.version + '-' + uuid.uuid4().hex[:8])
     modules = source_modules()
     sidecars = ('index.html', 'admin.html', 'admin_login.html', 'remote_login.html', 'home.html', 'live_all.html',
-                'stats.html', 'timeline.html', 'ffmpeg.exe', 'cloudflared.exe')
-    cloud_files = ('HD_SU_DUNG.txt', 'install_tunnel.bat', 'run_tunnel_silent.vbs',
-                   'setup_tunnel.ps1', 'start_tunnel.ps1', 'stop_tunnel.bat')
+                'stats.html', 'timeline.html', 'ffmpeg.exe', 'cloudflared.exe', 'update_exclude.txt')
     inputs = [p for p, _ in modules.values()] + [ROOT / name for name in sidecars]
-    inputs += [ROOT / 'tools/cloudflared_setup' / name for name in cloud_files]
     inputs += [ROOT / name for name in ('scripts/native_launcher.py', 'scripts/native_runtime.spec',
-               'scripts/universal_updater.ps1', 'scripts/cambida_watchdog.py',
+               'scripts/universal_updater.ps1', 'scripts/updater.py',
                'scripts/release_launcher.cmd', 'config.release.json', 'NATIVE_RELEASE.md')]
     snapshot = {str(p.relative_to(ROOT)): digest(p) for p in inputs}
     entries = compile_modules(modules)
     runtime_dir, runtime_id = runtime(modules, version=args.version)
-    watchdog_exe = watchdog_runtime()
+    updater_exe = updater_runtime()
     release.mkdir(parents=True)
     shutil.copytree(runtime_dir, release, dirs_exist_ok=True)
     for entry in entries.values():
@@ -270,15 +266,11 @@ def main():
     for filename in sidecars:
         shutil.copy2(ROOT / filename, release / filename)
     # Explicit allowlist: no credentials, runtime configuration, media or source.
-    cloud_dest = release / 'cloudflared_setup'
-    cloud_dest.mkdir()
-    for filename in cloud_files:
-        shutil.copy2(ROOT / 'tools/cloudflared_setup' / filename, cloud_dest / filename)
     for filename in ('RELEASE_VERSION.txt', 'VERSION.txt'):
         (release / filename).write_text(args.version + '\n', encoding='utf-8')
     shutil.copy2(ROOT / 'scripts/release_launcher.cmd', release / 'Chay_CCTV.cmd')
     shutil.copy2(ROOT / 'scripts/universal_updater.ps1', release / 'updater.ps1')
-    shutil.copy2(watchdog_exe, release / 'CambidaWatchdog.exe')
+    shutil.copy2(updater_exe, release / 'updater.exe')
     shutil.copy2(ROOT / 'NATIVE_RELEASE.md', release / 'README_RELEASE.md')
     write_json(release / 'BUILD_INFO.json', {
         'version': args.version, 'source': snapshot, 'runtime_id': runtime_id,
@@ -312,11 +304,6 @@ def main():
         'kind': 'full',
         'version': args.version,
         'start': {'path': 'Cambida.exe', 'args': []},
-        # Compatibility bridge: 2.3.0 only knows the legacy `health` key.
-        # Keeping that key absent makes its parser/updater safely skip the
-        # fixed-port probe, while 2.3.2+ understands `health_v2` and resolves
-        # the preserved config.json server_port at runtime.
-        'health_v2': {'mode': 'config_port', 'path': '/', 'timeout_seconds': 90},
     })
     destination.parent.mkdir(parents=True, exist_ok=True)
     archive_temp = BUILD / (args.version + '-' + uuid.uuid4().hex[:8] + '.zip')

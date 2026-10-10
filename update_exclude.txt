@@ -1,0 +1,24 @@
+# Moi dong la mot file/thu muc, duong dan tinh tu thu muc Cambida.
+# Co trong danh sach: bo qua. Thu muc duoc bo qua toan bo noi dung ben trong.
+# Khong co trong danh sach: ghi de. Xoa mot dong de cho phep ghi de duong dan do.
+update_exclude.txt
+config.json
+analytics.db
+analytics.db-wal
+analytics.db-shm
+analytics.db-journal
+device_id.key
+tunnel_token.txt
+controlhub_machine_id.txt
+controlhub_client_secret.txt
+controlhub_bootstrap.json
+logs/
+cctv_videos/
+nvr_cache/
+.git/
+.project/
+.updates/
+.update-backups/
+.pending_update_notification
+.watchdog-update.json
+native-update.log

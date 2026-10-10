@@ -168,11 +168,3 @@ def parse_video_metadata(filename, known_duration=None, fallback_duration=DEFAUL
         "duration_sec": float(duration),
         "format": source_format,
     }
-
-
-def parse_video_filename(filename, known_duration=None, fallback_duration=DEFAULT_DURATION):
-    """Legacy helper returning (start_datetime, filename)."""
-    metadata = parse_video_metadata(filename, known_duration=known_duration, fallback_duration=fallback_duration)
-    if metadata is None:
-        return None, None
-    return metadata["start"], filename

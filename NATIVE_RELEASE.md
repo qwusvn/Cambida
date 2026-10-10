@@ -5,9 +5,8 @@ client self-registration with ControlHub: a client no longer needs a
 server-generated installer ZIP or a manually entered Cloudflare subdomain.
 Cambida 2.3.2 is the updater bridge for 2.3.0 clients: release health checks no
 longer contain a fixed localhost port, and the running app prefers the updater
-shipped inside the release being installed. Cambida 2.3.3 adds an independent
-watchdog installed outside the Cambida application tree so application/update
-failure no longer removes the recovery path.
+shipped inside the release being installed. The current updater runs independently as updater.exe; the external watchdog
+is no longer started or packaged.
 
 ## Automatic ControlHub provisioning (2.3.1+)
 
@@ -25,6 +24,10 @@ failure no longer removes the recovery path.
 Manual subdomain claim and legacy one-time bootstrap remain supported for
 backward compatibility.
 
+The release keeps cloudflared.exe for the tunnel connection. Manual tunnel
+installation scripts in cloudflared_setup are no longer packaged; ControlHub
+supplies the domain and token. Existing local tokens remain supported.
+
 ## Runtime-state preservation (2.3.3+)
 
 - Release ZIPs never contain `config.json`, database, shop identity, Tunnel
@@ -38,70 +41,41 @@ backward compatibility.
 - A frozen Cambida release restores only missing files from that vault before
   the first-run seed is considered. Existing runtime files always win, so
   repeating migration/startup is idempotent.
-- The watchdog snapshots this state before an updater stops Cambida and while a
-  healthy release is running. A Tunnel Token is tied to the subdomain that was
-  active when it was captured, so an old token is not revived after a deliberate
-  subdomain change.
 - `config.release.json` is only a clean first-install seed. It is never merged
   over an existing runtime config. Its web-server default is 8000.
 
 ## Update flow
 
-1. Cambida checks the latest GitHub Release for `qwusvn/Cambida`.
-2. If a newer semantic version exists, it selects only `<version>.zip`.
-3. The ZIP is downloaded to the Windows temporary directory.
-4. `release_manifest.json` and every program file SHA-256 are verified.
-5. A copy of `updater.ps1` is launched outside the application directory.
-6. The old Cambida PID is allowed to exit and is force-stopped only if needed.
-7. Files owned by the previous release but absent from the new release are
-   backed up and removed; the complete new release is then overlaid.
-8. Shop/runtime data is never part of a release and is preserved.
-9. The start entrypoint declared by the new `update.json` is launched.
-10. Release health metadata uses `health_v2.mode=config_port`; the 2.3.2+ updater builds
-    the localhost health URL from the preserved `config.json.server_port`.
-    Legacy 2.3.0 parsers/updaters do not know the `health_v2` key and therefore
-    see no legacy `health.url`, so they do not incorrectly
-    kill/rollback a healthy installation running on port 8000 or another port.
-11. From 2.3.2 onward, Cambida copies and launches the `updater.ps1` from the
-    downloaded payload first; the installed updater is fallback only.
-12. Startup order is: restore/load runtime config -> start the local web server
-    on the preserved `server_port` -> wait for that listener -> ControlHub
-    claim/poll -> start the Named Tunnel. The TunnelHealth loop also refuses to
-    start cloudflared while the local origin is not listening.
+1. Cambida checks the latest GitHub Release and selects <version>.zip.
+2. It copies updater.exe outside the install directory on the same drive,
+   then launches it silently. Cambida does not exit if that launch fails.
+3. The independent updater removes the old watchdog's autostart and stops
+   Cambida plus its child processes belonging to this installation.
+4. It downloads the ZIP to a temporary directory on the same drive and checks
+   the release version, manifest hashes and archive paths before copying.
+5. It reads the installed update_exclude.txt; if absent, the release's TXT
+   supplies the initial policy. Each nonempty line is a relative file or
+   directory path. # starts a comment. Matching is case-insensitive and a
+   directory rule covers its whole subtree. Listed paths are skipped; all
+   other release files are overwritten, including read-only files.
+6. It launches the entrypoint in the new update.json and reports an error
+   if the process exits immediately. Details are in logs/updater.log.
 
-## Independent watchdog (2.3.3+)
+A failed download or validation restarts the original application without
+overwriting it. A copy or startup failure is logged as failure. There is no
+watchdog, transaction journal, stabilization window or automatic rollback.
+Files absent from the ZIP are left in place.
 
-- The release carries `CambidaWatchdog.exe`, but installation copies it to a
-  versioned executable under `%LOCALAPPDATA%\CambidaWatchdog` and registers it
-  in the current user's Windows Run key. It therefore survives replacement of
-  the Cambida directory.
-- Cambida and `Chay_CCTV.cmd` also refresh the external watchdog on normal
-  startup, covering fresh/manual installations.
-- The updater creates the protected `.watchdog-update.json` transaction before
-  stopping Cambida. Every release file is backed up and journaled before it is
-  modified. Runtime/shop data is never journaled.
-- While an update is applying or starting, the watchdog does not interfere. If
-  that transaction is left stale by a crash/reboot, the watchdog restores the
-  journaled files from `.update-backups` and starts the previous release.
-- After updater health succeeds, the transaction enters a stabilization window.
-  If the new release repeatedly crashes, the watchdog restarts it up to three
-  times and then rolls back. A stable release is marked `healthy`.
-- Outside an update transaction, the watchdog probes `/api/ping` on the
-  preserved `config.json.server_port`; it only terminates a process whose
-  full executable path exactly matches the configured installation's
-  `Cambida.exe`.
-
-The update protocol does not require a specific executable name, module layout
-or programming language. Future releases may change those as long as they keep
-schema 2 `release_manifest.json` + `update.json`.
+updater.ps1 is only a compatibility bridge for older 2.3.x clients that
+already download and launch a payload updater. It delegates to the
+updater.exe shipped in that payload.
 
 ## Preserved local data
 
-At minimum: `config.json`, `analytics.db`, `device_id.key`,
-`tunnel_token.txt`, `controlhub_machine_id.txt`,
-`controlhub_client_secret.txt`, `controlhub_bootstrap.json`, `logs/`,
-`cctv_videos/`, `nvr_cache/`, `.updates/`, `.update-backups/` and the
-watchdog transaction `.watchdog-update.json`.
+The entire copy policy is in update_exclude.txt, including the TXT itself.
+Its defaults preserve configuration, databases, identity/token files,
+videos, caches and logs. Edit that one file to change what survives an update.
+Removing a line permits a matching release file to overwrite the local file.
 
 ## Browser behavior
 
@@ -110,10 +84,10 @@ automatically. The tray menu remains the explicit way to open the local UI.
 
 ## Packaging
 
-Build 2.3.3 with:
+Build 2.3.5 with:
 
 ```powershell
-.\package_2.3.3.ps1
+.\package_2.3.5.ps1
 ```
 
 Every GitHub release from 2.3.0 onward must attach the complete

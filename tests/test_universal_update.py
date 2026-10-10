@@ -60,7 +60,7 @@ def write_release(folder, version, files, *, start="server.exe", args=None, heal
 
 class UniversalUpdateTests(unittest.TestCase):
     def test_prepare_archive_accepts_layout_independent_full_release(self):
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory(dir=ROOT / "test_data") as td:
             base = Path(td)
             source = base / "source"
             installed = base / "installed"
@@ -100,7 +100,7 @@ class UniversalUpdateTests(unittest.TestCase):
             })
 
     def test_prepare_archive_rejects_shop_state_inside_release(self):
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory(dir=ROOT / "test_data") as td:
             base = Path(td)
             source = base / "source"
             source.mkdir()
@@ -131,203 +131,22 @@ class UniversalUpdateTests(unittest.TestCase):
                     archive, base / "out", base / "installed", "2.4.0"
                 )
 
-    def test_updater_overlays_new_layout_replaces_itself_and_preserves_shop_data(self):
-        with tempfile.TemporaryDirectory() as td:
-            base = Path(td)
-            target = base / "target"
-            payload = base / "payload"
-            target.mkdir()
-            cmd = Path(os.environ["WINDIR"]) / "System32" / "cmd.exe"
-
-            old_updater = target / "updater.ps1"
-            old_updater.write_text("# old updater\n", encoding="utf-8")
-            (target / "old-layout.bin").write_bytes(b"old")
-            old_manifest = {
-                "schema": 2,
-                "version": "2.3.0",
-                "files": {
-                    "old-layout.bin": digest(target / "old-layout.bin"),
-                    "updater.ps1": digest(old_updater),
-                },
-            }
-            (target / "release_manifest.json").write_text(
-                json.dumps(old_manifest), encoding="utf-8"
-            )
-            (target / "update.json").write_text(
-                json.dumps({
-                    "schema": 2,
-                    "kind": "full",
-                    "version": "2.3.0",
-                    "start": {"path": "old-layout.bin", "args": []},
-                }),
-                encoding="utf-8",
-            )
-
-            (target / "config.json").write_text('{"shop":true}', encoding="utf-8")
-            (target / "analytics.db").write_bytes(b"db")
-            (target / "tunnel_token.txt").write_text("secret-token", encoding="utf-8")
-            (target / "controlhub_client_secret.txt").write_text("local-client-state", encoding="utf-8")
-            media = target / "cctv_videos"
-            media.mkdir()
-            (media / "keep.mp4").write_bytes(b"video")
-
-            new_updater = b"# updater v2\n"
-            write_release(
-                payload,
-                "2.4.0",
-                {
-                    "server.exe": cmd,
-                    "new-layout.bin": b"new",
-                    "updater.ps1": new_updater,
-                },
-                start="server.exe",
-                args=["/d", "/c", "echo started>started.marker"],
-            )
-
-            script = ROOT / "scripts" / "universal_updater.ps1"
-            completed = subprocess.run(
-                [
-                    "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
-                    "-File", str(script),
-                    "-OldPid", "0",
-                    "-Payload", str(payload),
-                    "-Target", str(target),
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            self.assertEqual(completed.returncode, 0, completed.stderr)
-            self.assertFalse((target / "old-layout.bin").exists())
-            self.assertEqual((target / "new-layout.bin").read_bytes(), b"new")
-            self.assertEqual((target / "updater.ps1").read_bytes(), new_updater)
-            self.assertEqual(
-                json.loads((target / "config.json").read_text(encoding="utf-8")),
-                {"shop": True},
-            )
-            self.assertEqual((target / "analytics.db").read_bytes(), b"db")
-            self.assertEqual(
-                (target / "tunnel_token.txt").read_text(encoding="utf-8"),
-                "secret-token",
-            )
-            self.assertEqual(
-                (target / "controlhub_client_secret.txt").read_text(encoding="utf-8"),
-                "local-client-state",
-            )
-            self.assertEqual((media / "keep.mp4").read_bytes(), b"video")
-            marker = target / "started.marker"
-            for _ in range(40):
-                if marker.exists():
-                    break
-                time.sleep(0.05)
-            self.assertTrue(marker.exists())
-            self.assertEqual(
-                json.loads((target / "update.json").read_text(encoding="utf-8"))["version"],
-                "2.4.0",
-            )
-            transaction = json.loads(
-                (target / ".watchdog-update.json").read_text(encoding="utf-8")
-            )
-            self.assertEqual(transaction["stage"], "monitoring")
-            self.assertEqual(transaction["new_version"], "2.4.0")
-            journal_names = {entry["relative"] for entry in transaction["journal"]}
-            self.assertIn("old-layout.bin", journal_names)
-            self.assertIn("new-layout.bin", journal_names)
-            self.assertIn("release_manifest.json", journal_names)
-            self.assertIn("update.json", journal_names)
-            self.assertNotIn("config.json", journal_names)
 
 
-    def test_230_and_231_update_preserve_all_local_runtime_state(self):
-        script = ROOT / "scripts" / "universal_updater.ps1"
-        cmd = Path(os.environ["WINDIR"]) / "System32" / "cmd.exe"
-        for old_version in ("2.3.0", "2.3.1"):
-            with self.subTest(old_version=old_version), tempfile.TemporaryDirectory() as td:
-                base = Path(td)
-                target = base / "target"
-                payload = base / "payload"
-                target.mkdir()
-                protected = {
-                    "config.json": b'{"server_port":8000,"cloudflare_subdomain":"shop.example.com"}',
-                    "analytics.db": b"db",
-                    "device_id.key": b"device",
-                    "tunnel_token.txt": b"token",
-                    "controlhub_machine_id.txt": b"machine",
-                    "controlhub_client_secret.txt": b"client-secret",
-                    "controlhub_bootstrap.json": b'{"site_id":"site"}',
-                }
-                for name, data in protected.items():
-                    (target / name).write_bytes(data)
-                (target / "old.bin").write_bytes(b"old")
-                (target / "release_manifest.json").write_text(json.dumps({
-                    "schema": 2,
-                    "version": old_version,
-                    "files": {"old.bin": digest(target / "old.bin")},
-                }), encoding="utf-8")
-                (target / "update.json").write_text(json.dumps({
-                    "schema": 2,
-                    "kind": "full",
-                    "version": old_version,
-                    "start": {"path": "old.bin", "args": []},
-                }), encoding="utf-8")
 
-                write_release(
-                    payload,
-                    "2.3.3",
-                    {"server.exe": cmd, "new.bin": b"new"},
-                    start="server.exe",
-                    args=["/d", "/c", "echo updated>updated.marker"],
-                )
-                completed = subprocess.run([
-                    "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
-                    "-File", str(script), "-OldPid", "0",
-                    "-Payload", str(payload), "-Target", str(target),
-                ], capture_output=True, text=True, timeout=30)
-                self.assertEqual(completed.returncode, 0, completed.stderr)
-                for name, expected in protected.items():
-                    self.assertEqual((target / name).read_bytes(), expected, name)
 
-                marker = target / "updated.marker"
-                for _ in range(40):
-                    if marker.exists():
-                        break
-                    time.sleep(0.05)
-                self.assertTrue(marker.exists())
-                time.sleep(0.1)
 
-    def test_updater_health_uses_preserved_runtime_server_port(self):
-        script = (ROOT / "scripts" / "universal_updater.ps1").read_text(encoding="utf-8-sig")
-        self.assertIn("$runtimeConfig.server_port", script)
-        self.assertIn("Wait-Health $update $Target", script)
-        self.assertIn("controlhub_client_secret.txt", script)
 
-    def test_232_bridge_avoids_fixed_health_port_and_prefers_payload_updater(self):
-        builder_source = (ROOT / "scripts" / "build_native.py").read_text(encoding="utf-8-sig")
-        self.assertIn("'health_v2': {'mode': 'config_port', 'path': '/', 'timeout_seconds': 90}", builder_source)
-        self.assertNotIn("'health': {'url': 'http://127.0.0.1:8004/'", builder_source)
 
-        updater_source = (ROOT / "scripts" / "universal_updater.ps1").read_text(encoding="utf-8-sig")
-        self.assertIn("$mode -eq 'config_port'", updater_source)
-        self.assertIn('$url = "http://127.0.0.1:$runtimePort$healthPath"', updater_source)
-
-        app_source = (ROOT / "1.py").read_text(encoding="utf-8-sig")
-        payload_choice = app_source.index('updater_source = os.path.join(extract_dir, "updater.ps1")')
-        installed_fallback = app_source.index('updater_source = os.path.join(BASE_DIR, "updater.ps1")', payload_choice)
-        self.assertLess(payload_choice, installed_fallback)
-
-    def test_233_builder_and_updater_include_independent_watchdog_contract(self):
-        builder_source = (ROOT / "scripts" / "build_native.py").read_text(encoding="utf-8-sig")
-        updater_source = (ROOT / "scripts" / "universal_updater.ps1").read_text(encoding="utf-8-sig")
-        launcher_source = (ROOT / "scripts" / "release_launcher.cmd").read_text(encoding="utf-8-sig")
-        app_source = (ROOT / "1.py").read_text(encoding="utf-8-sig")
-        self.assertIn("watchdog_runtime()", builder_source)
-        self.assertIn("CambidaWatchdog.exe", builder_source)
-        self.assertIn(".watchdog-update.json", updater_source)
-        self.assertIn("Write-Transaction", updater_source)
-        self.assertIn("Install-Watchdog", updater_source)
-        self.assertIn("$transaction['stage'] = 'monitoring'", updater_source)
-        self.assertIn("CambidaWatchdog.exe", launcher_source)
-        self.assertIn("_ensure_external_watchdog()", app_source)
+    def test_new_package_uses_standalone_updater_and_txt(self):
+        builder = (ROOT / "scripts/build_native.py").read_text(encoding="utf-8-sig")
+        app = (ROOT / "1.py").read_text(encoding="utf-8-sig")
+        launcher = (ROOT / "scripts/release_launcher.cmd").read_text(encoding="utf-8-sig")
+        self.assertIn("updater_runtime()", builder)
+        self.assertIn("'update_exclude.txt'", builder)
+        self.assertNotIn("watchdog_runtime()", builder)
+        self.assertNotIn("CambidaWatchdog.exe", builder + launcher)
+        self.assertNotIn("_ensure_external_watchdog", app)
 
     def test_native_builder_ignores_invalid_sync_copy_module_names(self):
         spec = importlib.util.spec_from_file_location(

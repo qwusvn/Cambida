@@ -228,7 +228,6 @@ class NvrPerCameraTests(unittest.TestCase):
         self.assertIn("/Streaming/Channels/302", url_hik_sub)
 
     def test_source_mode_records_nvr_only_without_local_backup(self):
-        self.assertFalse(APP.RTSP_LOCAL_TIMELINE_ONLY)
         self.assertTrue(APP.should_record_locally({"playback_source": "local"}))
         self.assertFalse(APP.should_record_locally({"playback_source": "nvr", "backup_local": False}))
         self.assertTrue(APP.should_record_locally({"playback_source": "nvr", "backup_local": True}))

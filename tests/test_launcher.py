@@ -58,7 +58,7 @@ class LauncherTests(unittest.TestCase):
     def test_second_double_click_reuses_existing_server_without_restart(self):
         with patch.object(APP, "_try_take_instance_mutex", return_value=False), \
                 patch.object(APP, "_open_server_page", return_value=True) as open_page, \
-                patch.object(APP, "_show_restart_prompt") as restart_prompt:
+                patch.object(APP.ctypes.windll.user32, "MessageBoxW") as restart_prompt:
             self.assertFalse(APP.acquire_single_instance())
         open_page.assert_called_once_with()
         restart_prompt.assert_not_called()

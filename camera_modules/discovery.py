@@ -18,14 +18,10 @@ Follows .project/CAMERA_MODULE_CONTRACT_20260924.md:
 
 from __future__ import annotations
 
-import copy
 import ipaddress
-import json
 import logging
-import os
 import re
 import socket
-import struct
 import threading
 import time
 import uuid

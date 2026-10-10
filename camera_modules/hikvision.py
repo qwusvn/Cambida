@@ -16,7 +16,6 @@ from __future__ import annotations
 import atexit
 import ctypes as C
 import os
-import re
 import socket
 import subprocess
 import tempfile

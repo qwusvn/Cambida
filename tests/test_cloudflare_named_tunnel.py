@@ -42,15 +42,16 @@ class NamedTunnelUpdateTests(unittest.TestCase):
             with patch.object(SETUP, "TOKEN_FILE", token_file):
                 self.assertEqual(SETUP.read_tunnel_token({}), "shop-token")
 
-    def test_updater_installs_token_once_and_preserves_config(self):
+    def test_updater_copies_unlisted_token_and_preserves_listed_config(self):
         with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as dst:
             Path(src, "config.json").write_text('{"new": true}', encoding="utf-8")
             Path(src, "tunnel_token.txt").write_text("new-token", encoding="utf-8")
             Path(src, "app.bin").write_text("new-app", encoding="utf-8")
 
             Path(dst, "config.json").write_text('{"keep": true}', encoding="utf-8")
+            Path(dst, "update_exclude.txt").write_text("update_exclude.txt\nconfig.json\n", encoding="utf-8")
 
-            UPDATER.update_files(src, dst)
+            UPDATER.overlay(Path(src), Path(dst))
 
             self.assertEqual(Path(dst, "config.json").read_text(encoding="utf-8"), '{"keep": true}')
             self.assertEqual(Path(dst, "tunnel_token.txt").read_text(encoding="utf-8"), "new-token")
@@ -60,8 +61,9 @@ class NamedTunnelUpdateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as dst:
             Path(src, "tunnel_token.txt").write_text("incoming-token", encoding="utf-8")
             Path(dst, "tunnel_token.txt").write_text("existing-shop-token", encoding="utf-8")
+            Path(dst, "update_exclude.txt").write_text("tunnel_token.txt\n", encoding="utf-8")
 
-            UPDATER.update_files(src, dst)
+            UPDATER.overlay(Path(src), Path(dst))
 
             self.assertEqual(
                 Path(dst, "tunnel_token.txt").read_text(encoding="utf-8"),
@@ -156,16 +158,18 @@ class NamedTunnelUpdateTests(unittest.TestCase):
             self.assertNotIn("one-time-admin-token", saved)
             provision.assert_called_once()
 
-    def test_updater_installs_controlhub_bootstrap_once(self):
+    def test_updater_preserves_bootstrap_after_adding_it_to_exclusions(self):
         with tempfile.TemporaryDirectory() as src, tempfile.TemporaryDirectory() as dst:
             Path(src, "controlhub_bootstrap.json").write_text('{"site_id":"new"}', encoding="utf-8")
-            UPDATER.update_files(src, dst)
+            Path(dst, "update_exclude.txt").write_text("update_exclude.txt\n", encoding="utf-8")
+            UPDATER.overlay(Path(src), Path(dst))
             self.assertEqual(
                 Path(dst, "controlhub_bootstrap.json").read_text(encoding="utf-8"),
                 '{"site_id":"new"}',
             )
             Path(src, "controlhub_bootstrap.json").write_text('{"site_id":"overwrite"}', encoding="utf-8")
-            UPDATER.update_files(src, dst)
+            Path(dst, "update_exclude.txt").write_text("update_exclude.txt\ncontrolhub_bootstrap.json\n", encoding="utf-8")
+            UPDATER.overlay(Path(src), Path(dst))
             self.assertEqual(
                 Path(dst, "controlhub_bootstrap.json").read_text(encoding="utf-8"),
                 '{"site_id":"new"}',

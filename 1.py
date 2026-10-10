@@ -167,55 +167,11 @@ def _load_app_version():
     return "2.1.2"
 
 APP_VERSION = _load_app_version()
+_UPDATE_HANDOFF_LOCK = threading.Lock()
 
 
-def _cleanup_stale_update_temp_files():
-    """Clean up stale update downloads, extracted payloads, and orphaned PyInstaller _MEI* dirs in %TEMP%."""
-    try:
-        temp_dir = tempfile.gettempdir()
-        now = time.time()
-        for entry in os.scandir(temp_dir):
-            try:
-                name = entry.name
-                if name.startswith("cambida-update-") or name.startswith("cambida-updater-"):
-                    if entry.is_dir():
-                        mtime = entry.stat().st_mtime
-                        if (now - mtime) > 900:  # 15 minutes
-                            shutil.rmtree(entry.path, ignore_errors=True)
-                elif name.startswith("_MEI"):
-                    if entry.is_dir():
-                        try:
-                            shutil.rmtree(entry.path, ignore_errors=False)
-                        except OSError:
-                            pass
-            except OSError:
-                pass
-    except Exception:
-        pass
 
 
-def _ensure_external_watchdog():
-    """Install/refresh the independent watchdog when the release carries it."""
-    if sys.platform != "win32":
-        return
-    _cleanup_stale_update_temp_files()
-    watchdog = os.path.join(BASE_DIR, "CambidaWatchdog.exe")
-    if not os.path.isfile(watchdog):
-        return
-    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
-    try:
-        completed = subprocess.run(
-            [watchdog, "--install", "--target", BASE_DIR],
-            cwd=BASE_DIR,
-            timeout=12,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            creationflags=flags,
-        )
-        if completed.returncode != 0:
-            logger.warning("[Watchdog] Install returned code %s", completed.returncode)
-    except Exception as exc:
-        logger.warning("[Watchdog] Cannot install external watchdog: %s", exc)
 
 
 def _ensure_first_run_files():
@@ -654,22 +610,6 @@ def config_path(value, default):
     return path if os.path.isabs(path) else os.path.join(BASE_DIR, path)
 
 
-def _show_restart_prompt():
-    """Return True only when the operator explicitly asks to restart."""
-    try:
-        result = ctypes.windll.user32.MessageBoxW(
-            None,
-            "Hệ thống CCTV đang chạy.\n\n"
-            "Bạn có muốn dừng bản đang chạy và khởi động lại không?\n"
-            "Chọn No để hủy, không mở thêm ứng dụng.",
-            "CCTV đang chạy",
-            0x00000004 | 0x00000020 | 0x00000100,  # Yes/No, warning, No mặc định
-        )
-        return result == 6  # IDYES
-    except Exception:
-        return False
-
-
 def _read_instance_pid():
     try:
         with open(INSTANCE_STATE_FILE, "r", encoding="utf-8") as f:
@@ -775,7 +715,6 @@ MAX_MERGE_MINUTES = CONFIG.get("max_merge_minutes", 60)
 # Keep this legacy flag for callers that still inspect it, but source selection is
 # now always derived from each camera. NVR cameras must not be silently rewritten
 # to the local RTSP archive.
-RTSP_LOCAL_TIMELINE_ONLY = False
 RTSP_PROFILE_CACHE = {}
 RTSP_PROFILE_LOCK = threading.RLock()
 CAM_LAST_SUCCESS = {}
@@ -2941,20 +2880,6 @@ def test_camera_connection(camera):
     }
 
 
-def get_real_video_path():
-    return VIDEO_DIR
-
-
-def get_resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
-
-
-
-
 LICENSE_LOCK = threading.RLock()
 LICENSE_ENFORCEMENT_ENABLED = False
 LICENSE_CHECK_INTERVAL_SEC = 60
@@ -3426,19 +3351,6 @@ def send_telegram_alert(message, target_chat_id=None, token_override=None, messa
         logger.error(f"Lỗi gửi Telegram: {e}")
 
 
-def get_last_logs(lines_count=30):
-    log_path = os.path.join(LOG_DIR, "system.log")
-    if not os.path.exists(log_path):
-        return "⚠️ Chưa có file log nào được tạo."
-    try:
-        with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
-            lines = f.readlines()
-        last_lines = [line for line in lines[-lines_count:] if line.strip()]
-        return "".join(last_lines)
-    except Exception as e:
-        return f"❌ Lỗi đọc log: {str(e)}"
-
-
 def build_filename(cam_id, start_dt, end_dt):
     start_time = start_dt.strftime("%H-%M-%S")
     end_time = end_dt.strftime("%H-%M-%S")
@@ -3788,29 +3700,6 @@ def get_effective_disk_limit_gb():
         return round(val if val > 0 else max(5.0, total_gb - min_free), precision)
     except (TypeError, ValueError):
         return round(max(5.0, total_gb - min_free), 2)
-
-
-def get_video_files_sorted_by_mtime():
-    """Fast single-pass discovery of valid completed video files, sorted oldest first."""
-    files = []
-    try:
-        with os.scandir(VIDEO_DIR) as it:
-            for entry in it:
-                try:
-                    if not entry.is_file(follow_symlinks=False):
-                        continue
-                    name_lower = entry.name.lower()
-                    if name_lower.endswith(".mp4") or name_lower.endswith(".h264"):
-                        if not name_lower.endswith(".part") and ".part." not in name_lower and not name_lower.startswith("."):
-                            st = entry.stat(follow_symlinks=False)
-                            files.append((entry.path, st.st_mtime))
-                except OSError:
-                    continue
-        files.sort(key=lambda item: item[1])
-        return [f[0] for f in files]
-    except Exception as e:
-        logger.error(f"[Cleanup] Không thể đọc thư mục {VIDEO_DIR}: {e}")
-        return []
 
 
 def is_complete_mp4(path):
@@ -4277,123 +4166,65 @@ def check_github_update(repo=GITHUB_REPO, token=None):
 
 
 def apply_github_update(download_url, new_version, token=None):
-    """Download and stage a full release, then hand off to the universal updater."""
-    from native_update import prepare_archive
-
+    """Hand off to the independent updater; it owns stopping, downloading and restart."""
     if not re.fullmatch(r"\d+\.\d+\.\d+", new_version):
         raise ValueError("Invalid update version")
-
-    _cleanup_stale_update_temp_files()
-    temp_dir = tempfile.mkdtemp(prefix="cambida-update-", dir=tempfile.gettempdir())
-    zip_path = os.path.join(temp_dir, "release.zip")
-    extract_dir = os.path.join(temp_dir, "payload")
-    os.makedirs(extract_dir, exist_ok=True)
-
-    gh_conf = CONFIG.get("github_update", {}) if isinstance(CONFIG, dict) else {}
-    actual_token = token or gh_conf.get("token") or CONFIG.get("github_token")
-    headers = {"User-Agent": f"Cambida-CCTV/{APP_VERSION}"}
-    if actual_token:
-        headers["Authorization"] = f"Bearer {actual_token}"
-        headers["Accept"] = "application/octet-stream"
-
-    try:
-        logger.info("[AutoUpdate] Downloading full release v%s from %s", new_version, download_url)
-        resp = requests.get(download_url, headers=headers, stream=True, timeout=180)
-        resp.raise_for_status()
-        with open(zip_path, "wb") as f:
-            for chunk in resp.iter_content(chunk_size=65536):
-                if chunk:
-                    f.write(chunk)
-
-        logger.info("[AutoUpdate] Extracting and verifying release manifest/hash")
-        prepare_archive(zip_path, extract_dir, BASE_DIR, new_version)
-    except Exception as exc:
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        raise exc
-
-    marker_file = os.path.join(BASE_DIR, ".pending_update_notification")
-    try:
-        with open(marker_file, "w", encoding="utf-8") as f:
-            json.dump({
-                "previous_version": APP_VERSION,
-                "new_version": new_version,
-                "updated_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-            }, f, ensure_ascii=False, indent=2)
-    except Exception as exc:
-        logger.warning("[AutoUpdate] Cannot create pending update marker: %s", exc)
-
-    # Pre-emptively write .watchdog-update.json so any running Watchdog
-    # enters stage="applying" and does not prematurely restart Cambida
-    # during the PowerShell spawn window.
-    tx_file = os.path.join(BASE_DIR, ".watchdog-update.json")
-    try:
-        now_ts = int(time.time())
-        tmp_tx = tx_file + ".tmp"
-        with open(tmp_tx, "w", encoding="utf-8") as f:
-            json.dump({
-                "schema": 1,
-                "stage": "applying",
-                "new_version": new_version,
-                "old_version": APP_VERSION,
-                "updater_pid": 0,
-                "watchdog_failures": 0,
-                "started_at": now_ts,
-                "updated_at": now_ts,
-                "journal": [],
-            }, f, ensure_ascii=False, indent=2)
-        os.replace(tmp_tx, tx_file)
-        logger.info("[AutoUpdate] Initialized early watchdog update transaction (stage=applying)")
-    except Exception as exc:
-        logger.warning("[AutoUpdate] Cannot initialize watchdog transaction: %s", exc)
-
-    # Always prefer the updater shipped by the release being installed.
-    # Using the installed updater can resurrect old assumptions (notably the
-    # 2.3.0 fixed :8004 health check) and incorrectly roll back a healthy app.
-    updater_source = os.path.join(extract_dir, "updater.ps1")
-    if not os.path.isfile(updater_source):
-        updater_source = os.path.join(BASE_DIR, "updater.ps1")
-    if not os.path.isfile(updater_source):
-        logger.error("[AutoUpdate] Missing schema-2 updater.ps1")
-        shutil.rmtree(temp_dir, ignore_errors=True)
+    if not _UPDATE_HANDOFF_LOCK.acquire(blocking=False):
         return False
-
-    runner_dir = tempfile.mkdtemp(prefix="cambida-updater-", dir=tempfile.gettempdir())
-    runner = os.path.join(runner_dir, "updater.ps1")
-    shutil.copy2(updater_source, runner)
-
-    logger.info("[AutoUpdate] Stopping Cambida-owned workers before updater handoff")
+    runner_dir = None
     try:
-        _stop_all_recordings()
-    except Exception as exc:
-        logger.warning("[AutoUpdate] Failed to stop recording workers: %s", exc)
-    try:
-        stop_cloudflared_tunnel()
+        updater = os.path.join(BASE_DIR, "updater.exe")
+        runner_dir = tempfile.mkdtemp(prefix="cambida-updater-", dir=os.path.dirname(BASE_DIR))
+        if os.path.isfile(updater):
+            runner = os.path.join(runner_dir, "updater.exe")
+            shutil.copy2(updater, runner)
+            command = [runner]
+        elif not getattr(sys, "frozen", False):
+            updater = os.path.join(BASE_DIR, "scripts", "updater.py")
+            runner = os.path.join(runner_dir, "updater.py")
+            shutil.copy2(updater, runner)
+            command = [sys.executable, "-B", runner]
+        else:
+            raise FileNotFoundError("Missing standalone updater.exe")
+        gh_conf = CONFIG.get("github_update", {}) if isinstance(CONFIG, dict) else {}
+        actual_token = token or gh_conf.get("token") or CONFIG.get("github_token")
+        env = os.environ.copy()
+        env["TEMP"] = runner_dir
+        env["TMP"] = runner_dir
+        env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+        if actual_token:
+            env["CAMBIDA_UPDATE_TOKEN"] = actual_token
+        else:
+            env.pop("CAMBIDA_UPDATE_TOKEN", None)
+        command += ["--target", BASE_DIR, "--version", new_version,
+                    "--old-pid", str(os.getpid()), "--url", download_url]
+        flags = 0
+        if sys.platform == "win32":
+            flags = 0x00000200 | 0x00000008 | 0x08000000
+        marker_file = os.path.join(BASE_DIR, ".pending_update_notification")
+        try:
+            with open(marker_file, "w", encoding="utf-8") as f:
+                json.dump({
+                    "previous_version": APP_VERSION,
+                    "new_version": new_version,
+                    "updated_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                }, f, ensure_ascii=False, indent=2)
+        except Exception as exc:
+            logger.warning("[AutoUpdate] Cannot create pending update marker: %s", exc)
+        process = subprocess.Popen(
+            command, cwd=runner_dir, env=env, creationflags=flags, close_fds=True,
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        time.sleep(0.5)
+        if process.poll() is not None:
+            raise RuntimeError(f"Updater exited before handoff (code {process.returncode})")
+        logger.info("[AutoUpdate] Standalone updater started for v%s (PID %s)", new_version, process.pid)
+        return True
     except Exception:
-        pass
-    try:
-        _release_single_instance()
-    except Exception:
-        pass
-
-    current_pid = os.getpid()
-    flags = subprocess.CREATE_NEW_PROCESS_GROUP
-    if hasattr(subprocess, "DETACHED_PROCESS"):
-        flags |= subprocess.DETACHED_PROCESS
-    if hasattr(subprocess, "CREATE_NO_WINDOW"):
-        flags |= subprocess.CREATE_NO_WINDOW
-
-    run_cmd = [
-        "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
-        "-File", runner,
-        "-OldPid", str(current_pid),
-        "-Payload", extract_dir,
-        "-Target", BASE_DIR,
-        "-CleanupRoot", temp_dir,
-    ]
-    logger.info("[AutoUpdate] Handing v%s to external full-package updater", new_version)
-    subprocess.Popen(run_cmd, creationflags=flags, close_fds=True)
-    time.sleep(0.5)
-    os._exit(0)
+        _UPDATE_HANDOFF_LOCK.release()
+        if runner_dir:
+            shutil.rmtree(runner_dir, ignore_errors=True)
+        raise
 
 
 def check_and_notify_pending_update():
@@ -4436,32 +4267,11 @@ def check_and_notify_pending_update():
 
 
 def start_github_update_worker():
-    """Start background thread checking GitHub updates periodically."""
+    """Check periodically; the standalone updater performs the update."""
     def _worker():
         time.sleep(30)
         while True:
             try:
-                # Anti-loop guard: If a recent update rolled back within the last hour, back off
-                tx_file = os.path.join(BASE_DIR, ".watchdog-update.json")
-                if os.path.isfile(tx_file):
-                    try:
-                        with open(tx_file, "r", encoding="utf-8") as f:
-                            tx_data = json.load(f)
-                        stage = tx_data.get("stage")
-                        if stage in ("rolled_back", "rollback_failed"):
-                            failed_ver = str(tx_data.get("new_version") or "").strip().lstrip("vV")
-                            failed_ts = float(tx_data.get("updated_at") or tx_data.get("started_at") or 0)
-                            elapsed = time.time() - failed_ts
-                            if elapsed < 3600:
-                                logger.warning(
-                                    "[AutoUpdate] Bản cập nhật v%s đã bị rollback gần đây (%ds trước). Tạm hoãn kiểm tra cập nhật 1 giờ để chống lặp.",
-                                    failed_ver, int(elapsed)
-                                )
-                                time.sleep(3600)
-                                continue
-                    except Exception:
-                        pass
-                _cleanup_stale_update_temp_files()
                 res = check_github_update()
                 if res.get("has_update") and res.get("download_url"):
                     new_v = res["new_version"]
@@ -4473,11 +4283,10 @@ def start_github_update_worker():
                     )
                     apply_github_update(res["download_url"], new_v)
             except Exception as exc:
-                logger.warning("[AutoUpdate] Lỗi worker kiểm tra cập nhật: %s", exc)
+                logger.warning("[AutoUpdate] Update check/handoff failed: %s", exc)
             time.sleep(3600)
 
-    t = threading.Thread(target=_worker, daemon=True, name="GitHubUpdateWorker")
-    t.start()
+    threading.Thread(target=_worker, daemon=True, name="GitHubUpdateWorker").start()
 
 
 def monitor_telegram_commands():
@@ -4616,148 +4425,23 @@ def _cut_output_filename(source_filename):
     return f"cut_{owner}{uuid.uuid4().hex[:8]}.mp4"
 
 
-def safe_video_filename(filename):
-    """Allow only generated MP4 basenames before using them in a file path."""
-    if not isinstance(filename, str) or not filename or len(filename) > 255:
-        return False
-    if "\x00" in filename or any(char in filename for char in ("/", "\\", ":")):
-        return False
-    if os.path.basename(filename) != filename:
-        return False
-    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._()\- ]*\.mp4", filename, re.IGNORECASE))
-
-
 def safe_video_path(filename):
-    """Resolve a video filename only when it remains below VIDEO_DIR."""
-    if not safe_video_filename(filename):
-        return None
-    root = os.path.realpath(VIDEO_DIR)
-    candidate = os.path.realpath(os.path.join(root, filename))
-    try:
-        if os.path.commonpath((root, candidate)) != root:
-            return None
-    except ValueError:
-        return None
-    return candidate
-
-
-def _valid_camera_id(value):
-    try:
-        if isinstance(value, bool):
-            return None
-        if isinstance(value, float) and not value.is_integer():
-            return None
-        if isinstance(value, str) and not re.fullmatch(r"\d+", value.strip()):
-            return None
-        cam_id = int(value)
-    except (TypeError, ValueError, OverflowError):
-        return None
-    return cam_id if 1 <= cam_id <= 10_000 else None
+    return _video_cutter.safe_video_path(filename, video_dir=VIDEO_DIR)
 
 
 def _normalise_duration(value, fallback=None):
-    try:
-        duration = float(value)
-    except (TypeError, ValueError, OverflowError):
-        duration = 0.0
-    if not math.isfinite(duration) or duration <= 0:
-        try:
-            duration = float(fallback)
-        except (TypeError, ValueError, OverflowError):
-            duration = 0.0
-    if not math.isfinite(duration) or not 0 < duration <= TIMELINE_MAX_SECONDS:
-        return None
-    return duration
-
-
-def _parse_local_datetime_value(value):
-    if isinstance(value, datetime):
-        parsed = value
-    elif isinstance(value, str) and 0 < len(value.strip()) <= 64:
-        raw = value.strip()
-        if "T" not in raw and " " not in raw:
-            raise ValueError("Thời gian phải là ISO local datetime.")
-        try:
-            parsed = datetime.fromisoformat(raw)
-        except ValueError as exc:
-            raise ValueError("Thời gian không đúng định dạng ISO local datetime.") from exc
-    else:
-        raise ValueError("Thời gian phải là ISO local datetime.")
-    if parsed.tzinfo is not None:
-        raise ValueError("Timeline chỉ nhận thời gian local, không nhận múi giờ.")
-    return parsed.replace(tzinfo=None)
+    return _video_cutter._normalise_duration(value, fallback, max_seconds=TIMELINE_MAX_SECONDS)
 
 
 def parse_timeline_range(start_value, end_value):
-    start = _parse_local_datetime_value(start_value)
-    end = _parse_local_datetime_value(end_value)
-    duration = (end - start).total_seconds()
-    if duration <= 0:
-        raise ValueError("Thời gian kết thúc (end) phải sau thời gian bắt đầu (start).")
-    if duration > TIMELINE_MAX_SECONDS:
-        raise ValueError("Timeline chỉ được xem tối đa 24 giờ.")
-    return start, end
+    return _video_cutter.parse_timeline_range(start_value, end_value, max_seconds=TIMELINE_MAX_SECONDS)
 
 
 def parse_video_metadata(filename, known_duration=None):
-    """Parse supported recording names without probing the media container."""
-    if not safe_video_filename(filename):
-        return None
-    range_match = re.fullmatch(
-        r"cam(\d+)_(\d{2})-(\d{2})-(\d{2})_to_"
-        r"(\d{2})-(\d{2})-(\d{2})_\((\d{2})-(\d{2})-(\d{4})\)\.mp4",
-        filename,
-        re.IGNORECASE,
+    return _video_cutter.parse_video_metadata(
+        filename, known_duration=known_duration,
+        fallback_duration=DURATION, max_seconds=TIMELINE_MAX_SECONDS,
     )
-    legacy_match = re.fullmatch(
-        r"cam(\d+)_segment_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})\.mp4",
-        filename,
-        re.IGNORECASE,
-    )
-    try:
-        if range_match:
-            groups = range_match.groups()
-            cam_id = _valid_camera_id(groups[0])
-            start = datetime.strptime(
-                f"{groups[9]}-{groups[8]}-{groups[7]} {groups[1]}:{groups[2]}:{groups[3]}",
-                "%Y-%m-%d %H:%M:%S",
-            )
-            end = datetime.strptime(
-                f"{groups[9]}-{groups[8]}-{groups[7]} {groups[4]}:{groups[5]}:{groups[6]}",
-                "%Y-%m-%d %H:%M:%S",
-            )
-            if end == start:
-                return None
-            if end < start:
-                end += timedelta(days=1)
-            duration = (end - start).total_seconds()
-            source_format = "range"
-        elif legacy_match:
-            groups = legacy_match.groups()
-            cam_id = _valid_camera_id(groups[0])
-            start = datetime.strptime(
-                f"{groups[1]}-{groups[2]}-{groups[3]} {groups[4]}:{groups[5]}:{groups[6]}",
-                "%Y-%m-%d %H:%M:%S",
-            )
-            duration = _normalise_duration(known_duration, DURATION)
-            if duration is None:
-                return None
-            end = start + timedelta(seconds=duration)
-            source_format = "segment"
-        else:
-            return None
-    except (TypeError, ValueError, OverflowError):
-        return None
-    if cam_id is None or not 0 < duration <= TIMELINE_MAX_SECONDS:
-        return None
-    return {
-        "filename": filename,
-        "cam_id": cam_id,
-        "start": start,
-        "end": end,
-        "duration_sec": float(duration),
-        "format": source_format,
-    }
 
 
 @contextmanager
@@ -5004,67 +4688,7 @@ def gen_netsdk_frames(camera, stream=None, context=None):
             time.sleep(3)
 
 
-def gen_frames(rtsp_url):
-    cap = None
-    last_send_time = 0.0
-    min_interval = 0.08  # ~12.5 fps max for live preview (smooth, low CPU, zero backlog)
-    while True:
-        try:
-            if cap is None:
-                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
-                    "rtsp_transport;tcp|fflags;nobuffer|max_delay;500000"
-                )
-                cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
-                if not cap.isOpened():
-                    raise ValueError("Không thể mở stream")
-                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-                last_send_time = 0.0
-
-            # Grab continuously to drain OpenCV RTSP buffer in real-time
-            if not cap.grab():
-                if cap:
-                    cap.release()
-                cap = None
-                time.sleep(2)
-                continue
-
-            now = time.monotonic()
-            if now - last_send_time < min_interval:
-                continue
-
-            ret, frame = cap.retrieve()
-            if not ret or frame is None:
-                continue
-
-            last_send_time = now
-            ok, buffer = cv2.imencode(
-                ".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 65]
-            )
-            if not ok:
-                continue
-
-            data = buffer.tobytes()
-            yield (
-                b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
-                + str(len(data)).encode("ascii")
-                + b"\r\n\r\n"
-                + data
-                + b"\r\n"
-            )
-        except GeneratorExit:
-            # Trình duyệt đã đóng ô camera; giải phóng RTSP ngay
-            if cap:
-                cap.release()
-            return
-        except Exception:
-            if cap:
-                cap.release()
-            cap = None
-            time.sleep(2)
-
-
 _TUNNEL_ONLINE = True
-_TUNNEL_LAST_CHECK = 0
 _TUNNEL_CHECK_INTERVAL = 15
 _cloudflared_proc = None
 _CONTROLHUB_PAIRING_CODE = ""
@@ -5175,27 +4799,6 @@ def api_ping():
     return jsonify({"status": "ok", "time": time.time()})
 
 
-def get_local_lan_ip():
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.settimeout(0.5)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        if ip and not ip.startswith("127."):
-            return ip
-    except Exception:
-        pass
-    try:
-        host_name = socket.gethostname()
-        ip = socket.gethostbyname(host_name)
-        if ip and not ip.startswith("127."):
-            return ip
-    except Exception:
-        pass
-    return "127.0.0.1"
-
-
 def get_public_base_url():
     try:
         if os.path.isfile(CONFIG_FILE):
@@ -5219,7 +4822,7 @@ def is_tunnel_online():
 
 
 def tunnel_health_loop():
-    global _TUNNEL_ONLINE, _TUNNEL_LAST_CHECK
+    global _TUNNEL_ONLINE
     time.sleep(2)
     while True:
         try:
@@ -5232,7 +4835,6 @@ def tunnel_health_loop():
                     _TUNNEL_ONLINE = False
             else:
                 _TUNNEL_ONLINE = False
-            _TUNNEL_LAST_CHECK = time.time()
             try:
                 local_port = int(CONFIG.get("server_port") or 8000)
             except (TypeError, ValueError):
@@ -6644,7 +6246,7 @@ def api_admin_tunnel_status():
 @app.route("/api/admin/tunnel-check", methods=["POST"])
 @admin_required
 def api_admin_tunnel_check():
-    global _TUNNEL_ONLINE, _TUNNEL_LAST_CHECK
+    global _TUNNEL_ONLINE
     pub_url = get_public_base_url()
     if pub_url:
         try:
@@ -6929,14 +6531,6 @@ def cut_progress():
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
 
-def parse_video_filename(filename):
-    metadata = parse_video_metadata(filename, known_duration=DURATION)
-    if metadata is None:
-        return None, None
-    # Giữ tuple cũ (thời điểm bắt đầu, tên tệp) cho luồng ghép video.
-    return metadata["start"], filename
-
-
 @app.route("/api/timeline")
 def timeline_api():
     return timeline_api_from_db()
@@ -7140,10 +6734,6 @@ def get_timeline_data(window_start, window_end):
         "camera_source_modes": {str(key): value for key, value in camera_modes.items()},
         "warnings": warnings,
     }
-
-
-def _read_timeline_segments(window_start, window_end):
-    return get_timeline_data(window_start, window_end)["segments"]
 
 
 def timeline_api_from_db():
@@ -7885,6 +7475,10 @@ def _table_add_license_error(candidate):
 
 
 from camera_modules.table_access import install_table_access
+from services import video_cutter as _video_cutter
+from services.video_cutter import safe_video_filename, _valid_camera_id, _parse_local_datetime_value
+from services.live_streamer import gen_frames
+from services.network import get_local_lan_ip
 
 install_table_access(
     app,
@@ -7899,7 +7493,6 @@ def main():
     """Start source mode or the separately compiled release application."""
     if not acquire_single_instance():
         sys.exit()
-    _ensure_external_watchdog()
     init_db()
     license_active = initialize_license_enforcement()
     threading.Thread(
