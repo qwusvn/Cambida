@@ -679,6 +679,60 @@
           </div>
         </div>
       </section>
+
+      <section class="card-pro section-card">
+        <div class="card-pro-header">
+          <h2 class="card-pro-title">
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            <span>Phát Trực Tiếp Fanpage (Facebook Live)</span>
+          </h2>
+          <button class="btn btn-outline-custom btn-sm section-toggle" type="button">Thu gọn</button>
+        </div>
+        <div class="card-pro-body section-content">
+          <p class="form-text mt-0 mb-3">Cho phép khách tại bàn bấm 1 chạm để phát camera bàn lên Fanpage của quán. Khi nhiều bàn cùng phát, hệ thống sẽ tự động gán vào các luồng Fanpage đang rảnh.</p>
+          <div class="row g-3">
+            <div class="col-md-8">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="guestFacebookLiveEnabled">
+                <label class="form-check-label fw-bold" for="guestFacebookLiveEnabled">Bật tính năng phát Facebook Live cho khách tại bàn</label>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label" for="facebookLiveMaxDuration">Thời lượng tối đa mỗi lần phát (phút)</label>
+              <input id="facebookLiveMaxDuration" type="number" min="5" max="240" class="form-control" value="60">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label" for="fbGraphPageId">Fanpage Page ID (Meta Live Video API)</label>
+              <input id="fbGraphPageId" class="form-control" inputmode="numeric" pattern="[0-9]*" placeholder="ID số của Fanpage" autocomplete="off">
+            </div>
+            <div class="col-md-7">
+              <label class="form-label" for="fbGraphPageToken">Page Access Token (chỉ nhập khi cập nhật)</label>
+              <input id="fbGraphPageToken" class="form-control" type="password" autocomplete="new-password" placeholder="Token sẽ không hiển thị lại sau khi lưu">
+              <div class="form-text">Khi đã cấu hình ID và Token, Live Video API được ưu tiên, không cần Stream Key tĩnh hay thao tác Facebook Producer. Token không bao giờ gửi về trang khách.</div>
+            </div>
+            <div class="col-12">
+              <div class="border rounded p-3" style="border-color:var(--border)!important;">
+                <div class="fw-bold mb-2">Cho phép khách Live theo từng bàn (20 phút)</div>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                  <input id="fbApprovedCamId" class="form-control" type="number" min="1" step="1" placeholder="Số camera của bàn" style="max-width:175px;" aria-label="Số camera cần cho phép">
+                  <button type="button" id="fbApproveCamBtn" class="btn btn-success btn-sm">Cho phép Live bàn này</button>
+                  <button type="button" id="fbRevokeCamBtn" class="btn btn-outline-danger btn-sm">Thu hồi / Dừng Live</button>
+                </div>
+                <div id="fbApproveCamStatus" class="form-text" role="status">Khách chỉ có thể bắt đầu bài Live Fanpage API sau khi nhân viên cho phép đúng bàn.</div>
+              </div>
+            </div>
+
+            <div class="col-12 mt-2">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="form-label fw-bold mb-0">Danh sách Khóa Luồng Fanpage (Stream Pool)</label>
+                <button type="button" id="addFbSlotBtn" class="btn btn-sm btn-outline-custom">+ Thêm Fanpage</button>
+              </div>
+              <div id="fbSlotsContainer" class="d-flex flex-column gap-2"></div>
+              <div class="form-text mt-2">Các khóa luồng được bảo mật trên máy chủ quán, không bao giờ lộ về điện thoại khách. Bàn nào bấm trước sẽ nhận luồng rảnh trước.</div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
 
     <!-- ========================================================================= -->
@@ -849,7 +903,7 @@
     plus: `<svg class="svg-icon me-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>`
   };
 
-  let currentConfig = {}, cameraDrafts = [];
+  let currentConfig = {}, cameraDrafts = [], fbSlots = [];
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const pretty = value => JSON.stringify(value, null, 2);
@@ -1085,6 +1139,52 @@
       </div>`).join('') : '<div class="muted col-12 py-3 text-center">Chưa có camera để tạo mã QR bàn.</div>';
   }
 
+  function renderFbSlots() {
+    const container = $('fbSlotsContainer');
+    if (!container) return;
+    if (!fbSlots.length) {
+      container.innerHTML = '<div class="muted py-2 border rounded p-3 text-center" style="border-color:var(--border)!important;">Chưa có luồng Fanpage nào. Bấm <b>+ Thêm Fanpage</b> để cấu hình luồng.</div>';
+      return;
+    }
+    container.innerHTML = fbSlots.map((slot, index) => `
+      <div class="border rounded p-3" style="border-color:var(--border)!important; background:var(--card-bg);" data-slot-index="${index}">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="badge bg-secondary">Luồng ${index + 1}</span>
+          <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2 remove-fb-slot" data-index="${index}">Xóa</button>
+        </div>
+        <div class="row g-2">
+          <div class="col-md-3">
+            <label class="form-label small mb-1">Tên Fanpage / Nhãn</label>
+            <input class="form-control form-control-sm fb-slot-name" value="${esc(slot.name || `Fanpage ${index + 1}`)}" placeholder="Ví dụ: Fanpage 1">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label small mb-1">Persistent Stream Key</label>
+            <input type="password" class="form-control form-control-sm fb-slot-key" value="${esc(slot.stream_key || '')}" placeholder="Dán Stream Key từ Live Producer">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small mb-1">Đường dẫn Fanpage (URL)</label>
+            <input class="form-control form-control-sm fb-slot-url" value="${esc(slot.page_url || '')}" placeholder="https://facebook.com/tenfanpage">
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function getFbSlotValues() {
+    const rows = document.querySelectorAll('#fbSlotsContainer [data-slot-index]');
+    return Array.from(rows).map((row, index) => {
+      const name = row.querySelector('.fb-slot-name')?.value?.trim() || `Fanpage ${index + 1}`;
+      const stream_key = row.querySelector('.fb-slot-key')?.value?.trim() || '';
+      const page_url = row.querySelector('.fb-slot-url')?.value?.trim() || '';
+      return {
+        id: String(index + 1),
+        name,
+        stream_key,
+        page_url
+      };
+    }).filter(s => s.stream_key || s.page_url);
+  }
+
   function setForm(config) {
     currentConfig = config;
     cameraDrafts = (config.cameras || []).map((camera, index) => {
@@ -1113,6 +1213,24 @@
     $('runInTray').checked=asYesNo(config.run_in_tray);
     $('telegramToken').value=config.telegram_token||'';
     $('telegramChatId').value=config.telegram_chat_id||'';
+    $('guestFacebookLiveEnabled').checked=Boolean(config.guest_facebook_live_enabled);
+      $('fbGraphPageId').value=config.facebook_graph_page_id||'';
+      $('fbGraphPageToken').value='';
+      $('fbGraphPageToken').placeholder=config.facebook_graph_token_configured?'Token đã lưu trên máy chủ (để trống nếu giữ nguyên)':'Nhập Page Access Token từ Meta';
+    $('facebookLiveMaxDuration').value=config.facebook_live_max_duration||60;
+    fbSlots = Array.isArray(config.facebook_page_pools) && config.facebook_page_pools.length ?
+      config.facebook_page_pools.map((p, i) => ({
+        id: p.id || String(i + 1),
+        name: p.name || `Fanpage ${i + 1}`,
+        stream_key: p.stream_key || '',
+        page_url: p.page_url || ''
+      })) : (config.facebook_page_stream_key ? [{
+        id: '1',
+        name: 'Fanpage 1',
+        stream_key: config.facebook_page_stream_key,
+        page_url: config.facebook_page_url || ''
+      }] : []);
+    renderFbSlots();
     $('rawConfig').value=pretty(config);
     renderCameras();
     renderQrs(config.tables||[]);
@@ -1150,6 +1268,13 @@
       run_in_tray:$('runInTray').checked?'yes':'no',
       telegram_token:$('telegramToken').value.trim(),
       telegram_chat_id:$('telegramChatId').value.trim(),
+      guest_facebook_live_enabled:$('guestFacebookLiveEnabled').checked,
+      facebook_live_max_duration:Number($('facebookLiveMaxDuration').value)||60,
+      facebook_graph_page_id:$('fbGraphPageId').value.trim(),
+      facebook_graph_page_token:$('fbGraphPageToken').value.trim(),
+      facebook_page_pools:getFbSlotValues(),
+      facebook_page_stream_key:getFbSlotValues()[0]?.stream_key || '',
+      facebook_page_url:getFbSlotValues()[0]?.page_url || '',
       cameras,
       tables
     };
@@ -1600,6 +1725,28 @@
     }
   });
 
+  $('addFbSlotBtn')?.addEventListener('click', () => {
+    fbSlots = getFbSlotValues();
+    fbSlots.push({
+      id: String(fbSlots.length + 1),
+      name: `Fanpage ${fbSlots.length + 1}`,
+      stream_key: '',
+      page_url: ''
+    });
+    renderFbSlots();
+  });
+
+  $('fbSlotsContainer')?.addEventListener('click', event => {
+    const button = event.target.closest('.remove-fb-slot');
+    if (!button) return;
+    const index = Number(button.dataset.index);
+    if (!isNaN(index)) {
+      fbSlots = getFbSlotValues();
+      fbSlots.splice(index, 1);
+      renderFbSlots();
+    }
+  });
+
   $('configForm').addEventListener('submit', async event => {
     event.preventDefault();
     const payload = readForm();
@@ -1893,6 +2040,37 @@
       if (btn) btn.disabled = false;
     }
   }
+
+  // Staff-controlled, short-lived authorization for public Page Live API.
+  async function authorizeFacebookCam(action){
+    const input = $('fbApprovedCamId');
+    const out = $('fbApproveCamStatus');
+    const cam = Number(input.value);
+    if (!Number.isSafeInteger(cam) || cam < 1 || cam > 500) {
+      out.textContent = 'Nhập đúng số camera của bàn trước khi thực hiện.';
+      return;
+    }
+    const btn = $(action === 'approve' ? 'fbApproveCamBtn' : 'fbRevokeCamBtn');
+    btn.disabled = true;
+    out.textContent = 'Đang xử lý...';
+    try {
+      const resp = await fetch('/api/admin/facebook-live/cam' + cam + '/' + action, {
+        method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Không thể thay đổi quyền phát.');
+      out.textContent = action === 'approve'
+        ? 'Đã cho phép camera ' + cam + ' bắt đầu Live trên Fanpage trong 20 phút (một lần).'
+        : 'Đã thu hồi quyền phát và yêu cầu kết thúc Live của camera ' + cam + '.';
+    } catch (err) {
+      out.textContent = err.message || 'Lỗi kết nối.';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  $('fbApproveCamBtn').addEventListener('click', () => authorizeFacebookCam('approve'));
+  $('fbRevokeCamBtn').addEventListener('click', () => authorizeFacebookCam('revoke'));
 
   loadConfig().catch(error => notice(error.message, false));
   loadHealth();

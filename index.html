@@ -1621,6 +1621,455 @@
       border-color: rgba(244, 63, 94, 0.3);
       color: #fda4af;
     }
+    /* Facebook Live is optional and independent of replay/cut controls. */
+    .btn-fb-trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 15.5px;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #1877f2 0%, #166fe5 100%);
+      box-shadow: 0 4px 14px rgba(24, 119, 242, 0.35);
+      border: none;
+      cursor: pointer;
+    }
+    .btn-fb-trigger:hover { filter: brightness(1.08); }
+    .btn-fb-trigger.is-streaming {
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);
+    }
+    .fb-live-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .fb-live-modal[hidden] { display: none !important; }
+    .fb-live-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(6, 9, 14, 0.78);
+      backdrop-filter: blur(6px);
+    }
+    .fb-live-dialog {
+      position: relative;
+      z-index: 2;
+      width: min(100%, 540px);
+      max-height: calc(100vh - 32px);
+      overflow-y: auto;
+      background: linear-gradient(180deg, #161f30 0%, #101725 100%);
+      color: #f8fafc;
+      border: 1.2px solid #334155;
+      border-radius: 14px;
+      padding: 20px 22px;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.65), 0 2px 4px rgba(56, 189, 248, 0.1);
+      box-sizing: border-box;
+      animation: modalPop .2s ease-out;
+      font-family: inherit;
+    }
+    .fb-live-dialog [hidden] { display: none !important; }
+    .fb-dialog-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .fb-dialog-title-group { display: grid; gap: 4px; }
+    .fb-badge-title-row { display: flex; align-items: center; gap: 8px; }
+    .fb-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(245, 158, 11, 0.18);
+      border: 1px solid #f59e0b;
+      color: #fbbf24;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      line-height: 1.3;
+    }
+    .fb-dialog-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      color: #f8fafc;
+      letter-spacing: -0.2px;
+    }
+    .fb-dialog-sub {
+      font-size: 11.5px;
+      color: #94a3b8;
+      line-height: 1.45;
+    }
+    .fb-dialog-close {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(30, 41, 59, 0.6);
+      border: 0.8px solid #475569;
+      color: #94a3b8;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.15s ease;
+      padding: 0;
+    }
+    .fb-dialog-close:hover {
+      background: rgba(51, 65, 85, 0.8);
+      color: #f8fafc;
+      border-color: #64748b;
+    }
+    .fb-dialog-divider {
+      border: none;
+      border-top: 1px solid rgba(51, 65, 85, 0.6);
+      margin: 10px 0 14px;
+    }
+    .fb-mode-tabs {
+      display: flex;
+      gap: 8px;
+      margin: 0 0 12px;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+      padding-bottom: 8px;
+    }
+    .fb-tab-btn {
+      flex: 1;
+      min-height: 34px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .fb-tab-btn.is-active {
+      background: #1877f2;
+      color: #ffffff;
+      border-color: #1877f2;
+    }
+    .fb-producer-link-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      min-height: 40px;
+      border-radius: 8px;
+      background: #1877f2;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      box-sizing: border-box;
+      transition: opacity 0.15s ease;
+    }
+    .fb-producer-link-btn:hover { opacity: 0.92; }
+    .fb-producer-note {
+      text-align: center;
+      font-size: 11px;
+      color: #64748b;
+      margin: 5px 0 12px;
+      line-height: 1.4;
+    }
+    .fb-key-section { display: grid; gap: 6px; margin-bottom: 12px; }
+    .fb-key-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+    .fb-key-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #0b111a;
+      border: 1.2px solid #3b82f6;
+      border-radius: 7px;
+      padding: 3px 4px 3px 10px;
+      box-sizing: border-box;
+    }
+    .fb-key-input-wrap .fb-input {
+      border: none !important;
+      background: transparent !important;
+      color: #f8fafc !important;
+      padding: 6px 4px;
+      font-size: 13px;
+      flex: 1;
+      min-height: 32px;
+      outline: none;
+    }
+    .fb-paste-btn {
+      min-height: 28px;
+      padding: 0 14px;
+      border-radius: 5px;
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #38bdf8;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.15s ease;
+    }
+    .fb-paste-btn:hover {
+      background: #334155;
+      color: #7dd3fc;
+    }
+    .fb-preview-box {
+      position: relative;
+      width: 100%;
+      height: 180px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #080d14;
+      border: 1.2px solid #1e293b;
+      margin-bottom: 12px;
+    }
+    .fb-saved-key-hint {
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      font-size: 12px;
+      line-height: 1.4;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .fb-saved-key-hint[hidden] {
+      display: none !important;
+    }
+    .fb-preview-svg-fallback {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .fb-preview-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: rgba(11, 17, 26, 0.85);
+      font-size: 10px;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: 0.5px;
+    }
+    .fb-preview-badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+    .fb-consent-wrap {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      font-size: 11.5px;
+      color: #cbd5e1;
+      line-height: 1.45;
+    }
+    .fb-consent-wrap input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: #0ea5e9;
+      flex-shrink: 0;
+    }
+    .fb-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: #131d2e;
+      border: 1px solid #1e293b;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: #94a3b8;
+      box-sizing: border-box;
+    }
+    .fb-status-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .fb-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #64748b;
+      flex-shrink: 0;
+      transition: background 0.2s ease;
+    }
+    .fb-status-dot.is-running { background: #22c55e; }
+    .fb-status-dot.is-error { background: #ef4444; }
+    .fb-status-rtmp {
+      font-size: 11px;
+      color: #475569;
+      flex-shrink: 0;
+      font-family: monospace;
+    }
+    .fb-btn-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .fb-btn-start {
+      flex: 3;
+      min-height: 42px;
+      border-radius: 8px;
+      background: #16a34a;
+      border: 1px solid #16a34a;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .fb-btn-start:hover { filter: brightness(1.08); }
+    .fb-btn-start:disabled { opacity: 0.5; cursor: not-allowed; }
+    .fb-btn-stop {
+      flex: 1.2;
+      min-height: 42px;
+      border-radius: 8px;
+      background: #1e293b;
+      border: 1.2px solid #334155;
+      color: #cbd5e1;
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .fb-btn-stop:hover { background: #334155; }
+    .fb-btn-stop:disabled { opacity: 0.5; cursor: not-allowed; }
+    .fb-producer-tip {
+      font-size: 11.5px;
+      color: #38bdf8;
+      font-style: italic;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 12px;
+      line-height: 1.4;
+    }
+    .fb-tip-icon {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1.2px solid #38bdf8;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 700;
+      font-style: normal;
+      flex-shrink: 0;
+    }
+    .fb-settings-accordion {
+      border-top: 1px solid rgba(51, 65, 85, 0.6);
+      padding-top: 10px;
+    }
+    .fb-settings-summary {
+      font-size: 12px;
+      font-weight: 500;
+      color: #94a3b8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+    .fb-settings-summary::-webkit-details-marker { display: none; }
+    .fb-settings-content {
+      margin-top: 10px;
+      display: grid;
+      gap: 10px;
+    }
+    .fb-input {
+      width: 100%;
+      min-height: 36px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #0b111a;
+      color: #f8fafc;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+    .fb-input:focus { outline: none; border-color: #38bdf8; }
+    .fb-field-group { display: grid; gap: 4px; }
+    .fb-field-group label { font-size: 11.5px; font-weight: 600; color: #cbd5e1; }
+    .fb-hint { font-size: 11px; color: #94a3b8; line-height: 1.4; }
+    .fb-sub-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
+    .fb-sub-actions button {
+      min-height: 30px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #334155;
+      background: #1e293b;
+      color: #cbd5e1;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .fb-sub-actions button:hover { background: #334155; }
+    .fb-account-box {
+      padding: 8px 10px;
+      border: 1px dashed #334155;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.4);
+    }
+    .btn-fb-view {
+      min-height: 38px;
+      border-radius: 8px;
+      background: #1877f2;
+      color: #fff;
+      font-weight: 700;
+      font-size: 12.5px;
+      padding: 8px 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-decoration: none;
+      box-sizing: border-box;
+    }
+    .btn-fb-view:hover { opacity: 0.92; color: #fff; }
+    .fb-dialog-status-msg {
+      min-height: 16px;
+      font-size: 11.5px;
+      line-height: 1.45;
+      color: #94a3b8;
+    }
   </style>
 </head>
 <body>
@@ -1727,12 +2176,237 @@
     <div id="codecWarning" class="warning" hidden><span class="warning-icon">!</span><span>Video này sử dụng codec H.265/HEVC. Vui lòng tải về máy để xem bằng phần mềm phù hợp hoặc đổi camera sang H.264.</span></div>
     <div id="watchError" class="inline-error" hidden></div>
 
-    <!-- Cắt Video Button -->
+    <!-- Cắt Video & Facebook Live Actions -->
     <div class="actions replay-actions">
       <button id="cutButton" class="action primary cut-primary" type="button">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="m20 4-8.5 8.5M20 20l-5-5M11.5 12.5 8.5 15.5"/></svg>Cắt Video</button>
+      <button id="fbLiveTriggerBtn" class="action btn-fb-trigger" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="fbLiveModal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        <span id="fbLiveTriggerText">Phát Facebook</span>
+      </button>
     </div>
   </section>
+
+  <!-- Facebook Live Modal (Minimal UI matching approved demo) -->
+  <div id="fbLiveModal" class="fb-live-modal" hidden>
+    <div class="fb-live-backdrop" id="fbLiveModalBackdrop"></div>
+    <div class="fb-live-dialog" role="dialog" aria-modal="true" aria-labelledby="fbLiveModalTitle">
+      <div id="fbLivePanel" data-live-nonce="{{ facebook_live_nonce }}" data-page-url="{{ facebook_page_url }}">
+        <!-- Header bar -->
+        <div class="fb-dialog-header">
+          <div class="fb-dialog-title-group">
+            <div class="fb-badge-title-row">
+              <span class="fb-badge">FACEBOOK</span>
+              <h2 class="fb-dialog-title" id="fbLiveModalTitle">Facebook cá nhân</h2>
+            </div>
+            <div class="fb-dialog-sub">Phát trực tiếp hình ảnh bàn thi đấu lên Facebook cá nhân</div>
+          </div>
+          <button id="fbLiveModalClose" class="fb-dialog-close" type="button" aria-label="Đóng bảng Facebook Live" title="Đóng">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+
+        <hr class="fb-dialog-divider">
+
+        <p id="fbHttpsNotice" class="fb-hint" style="color:#fbbf24; margin-bottom:10px;" hidden>Để đảm bảo an toàn kết nối, vui lòng mở qua liên kết HTTPS. <a href="/facebook-live/secure/cam{{ cam_id }}">Mở phiên bản HTTPS</a></p>
+
+        <!-- Mode tabs: Cá nhân (Default) vs Fanpage quán -->
+        <div class="fb-mode-tabs" role="tablist" aria-label="Chế độ phát trực tiếp">
+          <button id="fbTabPersonal" type="button" class="fb-tab-btn is-active" role="tab" aria-selected="true">Trang cá nhân</button>
+          <button id="fbTabFanpage" type="button" class="fb-tab-btn" role="tab" aria-selected="false">Fanpage quán</button>
+        </div>
+
+        <div class="fb-form">
+          <!-- Step 1: Open Facebook Tab Button -->
+          <div id="fbPersonalMainGroup">
+            <a id="fbProducerTabLink" class="fb-producer-link-btn" href="https://www.facebook.com/live/producer" target="_blank" rel="noopener noreferrer">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              <span>Mở Facebook · tab mới</span>
+            </a>
+            <div class="fb-producer-note">* Đăng nhập chính thức trực tiếp trên tab bảo mật của Facebook</div>
+
+            <!-- Step 2: Stream Key Input Section -->
+            <div class="fb-key-section" id="fbKeySection">
+              <div class="fb-key-label">Nhập mã luồng (Stream Key)</div>
+              <div class="fb-key-input-wrap">
+                <input id="fbRegKey" class="fb-input" type="password" autocomplete="off" placeholder="Dán Stream Key từ Producer" aria-label="Stream Key">
+                <button id="fbBtnPasteKey" class="fb-paste-btn" type="button">Dán</button>
+              </div>
+            </div>
+
+            <!-- Saved Stream Key hint pointing to accordion -->
+            <div id="fbSavedKeyHint" class="fb-saved-key-hint" hidden>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Đã lưu Khóa luồng trong tài khoản. Để cập nhật khóa mới, mở <a href="#" id="fbLinkToChangeKey" style="color:#60a5fa; text-decoration:underline; font-weight:600;">Thiết lập tài khoản &gt; Đổi Khóa luồng</a>.</span>
+            </div>
+          </div>
+
+          <!-- Step 3: Stylized Billiard Table Camera Preview (Reusing existing snapshot or clear fallback) -->
+          <div class="fb-preview-box">
+            <svg class="fb-preview-svg-fallback" viewBox="0 0 512 185" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <defs>
+                <linearGradient id="fbFeltGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#0a5c36" />
+                  <stop offset="50%" stop-color="#0d7343" />
+                  <stop offset="100%" stop-color="#07482a" />
+                </linearGradient>
+                <radialGradient id="fbBallYellow" cx="35%" cy="35%" r="65%">
+                  <stop offset="0%" stop-color="#fff176" /><stop offset="40%" stop-color="#fbc02d" /><stop offset="100%" stop-color="#c49000" />
+                </radialGradient>
+                <radialGradient id="fbBallWhite" cx="35%" cy="35%" r="65%">
+                  <stop offset="0%" stop-color="#ffffff" /><stop offset="50%" stop-color="#eceff1" /><stop offset="100%" stop-color="#90a4ae" />
+                </radialGradient>
+                <radialGradient id="fbBallRed" cx="35%" cy="35%" r="65%">
+                  <stop offset="0%" stop-color="#ff8a80" /><stop offset="45%" stop-color="#e53935" /><stop offset="100%" stop-color="#b71c1c" />
+                </radialGradient>
+              </defs>
+              <rect width="512" height="185" fill="#080d14"/>
+              <rect x="24" y="16" width="464" height="152" rx="10" fill="#2d1810" stroke="#4a2a1b" stroke-width="2.5" />
+              <rect x="36" y="26" width="440" height="132" rx="6" fill="url(#fbFeltGrad)" />
+              <circle cx="146" cy="20" r="1.8" fill="#e2e8f0" opacity="0.8" />
+              <circle cx="256" cy="20" r="1.8" fill="#e2e8f0" opacity="0.8" />
+              <circle cx="366" cy="20" r="1.8" fill="#e2e8f0" opacity="0.8" />
+              <circle cx="146" cy="163" r="1.8" fill="#e2e8f0" opacity="0.8" />
+              <circle cx="256" cy="163" r="1.8" fill="#e2e8f0" opacity="0.8" />
+              <circle cx="366" cy="163" r="1.8" fill="#e2e8f0" opacity="0.8" />
+              <line x1="150" y1="26" x2="150" y2="158" stroke="#ffffff" stroke-opacity="0.2" stroke-dasharray="3,3" stroke-width="1" />
+              <!-- White cue ball -->
+              <g transform="translate(190, 85)"><circle cx="0" cy="0" r="10" fill="url(#fbBallWhite)" stroke="#cbd5e1" stroke-width="0.5"/><circle cx="-1" cy="-1" r="1.8" fill="#d32f2f"/></g>
+              <!-- Yellow object ball -->
+              <g transform="translate(310, 68)"><circle cx="0" cy="0" r="10" fill="url(#fbBallYellow)" stroke="#eab308" stroke-width="0.5"/><circle cx="1" cy="0" r="1.8" fill="#d32f2f"/></g>
+              <!-- Red object ball -->
+              <g transform="translate(380, 105)"><circle cx="0" cy="0" r="10" fill="url(#fbBallRed)" stroke="#b91c1c" stroke-width="0.5"/></g>
+            </svg>
+            <div class="fb-preview-badge">
+              <span class="fb-preview-badge-dot"></span>
+              <span>CAMERA {{ cam_id }} / HÌNH MINH HỌA</span>
+            </div>
+          </div>
+
+          <!-- Step 4: Consent Checkbox -->
+          <label class="fb-consent-wrap">
+            <input id="fbLiveConsent" type="checkbox">
+            <span id="fbConsentLabel">Tôi đồng ý phát trực tiếp luồng video camera lên trang cá nhân</span>
+          </label>
+
+          <!-- Step 5: Truthful Status Bar -->
+          <div class="fb-status-bar">
+            <div class="fb-status-left">
+              <span id="fbStatusDot" class="fb-status-dot"></span>
+              <span>Trạng thái: <strong id="fbLiveStatusText" style="color:#e2e8f0;">Chưa gửi luồng</strong></span>
+            </div>
+            <div id="fbStatusRtmp" class="fb-status-rtmp">RTMP Off</div>
+          </div>
+          <div id="fbLiveStatus" class="fb-dialog-status-msg" role="status" aria-live="polite">Sẵn sàng gửi luồng tới Facebook cá nhân.</div>
+
+          <!-- Step 6: Action Buttons -->
+          <div class="fb-btn-row">
+            <button id="fbLiveStart" class="fb-btn-start" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span>Bắt đầu gửi luồng</span>
+            </button>
+            <button id="fbLiveStop" class="fb-btn-stop" type="button" disabled>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+              <span>Dừng</span>
+            </button>
+          </div>
+
+          <!-- External View Link (Producer or Fanpage view link) -->
+          <div class="fb-sub-actions" style="margin-bottom: 10px;">
+            <a id="fbLiveProducerLink" href="https://www.facebook.com/live/producer" target="_blank" rel="noopener noreferrer" class="btn-fb-view" style="width:100%;" hidden>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              <span>Mở Facebook Producer ↗</span>
+            </a>
+            <a id="fbLiveViewLink" href="{{ facebook_page_url or '#' }}" target="_blank" rel="noopener noreferrer" class="btn-fb-view" style="width:100%;" hidden>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+              <span>Mở Fanpage ↗</span>
+            </a>
+          </div>
+
+          <!-- Step 7: Explanatory note -->
+          <div class="fb-producer-tip" id="fbProducerTip">
+            <span class="fb-tip-icon">i</span>
+            <span>Sau khi có hình, bấm Phát trực tiếp trên Facebook Producer.</span>
+          </div>
+
+          <p id="fbProducerNotice" class="fb-hint" hidden>
+            Truy cập <a href="https://www.facebook.com/live/producer" target="_blank" rel="noopener noreferrer">Facebook Live Producer ↗</a> để lấy Khóa luồng (Stream Key). Chọn tùy chọn <em>Khóa luồng cố định</em> (nếu có) và sao chép dán vào bên trên.
+          </p>
+
+          <!-- Fanpage mode description -->
+          <div id="fbFanpageSection" hidden>
+            <p class="fb-hint" style="margin-bottom:12px;">Hình ảnh camera bàn này sẽ được gửi luồng tới Fanpage của quán để bạn bè cùng theo dõi ván đấu.</p>
+          </div>
+
+          <!-- Step 8: Collapsible Account Settings (SĐT / PIN / Đổi Khóa luồng / Login) -->
+          <div class="fb-settings-accordion">
+            <details id="fbSettingsDetails">
+              <summary class="fb-settings-summary">
+                <span>Thiết lập tài khoản Cambida · SĐT / PIN</span>
+                <span style="font-size:11px; color:#64748b;">Mở rộng &#9662;</span>
+              </summary>
+              <div class="fb-settings-content">
+                <!-- Personal mode setup / account section -->
+                <div id="fbPersonalSection">
+                  <!-- Logged in state box -->
+                  <div id="fbAccountBox" class="fb-account-box" hidden>
+                    <div id="fbAccountGreeting" style="font-weight:600; font-size:12px; margin-bottom:6px;">Tài khoản của bạn</div>
+                    <div class="fb-sub-actions">
+                      <button id="fbBtnChangeKey" type="button">Đổi Khóa luồng</button>
+                      <button id="fbBtnLogout" type="button">Đăng xuất</button>
+                      <button id="fbBtnDelete" type="button" style="color:#ef4444;">Xóa tài khoản</button>
+                    </div>
+                    <!-- Sub-form: Change stream key -->
+                    <div id="fbChangeKeyForm" style="margin-top:10px; display:grid; gap:8px;" hidden>
+                      <label for="fbInputNewKey" class="fb-key-label">Khóa luồng mới:</label>
+                      <div class="fb-key-input-wrap">
+                        <input id="fbInputNewKey" class="fb-input" type="password" autocomplete="off" placeholder="Dán Khóa luồng mới vào đây">
+                        <button id="fbBtnPasteNewKey" class="fb-paste-btn" type="button">Dán</button>
+                      </div>
+                      <div class="fb-sub-actions">
+                        <button id="fbBtnSaveNewKey" type="button">Cập nhật Khóa</button>
+                        <button id="fbBtnCancelNewKey" type="button">Hủy</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Unauthenticated initial collapsed prompt & switch to login -->
+                  <div id="fbUnauthPrompt" class="fb-sub-actions" style="margin-bottom:6px;" hidden>
+                    <button id="fbBtnShowLogin" type="button">Đã có tài khoản? Đăng nhập thiết bị này</button>
+                  </div>
+
+                  <!-- Register / Setup form (for new guest) -->
+                  <div id="fbRegisterForm" class="fb-field-group" hidden>
+                    <label for="fbRegPhone">Số điện thoại:</label>
+                    <input id="fbRegPhone" class="fb-input" type="tel" inputmode="tel" autocomplete="tel" placeholder="Nhập số điện thoại">
+
+                    <label for="fbRegPin">Mã PIN bảo vệ (4 chữ số):</label>
+                    <input id="fbRegPin" class="fb-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="new-password" placeholder="4 số bí mật">
+                    <div class="fb-hint">Thiết bị không tự lưu trữ khóa giải mã. Bạn có thể sử dụng lại trên máy khác bằng Số điện thoại + PIN.</div>
+                  </div>
+
+                  <!-- Login form (for existing user on a new device) -->
+                  <div id="fbLoginForm" class="fb-field-group" hidden>
+                    <label for="fbLoginPhone">Số điện thoại:</label>
+                    <input id="fbLoginPhone" class="fb-input" type="tel" inputmode="tel" autocomplete="tel" placeholder="Số điện thoại đã đăng ký">
+
+                    <label for="fbLoginPin">Mã PIN (4 chữ số):</label>
+                    <input id="fbLoginPin" class="fb-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="current-password" placeholder="4 số bí mật">
+                    <div class="fb-hint" style="color:#f59e0b;">Lưu ý: Đăng nhập trên thiết bị mới sẽ vô hiệu hóa phiên làm việc trên thiết bị cũ.</div>
+
+                    <div class="fb-sub-actions" style="margin-top:4px;">
+                      <button id="fbBtnDoLogin" type="button">Đăng nhập</button>
+                      <button id="fbBtnCancelLogin" type="button">Quay lại thiết lập mới</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Screen 3: Cắt video Screen -->
   <section id="cutScreen" class="screen screen-cut" hidden>
@@ -1956,6 +2630,823 @@
   const CAMERA_MODE = "{{ camera_mode }}";
   const HAS_NVR = {{ 'true' if has_nvr else 'false' }};
   const CAMERA_ID = "{{ cam_id }}";
+  const FB_LIVE_NONCE = document.getElementById("fbLivePanel")?.dataset?.liveNonce || "";
+  (function initGuestFacebookLive(){
+    const ui = id => document.getElementById(id);
+    const panel = ui("fbLivePanel");
+    if (!panel || !window.location) return;
+    const api = "/api/facebook-live/cam" + encodeURIComponent(CAMERA_ID);
+    const start = ui("fbLiveStart"), stop = ui("fbLiveStop");
+    const viewLink = ui("fbLiveViewLink"), producerLink = ui("fbLiveProducerLink");
+    const producerNotice = ui("fbProducerNotice");
+    const consent = ui("fbLiveConsent"), consentLabel = ui("fbConsentLabel"), state = ui("fbLiveStatus");
+    const tabPersonal = ui("fbTabPersonal"), tabFanpage = ui("fbTabFanpage");
+    const personalSec = ui("fbPersonalSection"), fanpageSec = ui("fbFanpageSection");
+
+    // Modal & Trigger elements
+    const modal = ui("fbLiveModal"), modalBackdrop = ui("fbLiveModalBackdrop"), modalClose = ui("fbLiveModalClose");
+    const triggerBtn = ui("fbLiveTriggerBtn"), triggerText = ui("fbLiveTriggerText");
+    const modalTitle = ui("fbLiveModalTitle");
+    const statusDot = ui("fbStatusDot"), statusText = ui("fbLiveStatusText"), statusRtmp = ui("fbStatusRtmp");
+    const btnPasteKey = ui("fbBtnPasteKey"), btnPasteNewKey = ui("fbBtnPasteNewKey");
+    const personalMainGroup = ui("fbPersonalMainGroup");
+    let lastActiveElement = null;
+    let priorInertElements = [];
+
+    function setBackgroundInert(active){
+      if (!modal || !modal.parentElement) return;
+      if (active) {
+        priorInertElements = [];
+        const siblings = Array.from(modal.parentElement.children);
+        for (const el of siblings) {
+          if (el === modal) continue;
+          const wasInert = el.hasAttribute("inert");
+          priorInertElements.push({ el, wasInert });
+          el.inert = true;
+          el.setAttribute("inert", "");
+        }
+      } else {
+        for (const item of priorInertElements) {
+          if (item.wasInert) {
+            item.el.inert = true;
+            item.el.setAttribute("inert", "");
+          } else {
+            item.el.inert = false;
+            item.el.removeAttribute("inert");
+          }
+        }
+        priorInertElements = [];
+      }
+    }
+
+    function isElementFocusable(el){
+      if (!el || el.disabled) return false;
+      if (el.getAttribute("tabindex") === "-1") return false;
+      if (el.getAttribute("aria-hidden") === "true") return false;
+      if (el.hidden || el.closest("[hidden]")) return false;
+      // Closed details: summary is focusable, descendants are not reachable
+      const closedDetails = el.closest("details:not([open])");
+      if (closedDetails && !el.matches("summary")) return false;
+      const style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+      if (style && (style.display === "none" || style.visibility === "hidden")) return false;
+      if (el.offsetParent === null && (!style || style.position !== "fixed")) {
+        const rects = el.getClientRects();
+        if (!rects || rects.length === 0 || (rects[0].width === 0 && rects[0].height === 0)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function getFocusableDialogElements(){
+      if (!modal) return [];
+      const dialog = modal.querySelector(".fb-live-dialog") || modal;
+      const candidates = Array.from(dialog.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), summary'
+      ));
+      return candidates.filter(isElementFocusable);
+    }
+
+    function openModal(){
+      if (!modal) return;
+      lastActiveElement = document.activeElement;
+      setBackgroundInert(true);
+      modal.hidden = false;
+      if (triggerBtn) triggerBtn.setAttribute("aria-expanded", "true");
+      // Refresh status and profile on open
+      if (!isBusyOp) {
+        fetchProfileStatus().then(getStatus);
+      }
+      // Accessible focus inside modal: focus close button or first focusable
+      const focusables = getFocusableDialogElements();
+      if (modalClose && focusables.includes(modalClose)) {
+        modalClose.focus();
+      } else if (focusables.length > 0) {
+        focusables[0].focus();
+      }
+    }
+
+    function closeModal(){
+      if (!modal || modal.hidden) return;
+      modal.hidden = true;
+      setBackgroundInert(false);
+      if (triggerBtn) {
+        triggerBtn.setAttribute("aria-expanded", "false");
+        if (lastActiveElement && typeof lastActiveElement.focus === "function") {
+          lastActiveElement.focus();
+        } else {
+          triggerBtn.focus();
+        }
+      }
+    }
+
+    if (triggerBtn) triggerBtn.addEventListener("click", openModal);
+    if (modalClose) modalClose.addEventListener("click", closeModal);
+    if (modalBackdrop) modalBackdrop.addEventListener("click", closeModal);
+    window.addEventListener("keydown", ev => {
+      if (!modal || modal.hidden) return;
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        closeModal();
+      } else if (ev.key === "Tab") {
+        const focusables = getFocusableDialogElements();
+        if (focusables.length === 0) {
+          ev.preventDefault();
+          return;
+        }
+        const firstEl = focusables[0];
+        const lastEl = focusables[focusables.length - 1];
+        if (ev.shiftKey) {
+          if (document.activeElement === firstEl || !modal.contains(document.activeElement)) {
+            ev.preventDefault();
+            lastEl.focus();
+          }
+        } else {
+          if (document.activeElement === lastEl || !modal.contains(document.activeElement)) {
+            ev.preventDefault();
+            firstEl.focus();
+          }
+        }
+      }
+    });
+
+    // Account / Auth UI elements
+    const accountBox = ui("fbAccountBox"), accountGreeting = ui("fbAccountGreeting");
+    const btnChangeKey = ui("fbBtnChangeKey"), btnLogout = ui("fbBtnLogout"), btnDelete = ui("fbBtnDelete");
+    const changeKeyForm = ui("fbChangeKeyForm"), inputNewKey = ui("fbInputNewKey");
+    const btnSaveNewKey = ui("fbBtnSaveNewKey"), btnCancelNewKey = ui("fbBtnCancelNewKey");
+
+    // Register UI elements
+    const unauthPrompt = ui("fbUnauthPrompt");
+    const regForm = ui("fbRegisterForm"), regPhone = ui("fbRegPhone"), regPin = ui("fbRegPin"), regKey = ui("fbRegKey");
+    const btnShowLogin = ui("fbBtnShowLogin");
+
+    // Login UI elements
+    const loginForm = ui("fbLoginForm"), loginPhone = ui("fbLoginPhone"), loginPin = ui("fbLoginPin");
+    const btnDoLogin = ui("fbBtnDoLogin"), btnCancelLogin = ui("fbBtnCancelLogin");
+
+    // Paste Stream Key helpers
+    async function pasteIntoInput(targetInput){
+      if (!targetInput) return;
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text) {
+            targetInput.value = text.trim();
+            targetInput.focus();
+            return;
+          }
+        } catch (_) {}
+      }
+      targetInput.focus();
+      targetInput.select();
+    }
+    if (btnPasteKey) btnPasteKey.addEventListener("click", () => pasteIntoInput(regKey));
+    if (btnPasteNewKey) btnPasteNewKey.addEventListener("click", () => pasteIntoInput(inputNewKey));
+
+    const https = window.location.protocol === "https:" || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    const safeMessage = message => { state.textContent = message; };
+    if (ui("fbHttpsNotice")) ui("fbHttpsNotice").hidden = https;
+    if (!https && panel.querySelector(".fb-form")) panel.querySelector(".fb-form").hidden = true;
+
+    // State management
+    let currentMode = "personal"; // "personal" | "fanpage"
+    let profileAuth = false;      // true if authenticated with backend session cookie
+    let profileHasKey = false;
+    let profilePhone = "";
+    let isBusyOp = false;         // Serialization guard for user-initiated POST ops
+    let lastError = null;         // Persist failure message until next user action
+    let personalSetupRevealed = false; // Collapsed by default for unauthed until first Live press
+    let isProfileUnavailable = false;  // Flag when profile/status fails with error (fail-closed)
+    let authGeneration = 0;       // Auth mutation counter to invalidate stale background profile refreshes
+    let lastServerStatus = null;
+    let selectedInitialFanpage = false;
+
+    function clearSensitiveFields(){
+      if (regPin) regPin.value = "";
+      if (regKey) regKey.value = "";
+      if (loginPin) loginPin.value = "";
+      if (inputNewKey) inputNewKey.value = "";
+    }
+
+    function setMode(mode){
+      if (isBusyOp) return;
+      currentMode = mode;
+      lastError = null;
+      if (consent) consent.checked = false;
+      clearSensitiveFields();
+      if (mode === "personal") {
+        tabPersonal.classList.add("is-active");
+        tabPersonal.setAttribute("aria-selected", "true");
+        tabFanpage.classList.remove("is-active");
+        tabFanpage.setAttribute("aria-selected", "false");
+        personalSec.hidden = false;
+        fanpageSec.hidden = true;
+        if (personalMainGroup) personalMainGroup.hidden = false;
+        if (modalTitle) modalTitle.textContent = "Facebook cá nhân";
+        if (consentLabel) consentLabel.textContent = "Tôi đồng ý phát trực tiếp luồng video camera lên trang cá nhân";
+      } else {
+        tabFanpage.classList.add("is-active");
+        tabFanpage.setAttribute("aria-selected", "true");
+        tabPersonal.classList.remove("is-active");
+        tabPersonal.setAttribute("aria-selected", "false");
+        fanpageSec.hidden = false;
+        personalSec.hidden = true;
+        if (personalMainGroup) personalMainGroup.hidden = true;
+        if (modalTitle) modalTitle.textContent = "Fanpage quán";
+        if (consentLabel) consentLabel.textContent = "Tôi đồng ý phát tín hiệu hình ảnh bàn này lên Fanpage của quán.";
+      }
+      renderAuthViews();
+      updateActionButtons();
+    }
+
+    tabPersonal.addEventListener("click", () => setMode("personal"));
+    tabFanpage.addEventListener("click", () => setMode("fanpage"));
+
+    function renderAuthViews(){
+      const keySection = ui("fbKeySection");
+      const savedKeyHint = ui("fbSavedKeyHint");
+
+      if (currentMode !== "personal") {
+        accountBox.hidden = true;
+        regForm.hidden = true;
+        loginForm.hidden = true;
+        changeKeyForm.hidden = true;
+        unauthPrompt.hidden = true;
+        if (keySection) keySection.hidden = true;
+        if (savedKeyHint) savedKeyHint.hidden = true;
+        if (producerNotice) producerNotice.hidden = true;
+        return;
+      }
+
+      if (isProfileUnavailable) {
+        accountBox.hidden = true;
+        regForm.hidden = true;
+        loginForm.hidden = true;
+        changeKeyForm.hidden = true;
+        unauthPrompt.hidden = true;
+        if (keySection) keySection.hidden = true;
+        if (savedKeyHint) savedKeyHint.hidden = true;
+        if (producerNotice) producerNotice.hidden = true;
+        return;
+      }
+
+      if (profileAuth) {
+        accountBox.hidden = false;
+        regForm.hidden = true;
+        loginForm.hidden = true;
+        unauthPrompt.hidden = true;
+        if (keySection) keySection.hidden = true;
+        if (savedKeyHint) savedKeyHint.hidden = false;
+        if (producerNotice) {
+          const isRunning = lastServerStatus && lastServerStatus.state === "running" && lastServerStatus.mode === "personal";
+          producerNotice.hidden = !isRunning;
+        }
+        if (profilePhone) {
+          const masked = profilePhone.length > 4 ? profilePhone.slice(0, 3) + "***" + profilePhone.slice(-3) : profilePhone;
+          accountGreeting.textContent = "Tài khoản: " + masked;
+        } else {
+          accountGreeting.textContent = "Tài khoản cá nhân đã ghi nhớ";
+        }
+      } else {
+        accountBox.hidden = true;
+        changeKeyForm.hidden = true;
+        if (savedKeyHint) savedKeyHint.hidden = true;
+        if (loginForm.dataset.show === "1") {
+          loginForm.hidden = false;
+          regForm.hidden = true;
+          unauthPrompt.hidden = true;
+          if (keySection) keySection.hidden = true;
+          if (producerNotice) producerNotice.hidden = true;
+        } else {
+          loginForm.hidden = true;
+          unauthPrompt.hidden = false;
+          if (keySection) keySection.hidden = false;
+          if (personalSetupRevealed) {
+            regForm.hidden = false;
+            if (producerNotice) producerNotice.hidden = false;
+          } else {
+            regForm.hidden = true;
+            if (producerNotice) producerNotice.hidden = true;
+          }
+        }
+      }
+    }
+
+    btnShowLogin.addEventListener("click", () => {
+      if (isBusyOp) return;
+      lastError = null;
+      clearSensitiveFields();
+      loginForm.dataset.show = "1";
+      renderAuthViews();
+      updateActionButtons();
+    });
+
+    btnCancelLogin.addEventListener("click", () => {
+      if (isBusyOp) return;
+      lastError = null;
+      clearSensitiveFields();
+      loginForm.dataset.show = "0";
+      renderAuthViews();
+      updateActionButtons();
+    });
+
+    const linkToChangeKey = ui("fbLinkToChangeKey");
+    if (linkToChangeKey) {
+      linkToChangeKey.addEventListener("click", ev => {
+        ev.preventDefault();
+        const settingsDetails = ui("fbSettingsDetails");
+        if (settingsDetails) settingsDetails.open = true;
+        changeKeyForm.hidden = false;
+        if (inputNewKey) inputNewKey.focus();
+        updateActionButtons();
+      });
+    }
+
+    btnChangeKey.addEventListener("click", () => {
+      if (isBusyOp) return;
+      lastError = null;
+      inputNewKey.value = "";
+      changeKeyForm.hidden = !changeKeyForm.hidden;
+      updateActionButtons();
+    });
+
+    btnCancelNewKey.addEventListener("click", () => {
+      if (isBusyOp) return;
+      lastError = null;
+      inputNewKey.value = "";
+      changeKeyForm.hidden = true;
+      updateActionButtons();
+    });
+
+    async function post(endpoint, data){
+      const res = await fetch(api + "/" + endpoint, {
+        method: "POST", credentials: "same-origin",
+        headers: {"Content-Type": "application/json", "X-CSRF-Token": FB_LIVE_NONCE},
+        body: JSON.stringify(data)
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Không thực hiện được yêu cầu.");
+      return body;
+    }
+
+    async function fetchProfileStatus(){
+      const requestGen = authGeneration;
+      try {
+        const res = await post("profile/status", {});
+        if (requestGen !== authGeneration) return; // Discard stale in-flight result if mutation occurred
+        if (res && res.ok) {
+          isProfileUnavailable = false;
+          profileAuth = Boolean(res.authenticated);
+          profileHasKey = Boolean(res.has_key);
+          profilePhone = res.phone || "";
+          if (lastError === "Hệ thống tài khoản Facebook Live hiện chưa sẵn sàng.") {
+            lastError = null;
+          }
+        } else {
+          isProfileUnavailable = false;
+          profileAuth = false;
+          profileHasKey = false;
+          profilePhone = "";
+        }
+      } catch (err) {
+        if (requestGen !== authGeneration) return;
+        // Fail-closed on DB / profile API unavailable
+        isProfileUnavailable = true;
+        profileAuth = false;
+        profileHasKey = false;
+        profilePhone = "";
+        lastError = err.message || "Hệ thống tài khoản Facebook Live hiện chưa sẵn sàng.";
+      }
+      renderAuthViews();
+      updateActionButtons();
+    }
+
+    function setFormControlsDisabled(disabled){
+      const controls = panel.querySelectorAll("input, button.fb-tab-btn, .fb-form button");
+      controls.forEach(el => {
+        el.disabled = disabled;
+      });
+    }
+
+    function updateActionButtons(){
+      // 1. If currently in a busy async operation, lock all controls and exit
+      if (isBusyOp) {
+        setFormControlsDisabled(true);
+        return;
+      }
+
+      // Re-enable form buttons and inputs by default
+      setFormControlsDisabled(false);
+
+      // 2. If lastServerStatus is not yet available, safely disable start/stop
+      if (!lastServerStatus) {
+        start.disabled = true;
+        stop.disabled = true;
+        if (statusText) statusText.textContent = "Đang kiểm tra";
+        if (statusDot) { statusDot.className = "fb-status-dot"; }
+        if (statusRtmp) statusRtmp.textContent = "RTMP Off";
+        if (lastError) safeMessage(lastError);
+        return;
+      }
+
+      const data = lastServerStatus;
+      const running = data.state === "running";
+      const stopping = data.state === "stopping";
+      const poolBusy = data.state === "busy";
+      const cameraBusy = Boolean(data.camera_busy);
+      const isOwner = Boolean(data.is_owner);
+      const activeMode = data.mode; // "personal" | "fanpage" | "page_api" | "custom"
+
+      // Stop button: active when running or stopping, if HTTPS and (is_owner or running)
+      stop.disabled = !https || (!running && !stopping) || (stopping && !isOwner);
+
+      const isLoginFormActive = currentMode === "personal" && !profileAuth && loginForm.dataset.show === "1";
+
+      // Start button logic per mode
+      if (!https || !data.enabled) {
+        start.disabled = true;
+      } else if (isLoginFormActive) {
+        // When unauth user is in loginForm view, start is disabled; use btnDoLogin to login
+        start.disabled = true;
+      } else if (cameraBusy || running || stopping) {
+        // Camera is currently being streamed or stopping
+        start.disabled = true;
+      } else if (currentMode === "fanpage") {
+        const fanpageConfigured = data.configured !== false;
+        const fanpageAvail = data.fanpage_available !== false;
+        // Pool busy blocks fanpage start
+        start.disabled = !fanpageConfigured || !fanpageAvail || poolBusy;
+      } else {
+        // Personal mode: Never blocked by pool busy or configured=false!
+        // Blocked only if this camera is busy running or service unavailable
+        const personalAvail = data.personal_available !== false;
+        start.disabled = isProfileUnavailable || !personalAvail;
+      }
+
+      // Update button label
+      const startSpan = start.querySelector("span") || start;
+      if (isLoginFormActive) {
+        startSpan.textContent = "Đăng nhập để gửi luồng";
+      } else if (currentMode === "personal" && !profileAuth && personalSetupRevealed) {
+        startSpan.textContent = "Lưu & gửi luồng";
+      } else {
+        startSpan.textContent = (currentMode === "fanpage" && data.page_api_enabled)
+          ? "🔴 Bắt đầu Live Fanpage" : "Bắt đầu gửi luồng";
+      }
+
+      // External links: Producer link is always useful especially when running/stopping personal
+      if ((running || stopping) && activeMode === "personal") {
+        producerLink.hidden = false;
+      } else {
+        producerLink.hidden = true;
+      }
+
+      // Fanpage link
+      if (data.page_url && (running || stopping || poolBusy) && (activeMode === "fanpage" || activeMode === "page_api" || !activeMode)) {
+        viewLink.href = data.page_url;
+        const linkLabel = viewLink.querySelector("span");
+        if (linkLabel) linkLabel.textContent = activeMode === "page_api" ? "Mở bài Live / Chia sẻ ↗" : "Mở Fanpage ↗";
+        viewLink.hidden = false;
+      } else {
+        viewLink.hidden = true;
+      }
+
+      // Update Trigger button and status bar reflecting truthful status
+      if (triggerBtn && triggerText) {
+        if (running) {
+          triggerBtn.classList.add("is-streaming");
+          triggerText.textContent = "Đang gửi luồng";
+        } else {
+          triggerBtn.classList.remove("is-streaming");
+          triggerText.textContent = "Phát Facebook";
+        }
+      }
+
+      if (statusDot && statusText && statusRtmp) {
+        if (running) {
+          statusDot.className = "fb-status-dot is-running";
+          statusText.textContent = "Đang gửi luồng";
+          statusRtmp.textContent = "RTMP On";
+        } else if (stopping) {
+          statusDot.className = "fb-status-dot is-error";
+          statusText.textContent = "Đang dừng";
+          statusRtmp.textContent = "RTMP Off";
+        } else {
+          statusDot.className = "fb-status-dot";
+          statusText.textContent = "Chưa gửi luồng";
+          statusRtmp.textContent = "RTMP Off";
+        }
+      }
+
+      // Status text (only if no active sticky error from user action)
+      if (lastError) {
+        safeMessage(lastError);
+        return;
+      }
+
+      if (!data.enabled) {
+        safeMessage("Quán chưa bật chức năng Facebook Live.");
+      } else if (stopping) {
+        safeMessage("Đang dừng tín hiệu camera. Hệ thống sẽ thử lại; bạn có thể bấm Dừng.");
+      } else if (running) {
+        const mins = Math.floor((data.seconds || 0) / 60);
+        if (activeMode === "personal") {
+          safeMessage("🔴 Đang gửi tín hiệu camera tới Facebook (" + mins + " phút). Nhấn 'Phát trực tiếp' trên Producer nếu chưa phát!");
+        } else {
+          safeMessage(activeMode === "page_api"
+            ? "🔴 Đang gửi camera lên bài Live Fanpage (" + mins + " phút). Khi Meta trả link, hãy mở để chia sẻ."
+            : "🔴 Đang gửi tín hiệu camera tới Fanpage (" + mins + " phút). Bấm nút 'Mở Fanpage' để xem bài phát!");
+        }
+      } else if (cameraBusy) {
+        safeMessage("Bàn này đang phát trực tiếp.");
+      } else if (poolBusy && currentMode === "fanpage") {
+        safeMessage(data.busy_message || "Đang có bàn khác phát trực tiếp lên Fanpage của quán.");
+      } else if (!https) {
+        safeMessage("Vui lòng mở liên kết HTTPS để phát trực tiếp.");
+      } else if (currentMode === "fanpage") {
+        if (data.page_api_enabled) {
+          safeMessage(data.approval_seconds > 0
+            ? "Nhân viên đã cho phép Live bàn này. Bấm Live mà không cần mở Facebook Producer."
+            : "Nhờ nhân viên tại quầy cho phép Live bàn này trước khi bắt đầu.");
+        } else if (data.configured === false) {
+          safeMessage("Quán chưa cấu hình Facebook Live cho Fanpage.");
+        } else {
+          safeMessage("Sẵn sàng gửi luồng tới Fanpage quán.");
+        }
+      } else {
+        // Personal mode idle
+        if (isProfileUnavailable) {
+          safeMessage("Hệ thống tài khoản Facebook Live hiện chưa sẵn sàng.");
+        } else if (profileAuth) {
+          safeMessage("Sẵn sàng gửi luồng tới Facebook cá nhân (1 chạm).");
+        } else if (personalSetupRevealed) {
+          safeMessage("Nhập thông tin thiết lập rồi bấm 'Lưu & gửi luồng' để bắt đầu.");
+        } else {
+          safeMessage("Sẵn sàng gửi luồng tới Facebook cá nhân.");
+        }
+      }
+    }
+
+    async function getStatus(){
+      if (isBusyOp) return;
+      try {
+        const response = await fetch(api + "/status", { credentials: "same-origin", cache: "no-store" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Không đọc được trạng thái.");
+        lastServerStatus = data;
+        if (!selectedInitialFanpage && data.page_api_enabled) {
+          selectedInitialFanpage = true;
+          setMode("fanpage");
+        }
+        const producerTip = ui("fbProducerTip");
+        if (producerTip) producerTip.hidden = currentMode === "fanpage" && Boolean(data.page_api_enabled);
+        updateActionButtons();
+      } catch (_) {
+        if (!isBusyOp) {
+          start.disabled = true;
+          stop.disabled = true;
+          viewLink.hidden = true;
+          producerLink.hidden = true;
+          if (!lastError) safeMessage("Không kiểm tra được trạng thái Facebook Live.");
+        }
+      }
+    }
+
+    // Change stream key handler
+    btnSaveNewKey.addEventListener("click", async () => {
+      if (isBusyOp) return;
+      lastError = null;
+      const keyVal = (inputNewKey.value || "").trim();
+      if (!keyVal) {
+        lastError = "Vui lòng nhập Khóa luồng mới.";
+        safeMessage(lastError);
+        return;
+      }
+      clearSensitiveFields();
+      isBusyOp = true;
+      authGeneration++;
+      updateActionButtons();
+      safeMessage("Đang cập nhật Khóa luồng...");
+      try {
+        const res = await post("profile/update", { key: keyVal });
+        changeKeyForm.hidden = true;
+        safeMessage(res.message || "Đã cập nhật Khóa luồng thành công.");
+        await fetchProfileStatus();
+      } catch (err) {
+        lastError = err.message || "Không thể cập nhật Khóa luồng.";
+        safeMessage(lastError);
+      } finally {
+        isBusyOp = false;
+        updateActionButtons();
+        await getStatus();
+      }
+    });
+
+    // Logout handler
+    btnLogout.addEventListener("click", async () => {
+      if (isBusyOp) return;
+      lastError = null;
+      clearSensitiveFields();
+      isBusyOp = true;
+      authGeneration++;
+      updateActionButtons();
+      safeMessage("Đang đăng xuất...");
+      try {
+        await post("profile/logout", {});
+        profileAuth = false;
+        profileHasKey = false;
+        profilePhone = "";
+        personalSetupRevealed = false;
+        renderAuthViews();
+        safeMessage("Đã đăng xuất tài khoản trên thiết bị này.");
+      } catch (err) {
+        lastError = err.message || "Không thể đăng xuất.";
+        safeMessage(lastError);
+      } finally {
+        isBusyOp = false;
+        updateActionButtons();
+        await getStatus();
+      }
+    });
+
+    // Delete account handler
+    btnDelete.addEventListener("click", async () => {
+      if (isBusyOp) return;
+      lastError = null;
+      if (!window.confirm("Bạn có chắc chắn muốn xóa tài khoản và khóa luồng đã lưu?")) {
+        return;
+      }
+      clearSensitiveFields();
+      isBusyOp = true;
+      authGeneration++;
+      updateActionButtons();
+      safeMessage("Đang xóa tài khoản...");
+      try {
+        await post("profile/delete", {});
+        profileAuth = false;
+        profileHasKey = false;
+        profilePhone = "";
+        personalSetupRevealed = false;
+        renderAuthViews();
+        safeMessage("Đã xóa tài khoản.");
+      } catch (err) {
+        lastError = err.message || "Không thể xóa tài khoản.";
+        safeMessage(lastError);
+      } finally {
+        isBusyOp = false;
+        updateActionButtons();
+        await getStatus();
+      }
+    });
+
+    // Login handler (device switch)
+    btnDoLogin.addEventListener("click", async () => {
+      if (isBusyOp) return;
+      lastError = null;
+      const phone = (loginPhone.value || "").trim();
+      const pin = (loginPin.value || "").trim();
+      if (!phone || pin.length !== 4) {
+        lastError = "Vui lòng nhập số điện thoại và mã PIN 4 chữ số.";
+        safeMessage(lastError);
+        return;
+      }
+      clearSensitiveFields();
+      isBusyOp = true;
+      authGeneration++;
+      updateActionButtons();
+      safeMessage("Đang đăng nhập thiết bị...");
+      try {
+        const res = await post("profile/login", { phone, pin });
+        profileAuth = Boolean(res.authenticated);
+        profileHasKey = Boolean(res.has_key);
+        profilePhone = res.phone || phone;
+        loginForm.dataset.show = "0";
+        renderAuthViews();
+        safeMessage(res.message || "Đăng nhập thành công!");
+      } catch (err) {
+        lastError = err.message || "Đăng nhập thất bại.";
+        safeMessage(lastError);
+      } finally {
+        isBusyOp = false;
+        updateActionButtons();
+        await getStatus();
+      }
+    });
+
+    // Start streaming button
+    start.addEventListener("click", async () => {
+      if (isBusyOp) return;
+      lastError = null;
+      if (!https) {
+        lastError = "Hãy dùng liên kết HTTPS để phát trực tiếp.";
+        safeMessage(lastError);
+        return;
+      }
+
+      // Check consent first
+      if (!consent.checked) {
+        lastError = "Bạn cần tích xác nhận đồng ý phát hình ảnh bàn trước khi bắt đầu.";
+        safeMessage(lastError);
+        return;
+      }
+
+      // If in unauthenticated personal mode and setup form is not yet revealed:
+      // First press Live (with consent) reveals setup form and Producer guidance
+      if (currentMode === "personal" && !profileAuth && !personalSetupRevealed) {
+        personalSetupRevealed = true;
+        renderAuthViews();
+        const settingsDetails = ui("fbSettingsDetails");
+        if (settingsDetails) settingsDetails.open = true;
+        updateActionButtons();
+        safeMessage("Vui lòng lấy Stream Key từ Producer, điền thông tin và bấm 'Lưu & gửi luồng'.");
+        return;
+      }
+
+      isBusyOp = true;
+      updateActionButtons();
+
+      try {
+        if (currentMode === "personal") {
+          if (!profileAuth) {
+            // New user registration flow
+            const phone = (regPhone.value || "").trim();
+            const pin = (regPin.value || "").trim();
+            const key = (regKey.value || "").trim();
+            if (!phone || pin.length !== 4 || !key) {
+              const settingsDetails = ui("fbSettingsDetails");
+              if (settingsDetails) settingsDetails.open = true;
+              throw new Error("Vui lòng điền đầy đủ Số điện thoại, mã PIN 4 số và Khóa luồng (Stream Key).");
+            }
+            clearSensitiveFields();
+            authGeneration++;
+            safeMessage("Đang lưu thiết lập tài khoản...");
+            const regRes = await post("profile/register", { phone, pin, key });
+            profileAuth = Boolean(regRes.authenticated);
+            profileHasKey = Boolean(regRes.has_key);
+            profilePhone = regRes.phone || phone;
+            personalSetupRevealed = false;
+            renderAuthViews();
+          }
+
+          safeMessage("Đang gửi tín hiệu camera tới Facebook...");
+          const startRes = await post("start", { mode: "personal", consent: true });
+          safeMessage(startRes.message || "Đang gửi tín hiệu camera tới Facebook. Hãy mở Producer để phát!");
+        } else {
+          // Fanpage mode (preserves old contract {consent: true})
+          safeMessage("Đang kết nối luồng phát lên Fanpage...");
+          const startRes = await post("start", { consent: true });
+          safeMessage(startRes.message || "Đang gửi tín hiệu camera tới Fanpage của quán!");
+          if (startRes.page_url) {
+            viewLink.href = startRes.page_url;
+            viewLink.hidden = false;
+          }
+        }
+      } catch (error) {
+        lastError = error.message || "Không thể phát.";
+        safeMessage(lastError);
+      } finally {
+        consent.checked = false;
+        clearSensitiveFields();
+        isBusyOp = false;
+        updateActionButtons();
+        await getStatus();
+      }
+    });
+
+    // Stop streaming button
+    stop.addEventListener("click", async () => {
+      if (isBusyOp) return;
+      lastError = null;
+      isBusyOp = true;
+      updateActionButtons();
+      safeMessage("Đang dừng phát...");
+      try {
+        await post("stop", {});
+        safeMessage("Đã gửi yêu cầu kết thúc bài Live và dừng phát.");
+      } catch (error) {
+        lastError = error.message || "Không thể dừng.";
+        safeMessage(lastError);
+      } finally {
+        isBusyOp = false;
+        updateActionButtons();
+        await getStatus();
+      }
+    });
+
+    setInterval(async () => {
+      if (!document.hidden && !isBusyOp) {
+        if (modal && !modal.hidden && isProfileUnavailable && currentMode === "personal") {
+          await fetchProfileStatus();
+        }
+        await getStatus();
+      }
+    }, 5000);
+
+    setMode("personal");
+    fetchProfileStatus().then(getStatus);
+  })();
+
   const CAMERA_ASPECT_RATIO = "{{ camera_aspect_ratio or 'auto' }}";
   function getEffectiveLiveAspectRatio(){
     if(CAMERA_ASPECT_RATIO === "16:9") return "16/9";

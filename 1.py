@@ -801,6 +801,23 @@ def is_camera_private(cam_id):
             return cam.get("enabled") is False or cam.get("privacy_off") is True
     return False
 
+
+def is_camera_active(cam_id):
+    """Xác định camera có đang được kích hoạt và hoạt động hay không.
+    Khi camera hoặc bàn liên quan bị tắt (enabled=False hoặc privacy_off=True),
+    hệ thống coi camera là tắt hoàn toàn (ngừng ghi hình, ngừng watchdog và chặn thông báo).
+    """
+    if not (isinstance(cam_id, int) and 1 <= cam_id <= len(CAMERA_LIST)):
+        return False
+    cam = CAMERA_LIST[cam_id - 1]
+    if isinstance(cam, dict) and cam.get("enabled") is False:
+        return False
+    table = get_table_by_camera_id(cam_id)
+    if table:
+        if table.get("enabled") is False or table.get("privacy_off") is True:
+            return False
+    return True
+
 logger = logging.getLogger("cctv_system")
 logger.setLevel(logging.INFO)
 log_path = os.path.join(LOG_DIR, "system.log")
@@ -3374,6 +3391,8 @@ def _stop_process(cam_id):
 
 def _stop_all_recordings():
     """Dừng tất cả các tiến trình FFmpeg đang ghi hình camera để giải phóng file lock."""
+    if "_guest_facebook_live" in globals():
+        _guest_facebook_live.stop_all()
     with CAMERA_LOCK:
         procs = [p for p in CAM_PROCESSES.values() if p and p.poll() is None]
     for proc in procs:
@@ -4887,12 +4906,29 @@ def replay_cam(cam_id):
         has_nvr=has_nvr,
         camera_view_stream=cam.get("view_stream", "auto"),
         camera_aspect_ratio=cam.get("aspect_ratio", "auto"),
+        facebook_live_nonce=_guest_facebook_live.issue_nonce(cam_id),
+        facebook_page_url=CONFIG.get("facebook_page_url", ""),
         backup_local=bool(cam.get("backup_local", True)),
         site=get_site_config(),
         max_merge_minutes=MAX_MERGE_MINUTES,
         license_active=license_active,
         license_key=license_key,
     )
+
+
+@app.route("/facebook-live/secure/cam<int:cam_id>")
+def guest_facebook_https(cam_id):
+    """Redirect LAN viewers to the existing HTTPS tunnel via a one-use viewer handoff."""
+    if not is_camera_active(cam_id) or is_camera_private(cam_id):
+        return "Bàn hiện không cho phép xem video.", 403
+    public_url = get_public_base_url()
+    if not public_url.startswith("https://") or not is_tunnel_online():
+        return "Chưa có địa chỉ HTTPS của quán.", 503
+    path = f"/replay/cam{cam_id}"
+    if _is_direct_lan_request():
+        ticket = _mint_lan_handoff_ticket(path)
+        return redirect(f"{public_url}{path}?{urlencode({'lan_ticket': ticket})}", code=302)
+    return redirect(f"{public_url}{path}", code=302)
 
 
 @app.route("/live")
@@ -5358,13 +5394,26 @@ def admin_page():
 def admin_config():
     global CONFIG, CAMERA_LIST
     if request.method == "GET":
-        return jsonify(migrate_config_data(CONFIG))
+        public_cfg = migrate_config_data(CONFIG)
+        if isinstance(public_cfg, dict):
+            public_cfg.pop("facebook_graph_page_token", None)
+            public_cfg["facebook_graph_token_configured"] = bool(
+                os.environ.get("CAMBIDA_FACEBOOK_PAGE_TOKEN") or CONFIG.get("facebook_graph_page_token"))
+        return jsonify(public_cfg)
     candidate = request.get_json(silent=True)
     error = validate_config(candidate)
     if error:
         return jsonify({"ok": False, "error": error}), 400
     try:
         cleaned = clean_config_for_saving(candidate)
+        # Never accept a hidden token sent back from GET; preserve the existing
+        # backend-only Page credential unless the administrator explicitly changes it.
+        submitted_token = cleaned.pop("facebook_graph_page_token", None)
+        cleaned.pop("facebook_graph_token_configured", None)
+        if isinstance(submitted_token, str) and submitted_token.strip():
+            cleaned["facebook_graph_page_token"] = submitted_token.strip()
+        elif CONFIG.get("facebook_graph_page_token"):
+            cleaned["facebook_graph_page_token"] = CONFIG["facebook_graph_page_token"]
         try:
             old_subdomain = _normalize_cloudflare_subdomain(CONFIG.get("cloudflare_subdomain"))
         except ValueError:
@@ -5382,9 +5431,34 @@ def admin_config():
                 tunnel_cfg = dict(tunnel_cfg)
                 tunnel_cfg.pop("token", None)
                 cleaned["cloudflare_tunnel"] = tunnel_cfg
-        for key in ("server_port", "record_duration_sec", "record_timeout_sec", "camera_stall_sec", "max_merge_minutes"):
+        for key in ("server_port", "record_duration_sec", "record_timeout_sec", "camera_stall_sec", "max_merge_minutes", "facebook_live_max_duration"):
             if key in cleaned:
                 cleaned[key] = int(cleaned[key])
+        if "guest_facebook_live_enabled" in cleaned:
+            cleaned["guest_facebook_live_enabled"] = bool(cleaned["guest_facebook_live_enabled"])
+        if "facebook_graph_page_id" in cleaned:
+            cleaned["facebook_graph_page_id"] = str(cleaned["facebook_graph_page_id"] or "").strip()
+            if cleaned["facebook_graph_page_id"] and not re.fullmatch(r"[0-9]{4,30}", cleaned["facebook_graph_page_id"]):
+                return jsonify({"ok": False, "error": "Page ID phải là mã số Facebook."}), 400
+        if "facebook_page_stream_key" in cleaned:
+            cleaned["facebook_page_stream_key"] = str(cleaned["facebook_page_stream_key"]).strip()
+        if "facebook_page_url" in cleaned:
+            cleaned["facebook_page_url"] = str(cleaned["facebook_page_url"]).strip()
+        if "facebook_page_pools" in cleaned and isinstance(cleaned["facebook_page_pools"], list):
+            valid_pools = []
+            for idx, p in enumerate(cleaned["facebook_page_pools"], start=1):
+                if isinstance(p, dict):
+                    sk = str(p.get("stream_key") or "").strip()
+                    pu = str(p.get("page_url") or "").strip()
+                    name = str(p.get("name") or f"Fanpage {idx}").strip()
+                    if sk or pu:
+                        valid_pools.append({
+                            "id": str(p.get("id") or idx),
+                            "name": name,
+                            "stream_key": sk,
+                            "page_url": pu,
+                        })
+            cleaned["facebook_page_pools"] = valid_pools
         if "disk_limit_gb" in cleaned:
             cleaned["disk_limit_gb"] = float(cleaned["disk_limit_gb"])
         if "minimum_free_disk_gb" in cleaned:
@@ -7479,6 +7553,9 @@ from services import video_cutter as _video_cutter
 from services.video_cutter import safe_video_filename, _valid_camera_id, _parse_local_datetime_value
 from services.live_streamer import gen_frames
 from services.network import get_local_lan_ip
+from services.facebook_live import install_facebook_live
+from services.meta_page_live import MetaPageLiveClient
+from services.facebook_profiles import GuestLiveProfileStore
 
 install_table_access(
     app,
@@ -7486,6 +7563,67 @@ install_table_access(
     set_config=_update_table_access_config,
     save_config=save_config,
     get_nvr_reference=_get_nvr_reference,
+)
+
+# Guest Facebook Live is opt-in, never implicitly exposed to every public QR viewer.
+def _get_facebook_page_live_config():
+    raw_pools = CONFIG.get("facebook_page_pools")
+    slots = []
+    if isinstance(raw_pools, list):
+        for idx, p in enumerate(raw_pools, start=1):
+            if isinstance(p, dict):
+                k = str(p.get("stream_key") or "").strip()
+                if k:
+                    slots.append({
+                        "id": str(p.get("id") or idx),
+                        "name": str(p.get("name") or f"Fanpage {idx}").strip(),
+                        "stream_key": k,
+                        "page_url": str(p.get("page_url") or "").strip(),
+                        "server_url": str(p.get("server_url") or CONFIG.get("facebook_live_server_url") or "rtmps://live-api-s.facebook.com:443/rtmp/").strip(),
+                    })
+    if not slots:
+        single_key = str(CONFIG.get("facebook_page_stream_key") or "").strip()
+        if single_key:
+            slots.append({
+                "id": "1",
+                "name": "Fanpage",
+                "stream_key": single_key,
+                "page_url": str(CONFIG.get("facebook_page_url") or "").strip(),
+                "server_url": str(CONFIG.get("facebook_live_server_url") or "rtmps://live-api-s.facebook.com:443/rtmp/").strip(),
+            })
+    return {
+        "slots": slots,
+        "stream_key": str(CONFIG.get("facebook_page_stream_key") or "").strip(),
+        "page_url": str(CONFIG.get("facebook_page_url") or "").strip(),
+        "server_url": str(CONFIG.get("facebook_live_server_url") or "rtmps://live-api-s.facebook.com:443/rtmp/").strip(),
+        "max_duration_minutes": int(CONFIG.get("facebook_live_max_duration") or 60),
+        "page_id": str(CONFIG.get("facebook_graph_page_id") or "").strip(),
+        "page_token": str(os.environ.get("CAMBIDA_FACEBOOK_PAGE_TOKEN") or CONFIG.get("facebook_graph_page_token") or "").strip(),
+        "graph_version": str(CONFIG.get("facebook_graph_version") or "v26.0").strip(),
+    }
+
+
+def _get_facebook_live_source(cam_id):
+    if not (1 <= cam_id <= len(CAMERA_LIST)):
+        return None
+    cam = CAMERA_LIST[cam_id - 1]
+    url = get_rtsp_url(cam_id, "sub", context="live_preview")
+    if url:
+        return url
+    target_stream = resolve_live_preview_stream(cam, "sub", context="live_preview")
+    return build_rtsp_url(cam, target_stream)
+
+
+_guest_facebook_live = install_facebook_live(
+    app,
+    enabled=lambda: CONFIG.get("guest_facebook_live_enabled") is True,
+    allowed=lambda cam_id: is_camera_active(cam_id) and not is_camera_private(cam_id),
+    get_source=_get_facebook_live_source,
+    ffmpeg_path=FFMPEG_PATH,
+    secure=lambda: request.is_secure or is_remote_cloudflare_request(),
+    get_page_config=_get_facebook_page_live_config,
+    meta_client=MetaPageLiveClient(_get_facebook_page_live_config),
+    profile_store=GuestLiveProfileStore(os.path.join(os.environ['LOCALAPPDATA'], 'Cambida', 'guest-live', 'accounts.sqlite3') if os.environ.get('LOCALAPPDATA') else None),
 )
 
 
