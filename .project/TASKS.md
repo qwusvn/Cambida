@@ -527,3 +527,7 @@ elease\2.1.0\index.html byte-identically with source index.html.
 - [2026-10-03] 2.3.3 manual-copy runtime-state/port/tunnel fix: COMPLETED; final artifact accepted, 203 tracked Python tests + 5 subtests PASS, 33 Node UI tests PASS, legacy 2.3.0 parser accepts final ZIP.
 
 - [2026-10-03] 2.3.0 -> 2.3.3 clean autoupdate E2E: BLOCKED; discovery/download/parser PASS, exact 2.3.0 apply_github_update handoff FAIL because updater.exe/updater.cmd are absent.
+
+- [2026-10-11] Sửa lỗi thống kê tải video (HTTP 206 Partial Content, iOS Web Share beacon, timezone local time và lệnh Telegram /stats): COMPLETED.
+
+- [2026-10-11] Tắt camera đồng bộ tắt triệt để: dừng worker ghi hình, ngắt FFmpeg/NetSDK, bỏ qua Watchdog và chặn toàn bộ thông báo cảnh báo lỗi Telegram: COMPLETED.

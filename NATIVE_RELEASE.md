@@ -84,10 +84,10 @@ automatically. The tray menu remains the explicit way to open the local UI.
 
 ## Packaging
 
-Build 2.3.5 with:
+Build 2.3.6 with:
 
 ```powershell
-.\package_2.3.5.ps1
+.\package_native.ps1 -Version 2.3.6
 ```
 
 Every GitHub release from 2.3.0 onward must attach the complete

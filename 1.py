@@ -54,6 +54,7 @@ from requests.auth import HTTPDigestAuth
 from flask import (
     Flask,
     Response,
+    has_request_context,
     jsonify,
     redirect,
     render_template,
@@ -800,6 +801,23 @@ def is_camera_private(cam_id):
                 return is_table_privacy_engaged(cam)
             return cam.get("enabled") is False or cam.get("privacy_off") is True
     return False
+
+
+def is_camera_active(cam_id):
+    """Xác định camera có đang được kích hoạt và hoạt động hay không.
+    Khi camera hoặc bàn liên quan bị tắt (enabled=False hoặc privacy_off=True),
+    hệ thống coi camera là tắt hoàn toàn (ngừng ghi hình, ngừng watchdog và chặn thông báo).
+    """
+    if not (isinstance(cam_id, int) and 1 <= cam_id <= len(CAMERA_LIST)):
+        return False
+    cam = CAMERA_LIST[cam_id - 1]
+    if isinstance(cam, dict) and cam.get("enabled") is False:
+        return False
+    table = get_table_by_camera_id(cam_id)
+    if table:
+        if table.get("enabled") is False or table.get("privacy_off") is True:
+            return False
+    return True
 
 logger = logging.getLogger("cctv_system")
 logger.setLevel(logging.INFO)
@@ -2327,7 +2345,7 @@ def admin_required(view):
     def wrapped(*args, **kwargs):
         if session.get("admin_authenticated") is True:
             return view(*args, **kwargs)
-        if request.path.startswith("/api/"):
+        if request.path.startswith("/api/") or request.path.startswith("/stats/data"):
             return jsonify({"ok": False, "error": "Cần đăng nhập quản trị."}), 401
         return redirect(url_for("admin_login", next=request.full_path))
     return wrapped
@@ -3324,6 +3342,7 @@ def telegram_command_help():
         "📋 **DANH SÁCH LỆNH**\n"
         "`/update` — Kiểm tra và cập nhật ứng dụng tự động từ GitHub.\n"
         "`/status` — Xem trạng thái hệ thống và dung lượng video.\n"
+        "`/stats` (hoặc `/thongke`) — Xem thống kê tải video (hôm nay và 7 ngày qua).\n"
         "`/license` — Xem key máy và trạng thái bản quyền xem lại.\n"
         "`/restart` (hoặc `/reset`) — Khởi động lại ứng dụng."
     )
@@ -3529,6 +3548,9 @@ def record_camera(cam_id, camera, stop_event):
     retry_delay = 1
     mode = str(camera.get("playback_source", "local")).strip().lower()
     while not stop_event.is_set():
+        if not is_camera_active(cam_id):
+            logger.info(f"[Cam {cam_id}] Camera bị tắt; thoát luồng ghi hình.")
+            break
         start_dt = datetime.now()
         end_dt = start_dt + timedelta(seconds=DURATION)
         filename = build_filename(cam_id, start_dt, end_dt)
@@ -3546,7 +3568,7 @@ def record_camera(cam_id, camera, stop_event):
         last_err = ""
         timed_out = False
         for candidate in candidates:
-            if stop_event.is_set():
+            if stop_event.is_set() or not is_camera_active(cam_id):
                 break
             if candidate.get("transport") == "netsdk":
                 rc, attempt_err, attempt_timed_out = _run_netsdk_recording_attempt(
@@ -3566,7 +3588,7 @@ def record_camera(cam_id, camera, stop_event):
             last_err = attempt_err or last_err
             timed_out = timed_out or attempt_timed_out
             valid_file = os.path.exists(temp_filepath) and os.path.getsize(temp_filepath) > 0
-            if rc == 0 and valid_file and not stop_event.is_set():
+            if rc == 0 and valid_file and not stop_event.is_set() and is_camera_active(cam_id):
                 try:
                     os.replace(temp_filepath, filepath)
                 except OSError as exc:
@@ -3590,7 +3612,7 @@ def record_camera(cam_id, camera, stop_event):
                     os.remove(temp_filepath)
             except OSError as exc:
                 logger.warning(f"[Cam {cam_id}] Không thể xóa file tạm: {exc}")
-            if stop_event.is_set():
+            if stop_event.is_set() or not is_camera_active(cam_id):
                 break
 
             failure_kind = _rtsp_error_kind(attempt_err)
@@ -3608,14 +3630,14 @@ def record_camera(cam_id, camera, stop_event):
             CAM_LAST_ERROR.pop(cam_id, None)
             retry_delay = 1
         else:
-            if stop_event.is_set():
+            if stop_event.is_set() or not is_camera_active(cam_id):
                 break
             err_msg = (
                 f"[Cam {cam_id}] ⚠️ Không ghi được video hợp lệ"
                 f"{' (quá thời gian)' if timed_out else ''}; đang thử lại. {last_err[-300:]}"
             )
             CAM_LAST_ERROR[cam_id] = err_msg
-            if time.time() - last_alert_time > 30:
+            if is_camera_active(cam_id) and time.time() - last_alert_time > 30:
                 logger.warning(err_msg)
                 send_telegram_alert(err_msg)
                 last_alert_time = time.time()
@@ -3627,9 +3649,16 @@ def record_camera(cam_id, camera, stop_event):
 
 def ensure_camera_worker(cam_id, camera, reason="khởi động"):
     with CAMERA_LOCK:
+        if not is_camera_active(cam_id) or not should_record_locally(CAMERA_LIST[cam_id - 1]):
+            return False
         worker = CAM_WORKERS.get(cam_id)
         if worker and worker.is_alive():
             return False
+        previous_stop = CAM_STOP_EVENTS.get(cam_id)
+        if previous_stop and previous_stop.is_set():
+            # The stop owner still owns process/file cleanup, even after exit.
+            return False
+        camera = CAMERA_LIST[cam_id - 1]
         stop_event = threading.Event()
         CAM_STOP_EVENTS[cam_id] = stop_event
         worker = threading.Thread(
@@ -3645,23 +3674,117 @@ def ensure_camera_worker(cam_id, camera, reason="khởi động"):
     return True
 
 
-def restart_camera_worker(cam_id, camera):
+def stop_camera_worker(cam_id, timeout=3):
+    """Dừng triệt để worker ghi hình và giải phóng tiến trình của camera bị tắt."""
     with CAMERA_LOCK:
         stop_event = CAM_STOP_EVENTS.get(cam_id)
         worker = CAM_WORKERS.get(cam_id)
-    if stop_event:
+        if stop_event is None:
+            stop_event = threading.Event()
+            CAM_STOP_EVENTS[cam_id] = stop_event
+        if getattr(stop_event, "_stop_in_progress", False):
+            return False
+        stop_event._stop_in_progress = True
         stop_event.set()
-    _stop_process(cam_id)
-    if worker:
-        worker.join(timeout=12)
+    try:
+        _stop_process(cam_id)
+        if worker and worker.is_alive():
+            worker.join(timeout=timeout)
+        with CAMERA_LOCK:
+            if (CAM_WORKERS.get(cam_id) is not worker
+                    or CAM_STOP_EVENTS.get(cam_id) is not stop_event
+                    or (worker and worker.is_alive())):
+                return False
+            # No replacement can start until this event and its files are cleared.
+            try:
+                for f in glob.glob(os.path.join(VIDEO_DIR, f"cam{cam_id}_*.part")):
+                    if os.path.exists(f):
+                        os.remove(f)
+            except OSError:
+                pass
+            CAM_WORKERS.pop(cam_id, None)
+            CAM_STOP_EVENTS.pop(cam_id, None)
+    finally:
+        with CAMERA_LOCK:
+            stop_event._stop_in_progress = False
+    logger.info(f"[Cam {cam_id}] Đã dừng worker và giải phóng tiến trình do camera bị tắt.")
+    return True
+
+
+def sync_camera_workers(camera_ids=None):
+    """Đồng bộ worker ghi hình theo trạng thái bật/tắt của từng camera và bàn."""
+    scope = set(camera_ids) if camera_ids is not None else None
+    for idx, cam in enumerate(CAMERA_LIST, start=1):
+        if scope is not None and idx not in scope:
+            continue
+        active = is_camera_active(idx)
+        should_rec = active and should_record_locally(cam)
+        with CAMERA_LOCK:
+            worker = CAM_WORKERS.get(idx)
+            is_running = worker is not None and worker.is_alive()
+            stop_event = CAM_STOP_EVENTS.get(idx)
+
+        if not should_rec and is_running:
+            logger.info(f"[Cam {idx}] Camera đã tắt; dừng tiến trình ghi hình và worker.")
+            stop_camera_worker(idx)
+            if is_camera_active(idx) and should_record_locally(CAMERA_LIST[idx - 1]):
+                ensure_camera_worker(idx, CAMERA_LIST[idx - 1], "bật lại sau khi kích hoạt camera/bàn")
+        elif should_rec and not is_running:
+            if stop_event and stop_event.is_set():
+                stop_camera_worker(idx)
+            logger.info(f"[Cam {idx}] Camera đã bật lại; khởi chạy worker ghi hình.")
+            ensure_camera_worker(idx, cam, "bật lại sau khi kích hoạt camera/bàn")
+        elif not should_rec and stop_event and not is_running:
+            stop_camera_worker(idx)
+
+
+def _sync_camera_workers_async(camera_ids):
+    """Reconcile only changed cameras off-request, including late worker exits."""
+    scope = tuple(sorted(set(camera_ids)))
+    if not scope:
+        return
+
+    def reconcile():
+        try:
+            while True:
+                sync_camera_workers(camera_ids=scope)
+                with CAMERA_LOCK:
+                    pending = [CAM_WORKERS[cam_id] for cam_id in scope
+                               if cam_id in CAM_WORKERS
+                               and CAM_STOP_EVENTS.get(cam_id) is not None
+                               and CAM_STOP_EVENTS[cam_id].is_set()]
+                if not pending:
+                    return
+                # Never hold CAMERA_LOCK while a worker exits. Re-read current
+                # config after exit so quick re-enables are not lost.
+                while all(worker.is_alive() for worker in pending):
+                    for worker in pending:
+                        worker.join(timeout=0.25)
+                time.sleep(0.05)
+        except Exception:
+            logger.exception("Không thể đồng bộ worker camera")
+
+    threading.Thread(target=reconcile, daemon=True, name="Camera-reconcile").start()
+
+
+def restart_camera_worker(cam_id, camera):
+    with CAMERA_LOCK:
+        worker = CAM_WORKERS.get(cam_id)
+    stopped = stop_camera_worker(cam_id, timeout=12)
     if worker and worker.is_alive():
         logger.error(f"[Cam {cam_id}] Worker cũ chưa dừng; không mở tiến trình FFmpeg thứ hai.")
+        _sync_camera_workers_async([cam_id])
+        return False
+    if not stopped:
         return False
     return ensure_camera_worker(cam_id, camera, "được watchdog khôi phục")
 
 
 def start_recording_loop():
     for idx, cam in enumerate(CAMERA_LIST, start=1):
+        if not is_camera_active(idx):
+            logger.info(f"[Cam {idx}] Camera đang tắt; không khởi tạo worker ghi hình.")
+            continue
         if not should_record_locally(cam):
             logger.info(f"[Cam {idx}] Nguồn NVR (không ghi dự phòng), không khởi tạo worker ghi Local.")
             continue
@@ -3999,10 +4122,15 @@ def health_check_loop():
             stall_seconds = int(CONFIG.get("camera_stall_sec", 600))
             recovery_cooldown = int(CONFIG.get("camera_recovery_cooldown_sec", 120))
             for idx, cam in enumerate(CAMERA_LIST, start=1):
+                if not is_camera_active(idx):
+                    continue
                 if not should_record_locally(cam):
                     continue
                 with CAMERA_LOCK:
                     worker = CAM_WORKERS.get(idx)
+                    stop_event = CAM_STOP_EVENTS.get(idx)
+                if stop_event and stop_event.is_set():
+                    continue
                 if not worker or not worker.is_alive():
                     logger.warning(f"[Cam {idx}] Worker không còn chạy, đang tạo lại.")
                     ensure_camera_worker(idx, cam, "được watchdog tạo lại")
@@ -4044,7 +4172,7 @@ def daily_report_task():
                     c = conn.cursor()
                     c.execute(
                         "SELECT COUNT(*) FROM downloads "
-                        "WHERE substr(ts, 1, 10) = ?",
+                        "WHERE strftime('%Y-%m-%d', datetime(ts, 'localtime')) = ?",
                         (today_str,),
                     )
                     row = c.fetchone()
@@ -4053,7 +4181,7 @@ def daily_report_task():
                     c.execute(
                         "SELECT COUNT(*) FROM downloads "
                         "WHERE filename LIKE 'merge%' "
-                        "AND substr(ts, 1, 10) = ?",
+                        "AND strftime('%Y-%m-%d', datetime(ts, 'localtime')) = ?",
                         (today_str,),
                     )
                     row_merge = c.fetchone()
@@ -4400,16 +4528,66 @@ def monitor_telegram_commands():
                         hdd_used = get_total_size_gb()
                         _, _, free_part_gb = get_disk_partition_usage()
                         effective_lim = get_effective_disk_limit_gb()
-                        active_cams = sum(1 for w in CAM_WORKERS.values() if w and w.is_alive())
                         total_cams = len(CAMERA_LIST) if isinstance(CAMERA_LIST, list) else 0
+                        active_count = sum(1 for idx in range(1, total_cams + 1) if is_camera_active(idx))
+                        recording_count = sum(1 for idx, w in CAM_WORKERS.items() if w and w.is_alive() and is_camera_active(idx))
                         state = get_license_snapshot()
                         lic_txt = "✅ Hợp lệ" if state.get("active") else "⛔ Chưa kích hoạt"
+                        cam_line = f"📹 Camera: **{recording_count}/{active_count}** đang ghi (Tổng: {total_cams})"
+                        if active_count < total_cams:
+                            off_cams = [str(idx) for idx in range(1, total_cams + 1) if not is_camera_active(idx)]
+                            cam_line += f"\n⏸️ Camera đang tắt: Cam {', '.join(off_cams)}"
                         msg = (
                             "📊 **TRẠNG THÁI HỆ THỐNG**\n"
                             f"🔹 Phiên bản: **v{APP_VERSION}**\n"
-                            f"📹 Camera: **{active_cams}/{total_cams}** đang ghi hình\n"
+                            f"{cam_line}\n"
                             f"💾 Dung lượng video: **{hdd_used:.1f} / {effective_lim:.1f} GB** (Trống ổ: **{free_part_gb:.1f} GB**)\n"
                             f"🔐 Bản quyền xem lại: **{lic_txt}**"
+                        )
+                        send_telegram_alert(msg, target_chat_id=chat_id, message_thread_id=thread_id)
+                        continue
+                    if re.fullmatch(r"/(?:stats|thongke)(?:@\w+)?", text) or text in ("/stats", "/thongke"):
+                        today_str = datetime.now().strftime("%Y-%m-%d")
+                        total_today, total_7d = 0, 0
+                        cam_stats = []
+                        try:
+                            with sqlite3.connect(DB_PATH) as conn:
+                                c = conn.cursor()
+                                c.execute(
+                                    "SELECT COUNT(*) FROM downloads WHERE strftime('%Y-%m-%d', datetime(ts, 'localtime')) = ?",
+                                    (today_str,),
+                                )
+                                r = c.fetchone()
+                                if r:
+                                    total_today = r[0]
+
+                                c.execute(
+                                    "SELECT COUNT(*) FROM downloads WHERE datetime(ts, 'localtime') >= datetime('now', 'localtime', '-7 days')"
+                                )
+                                r7 = c.fetchone()
+                                if r7:
+                                    total_7d = r7[0]
+
+                                c.execute(
+                                    "SELECT COALESCE(cam_id, 0), COUNT(*) FROM downloads "
+                                    "WHERE strftime('%Y-%m-%d', datetime(ts, 'localtime')) = ? "
+                                    "GROUP BY cam_id ORDER BY COUNT(*) DESC",
+                                    (today_str,),
+                                )
+                                cam_stats = c.fetchall()
+                        except Exception as st_err:
+                            logger.error(f"Lỗi truy vấn thống kê Telegram: {st_err}")
+
+                        cam_str = ""
+                        if cam_stats:
+                            parts = [f"Cam {cs[0] if cs[0] else 'Khác'}: {cs[1]}" for cs in cam_stats]
+                            cam_str = "\n📹 Hôm nay theo camera: " + ", ".join(parts)
+
+                        msg = (
+                            "📊 **THỐNG KÊ TẢI VIDEO**\n"
+                            f"📅 Hôm nay ({datetime.now().strftime('%d/%m/%Y')}): **{total_today}** lượt\n"
+                            f"🗓️ 7 ngày qua: **{total_7d}** lượt"
+                            f"{cam_str}"
                         )
                         send_telegram_alert(msg, target_chat_id=chat_id, message_thread_id=thread_id)
                         continue
@@ -4584,9 +4762,13 @@ def log_download(filename):
     try:
         m = re.search(r"cam(\d+)_", filename or "", flags=re.I)
         cam_id = int(m.group(1)) if m else None
-        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-        ua = request.headers.get("User-Agent", "-")
-        ts = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        if has_request_context():
+            ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+            ua = request.headers.get("User-Agent", "-")
+        else:
+            ip = "127.0.0.1"
+            ua = "-"
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         with sqlite3.connect(DB_PATH) as conn:
             c = conn.cursor()
             c.execute(
@@ -4597,17 +4779,6 @@ def log_download(filename):
             conn.commit()
     except Exception as e:
         logger.warning(f"log_download thất bại: {e}")
-
-
-@app.after_request
-def _log_download_after(response):
-    try:
-        if request.path.startswith("/download/") and response.status_code == 200:
-            filename = unquote(request.path[len("/download/") :])
-            log_download(filename)
-    except:
-        pass
-    return response
 
 
 def get_rtsp_url(cam_id, stream=None, context=None):
@@ -5179,6 +5350,9 @@ def download_video(filename):
     if cam_id is not None and not is_admin() and is_camera_private(cam_id):
         return "Bàn này đang bật chế độ riêng tư hoặc tạm ngưng.", 403
     inline = request.args.get("inline") in {"1", "true", "yes"}
+    range_header = request.headers.get("Range")
+    if not range_header or range_header.strip().startswith("bytes=0-"):
+        log_download(unquote(filename))
     return send_from_directory(
         VIDEO_DIR,
         os.path.basename(safe_path),
@@ -5186,6 +5360,57 @@ def download_video(filename):
         mimetype="video/mp4",
         conditional=True,
     )
+
+
+@app.route("/api/log-download", methods=["POST"])
+def api_log_download():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"ok": False, "error": "Yêu cầu JSON không hợp lệ."}), 400
+    filename = data.get("filename")
+    if not isinstance(filename, str) or not filename:
+        return jsonify({"ok": False, "error": "File không hợp lệ."}), 400
+    filename = unquote(filename)
+    if (any(char in filename for char in ("/", "\\", ":", "\x00"))
+            or not filename.lower().endswith(".mp4")):
+        return jsonify({"ok": False, "error": "File không hợp lệ."}), 400
+    safe_path = safe_video_path(filename)
+    if (not safe_path or os.path.basename(safe_path) != filename
+            or not os.path.isfile(safe_path)):
+        return jsonify({"ok": False, "error": "File không hợp lệ."}), 400
+    admin = is_admin()
+    cam_id = extract_cam_id_from_filename(filename)
+    if cam_id is not None and not 1 <= cam_id <= len(CAMERA_LIST):
+        cam_id = None
+    if not admin and ((cam_id is not None and is_camera_private(cam_id))
+                      or (cam_id is None and any(is_camera_private(idx)
+                                                for idx in range(1, len(CAMERA_LIST) + 1)))):
+        return jsonify({"ok": False, "error": "Bàn hiện không cho phép khách tải video."}), 403
+    # sendBeacon on iOS may omit Origin; explicit cross-origin requests must
+    # still be rejected, even when the caller has an authenticated session.
+    origin = request.headers.get("Origin")
+    if origin:
+        try:
+            source = urlparse(origin)
+            target = urlparse(request.host_url)
+            target_scheme = target.scheme.lower()
+            if is_remote_cloudflare_request():
+                # Cloudflare terminates TLS before forwarding to local HTTP.
+                forwarded_scheme = request.headers.get("X-Forwarded-Proto", "").lower()
+                if forwarded_scheme in {"http", "https"}:
+                    target_scheme = forwarded_scheme
+            if (source.scheme not in {"http", "https"} or source.username or source.password
+                    or source.scheme.lower() != target_scheme
+                    or source.netloc.lower() != target.netloc.lower()):
+                return jsonify({"ok": False, "error": "Nguồn yêu cầu không hợp lệ."}), 403
+        except ValueError:
+            return jsonify({"ok": False, "error": "Nguồn yêu cầu không hợp lệ."}), 403
+    if request.headers.get("Sec-Fetch-Site") == "cross-site":
+        return jsonify({"ok": False, "error": "Nguồn yêu cầu không hợp lệ."}), 403
+    if not (admin or _is_direct_lan_request() or session.get("remote_authenticated") is True):
+        return jsonify({"ok": False, "error": "Cần đăng nhập để truy cập từ ngoài mạng quán."}), 403
+    log_download(filename)
+    return jsonify({"ok": True})
 
 
 @app.route("/nvr/video/<token>")
@@ -5255,8 +5480,8 @@ def stats_data():
             by_day = [
                 {"day": r[0], "count": r[1]}
                 for r in c.execute(
-                    "SELECT substr(ts, 1, 10) AS day, COUNT(*) FROM downloads "
-                    "WHERE ts >= datetime('now', ?) GROUP BY day ORDER BY day ASC",
+                    "SELECT strftime('%Y-%m-%d', datetime(ts, 'localtime')) AS day, COUNT(*) FROM downloads "
+                    "WHERE datetime(ts, 'localtime') >= datetime('now', 'localtime', ?) GROUP BY day ORDER BY day ASC",
                     (f"-{days} days",),
                 ).fetchall()
             ]
@@ -5264,7 +5489,7 @@ def stats_data():
                 {"filename": r[0], "count": r[1]}
                 for r in c.execute(
                     "SELECT filename, COUNT(*) AS cnt FROM downloads "
-                    "WHERE ts >= datetime('now', ?) GROUP BY filename "
+                    "WHERE datetime(ts, 'localtime') >= datetime('now', 'localtime', ?) GROUP BY filename "
                     "ORDER BY cnt DESC LIMIT 20",
                     (f"-{days} days",),
                 ).fetchall()
@@ -5273,7 +5498,7 @@ def stats_data():
                 {"cam_id": r[0], "count": r[1]}
                 for r in c.execute(
                     "SELECT COALESCE(cam_id, 0) AS cam, COUNT(*) FROM downloads "
-                    "WHERE ts >= datetime('now', ?) GROUP BY cam ORDER BY cam ASC",
+                    "WHERE datetime(ts, 'localtime') >= datetime('now', 'localtime', ?) GROUP BY cam ORDER BY cam ASC",
                     (f"-{days} days",),
                 ).fetchall()
             ]
@@ -5358,7 +5583,8 @@ def admin_page():
 def admin_config():
     global CONFIG, CAMERA_LIST
     if request.method == "GET":
-        return jsonify(migrate_config_data(CONFIG))
+        public_cfg = migrate_config_data(CONFIG)
+        return jsonify(public_cfg)
     candidate = request.get_json(silent=True)
     error = validate_config(candidate)
     if error:
@@ -5470,7 +5696,8 @@ def api_status():
         for cam_id in range(1, len(CAMERA_LIST) + 1):
             cam = CAMERA_LIST[cam_id - 1]
             source = _camera_playback_mode(cam_id)
-            records_locally = should_record_locally(cam)
+            active = is_camera_active(cam_id)
+            records_locally = should_record_locally(cam) and active
             worker = CAM_WORKERS.get(cam_id)
             proc = CAM_PROCESSES.get(cam_id)
             last_success = CAM_LAST_SUCCESS.get(cam_id)
@@ -5479,6 +5706,7 @@ def api_status():
                     "id": cam_id,
                     "name": get_camera_name(cam_id),
                     "source": source,
+                    "active": active,
                     "backup_local": bool(cam.get("backup_local", False)),
                     "worker_expected": records_locally,
                     "worker_alive": bool(worker and worker.is_alive()) if records_locally else False,
@@ -5593,10 +5821,12 @@ def admin_toggle_table():
     if not table_id:
         return jsonify({"ok": False, "error": "Thiếu table_id"}), 400
 
+    updated = dict(CONFIG)
     tables = CONFIG.get("tables", [])
     if not isinstance(tables, list):
         tables = []
-        CONFIG["tables"] = tables
+    tables = [dict(table) if isinstance(table, dict) else table for table in tables]
+    updated["tables"] = tables
 
     target_table = None
     for t in tables:
@@ -5618,9 +5848,9 @@ def admin_toggle_table():
         target_table["enabled"] = not bool(target_table.get("enabled", True))
 
     try:
-        cleaned = clean_config_for_saving(CONFIG)
+        cleaned = clean_config_for_saving(updated)
         save_config(cleaned)
-        CONFIG = cleaned
+        _update_table_access_config(cleaned)
         is_priv = target_table.get("enabled") is False or target_table.get("privacy_off") is True
         color = get_table_visual_color(target_table) if get_table_visual_color else ("red" if is_priv else "grey")
         return jsonify({
@@ -7443,7 +7673,31 @@ def _should_run_tray():
 # The module receives callbacks; it does not alter recording workers or camera IDs.
 def _update_table_access_config(updated):
     global CONFIG
-    CONFIG = updated
+    # Compare before replacing CONFIG, including cameras whose table binding
+    # disappeared. Reorders/names alone must not touch unrelated recorders.
+    def recording_states(config):
+        tables = config.get("tables", [])
+        if not isinstance(tables, list):
+            tables = []
+        states = {}
+        for cam_id, camera in enumerate(CAMERA_LIST, start=1):
+            table = next((table for table in tables if isinstance(table, dict)
+                          and table.get("camera_id") == cam_id), None)
+            active = not (isinstance(camera, dict) and camera.get("enabled") is False)
+            if table:
+                active = active and table.get("enabled") is not False and table.get("privacy_off") is not True
+            states[cam_id] = active and should_record_locally(camera)
+        return states
+
+    with CAMERA_LOCK:
+        before = recording_states(CONFIG)
+        after = recording_states(updated)
+        camera_ids = [cam_id for cam_id in before if before[cam_id] != after[cam_id]]
+        CONFIG = updated
+    try:
+        _sync_camera_workers_async(camera_ids)
+    except Exception as exc:
+        logger.warning(f"Lỗi đồng bộ worker sau khi đổi trạng thái bàn: {exc}")
 
 
 def _verified_table_license_grant():

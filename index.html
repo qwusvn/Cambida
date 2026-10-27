@@ -1727,12 +1727,12 @@
     <div id="codecWarning" class="warning" hidden><span class="warning-icon">!</span><span>Video này sử dụng codec H.265/HEVC. Vui lòng tải về máy để xem bằng phần mềm phù hợp hoặc đổi camera sang H.264.</span></div>
     <div id="watchError" class="inline-error" hidden></div>
 
-    <!-- Cắt Video Button -->
     <div class="actions replay-actions">
       <button id="cutButton" class="action primary cut-primary" type="button">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="m20 4-8.5 8.5M20 20l-5-5M11.5 12.5 8.5 15.5"/></svg>Cắt Video</button>
     </div>
   </section>
+
 
   <!-- Screen 3: Cắt video Screen -->
   <section id="cutScreen" class="screen screen-cut" hidden>
@@ -3405,6 +3405,13 @@
     // iOS Save to Photos (Share API): file is prepared before the tap so Safari keeps user activation.
     $("iosSaveShareBtn")?.addEventListener("click", () => {
       if(!iosShareFile || !canUseIOSFileShare()) return;
+      if(lastMergedFilename){
+        fetch('/api/log-download', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({filename: lastMergedFilename})
+        }).catch(()=>{});
+      }
       const btn = $("iosSaveShareBtn"), txt = $("iosSaveShareText");
       try {
         if(navigator.userActivation && !navigator.userActivation.isActive){

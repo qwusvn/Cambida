@@ -28,15 +28,41 @@
   let selectedDays = 7;
   function render(data) {
     const daily = data.by_day || [], byCam = data.by_cam || [], top = data.top_files || [];
-    $('total').textContent = daily.reduce((sum, item) => sum + Number(item.count || 0), 0);
+    const total = daily.reduce((sum, item) => sum + Number(item.count || 0), 0);
+    $('total').textContent = total;
     $('cameraCount').textContent = byCam.length;
+    if (total === 0 || daily.length === 0) {
+      const emptyMsg = '<span class="muted">Chưa có lượt tải nào trong khoảng thời gian này.</span>';
+      $('daily').innerHTML = emptyMsg;
+      $('byCam').innerHTML = emptyMsg;
+      $('topFiles').innerHTML = '<tr><td colspan="2" class="muted">Chưa có lượt tải nào trong khoảng thời gian này.</td></tr>';
+      return;
+    }
     const maxDay = Math.max(...daily.map(item => Number(item.count || 0)), 1);
-    $('daily').innerHTML = daily.length ? daily.map(item => `<div class="d-flex align-items-center gap-2 mb-2"><span style="width:92px">${esc(item.day)}</span><div class="bar flex-grow-1"><span style="width:${Math.round(Number(item.count || 0) / maxDay * 100)}%"></span></div><strong style="width:42px;text-align:right">${esc(item.count)}</strong></div>`).join('') : '<span class="muted">Chưa có lượt tải.</span>';
+    $('daily').innerHTML = daily.map(item => `<div class="d-flex align-items-center gap-2 mb-2"><span style="width:92px">${esc(item.day)}</span><div class="bar flex-grow-1"><span style="width:${Math.round(Number(item.count || 0) / maxDay * 100)}%"></span></div><strong style="width:42px;text-align:right">${esc(item.count)}</strong></div>`).join('');
     const maxCam = Math.max(...byCam.map(item => Number(item.count || 0)), 1);
-    $('byCam').innerHTML = byCam.length ? byCam.map(item => `<div class="d-flex align-items-center gap-2 mb-2"><span style="width:75px">Camera ${esc(item.cam_id)}</span><div class="bar flex-grow-1"><span style="width:${Math.round(Number(item.count || 0) / maxCam * 100)}%"></span></div><strong>${esc(item.count)}</strong></div>`).join('') : '<span class="muted">Chưa có lượt tải.</span>';
+    $('byCam').innerHTML = byCam.length ? byCam.map(item => `<div class="d-flex align-items-center gap-2 mb-2"><span style="width:75px">Camera ${esc(item.cam_id)}</span><div class="bar flex-grow-1"><span style="width:${Math.round(Number(item.count || 0) / maxCam * 100)}%"></span></div><strong>${esc(item.count)}</strong></div>`).join('') : '<span class="muted">Chưa có lượt tải nào trong khoảng thời gian này.</span>';
     $('topFiles').innerHTML = top.length ? top.map(item => `<tr><td class="text-break">${esc(item.filename)}</td><td class="text-end">${esc(item.count)}</td></tr>`).join('') : '<tr><td colspan="2" class="muted">Chưa có dữ liệu.</td></tr>';
   }
-  async function load(days) { selectedDays = days; const response = await fetch(`/stats/data?days=${days}`); if (!response.ok) { $('notice').innerHTML='<div class="alert alert-danger">Không đọc được dữ liệu thống kê.</div>'; return; } render(await response.json()); }
+  async function load(days) {
+    selectedDays = days;
+    try {
+      const response = await fetch(`/stats/data?days=${days}`);
+      if (response.status === 401) {
+        window.location.href = '/admin/login?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+        return;
+      }
+      if (!response.ok) {
+        $('notice').innerHTML = '<div class="alert alert-danger">Không đọc được dữ liệu thống kê (Mã lỗi ' + response.status + ').</div>';
+        return;
+      }
+      const data = await response.json();
+      render(data);
+      $('notice').innerHTML = '';
+    } catch (err) {
+      $('notice').innerHTML = '<div class="alert alert-danger">Lỗi kết nối khi tải thống kê.</div>';
+    }
+  }
   document.querySelectorAll('.period').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('.period').forEach(item => item.classList.remove('active')); button.classList.add('active'); $('periodText').textContent=button.textContent; load(Number(button.dataset.days)); }));
   load(7);
 </script></body></html>

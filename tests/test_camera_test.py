@@ -461,7 +461,11 @@ class CameraTestEndpointTests(unittest.TestCase):
         camera = self._local_camera(vendor="imou", **{"pass": secret})
         with tempfile.TemporaryDirectory(dir=ROOT) as temp_dir:
             old_video_dir = APP.VIDEO_DIR
+            old_cameras = APP.CAMERA_LIST
             APP.VIDEO_DIR = temp_dir
+            # record_camera only records cameras registered in CAMERA_LIST.
+            APP.CAMERA_LIST = old_cameras + [{}] * (99 - len(old_cameras))
+            APP.CAMERA_LIST[98] = camera
             APP.CAM_LAST_ERROR.pop(99, None)
             stop_event = _StopAfterOneWait()
             try:
@@ -473,6 +477,7 @@ class CameraTestEndpointTests(unittest.TestCase):
                     APP.record_camera(99, camera, stop_event)
             finally:
                 APP.VIDEO_DIR = old_video_dir
+                APP.CAMERA_LIST = old_cameras
 
         self.assertIn(99, APP.CAM_LAST_ERROR)
         self.assertNotIn(secret, APP.CAM_LAST_ERROR[99])

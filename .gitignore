@@ -1,6 +1,8 @@
 # Runtime / generated data
 __pycache__/
 *.py[cod]
+*.pyd
+/modules/
 *.log
 *.db
 logs/
@@ -25,6 +27,10 @@ staging/
 # Local secrets / machine-specific config
 config.json
 config.yml
+/config (1).json
+controlhub_machine_id.txt
+controlhub_client_secret.txt
+controlhub_bootstrap.json
 tunnel_token.txt
 device_id.key
 nvr/nvr_config.json
