@@ -1,4 +1,4 @@
-param([string]$Version = '2.3.6')
+param([string]$Version = '2.3.7')
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $BuildRoot = Join-Path $Root 'staging\native-build'
@@ -15,3 +15,5 @@ if (-not (Test-Path -LiteralPath $BuildPython)) {
 }
 & $BuildPython "$Root\scripts\build_native.py" --version $Version
 if ($LASTEXITCODE -ne 0) { throw "Native packaging failed: $LASTEXITCODE" }
+
+

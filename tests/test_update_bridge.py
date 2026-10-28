@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -11,10 +12,51 @@ import psutil
 from test_universal_update import write_release
 
 ROOT = Path(__file__).resolve().parents[1]
+POWERSHELL = os.environ.get("CAMBIDA_TEST_POWERSHELL", "powershell.exe")
+ROOT_LETTERS = "ZYXWVUTSRQPONMLKJ"
 
 
 @unittest.skipUnless(sys.platform == "win32", "Windows compatibility bridge")
 class UpdateBridgeTests(unittest.TestCase):
+    def _bridge_exe(self):
+        runner = Path(os.environ.get("CAMBIDA_TEST_UPDATER_EXE", str(ROOT / "updater.exe")))
+        self.assertTrue(runner.is_file(), "Build updater.exe before running bridge integration")
+        return runner
+
+    def _run_bridge(self, payload, target, cleanup=None, timeout=120):
+        command = [POWERSHELL, "-NoProfile", "-ExecutionPolicy", "Bypass",
+                   "-File", str(ROOT / "scripts/universal_updater.ps1"),
+                   "-OldPid", "0", "-Payload", str(payload), "-Target", str(target)]
+        if cleanup:
+            command += ["-CleanupRoot", str(cleanup)]
+        return subprocess.run(command, capture_output=True, text=True, timeout=timeout,
+                              creationflags=0x08000000)
+
+    def _map_drive(self, target):
+        # subst exposes an ordinary directory as a drive root, so the bridge
+        # sees exactly the "D:\" layout without touching a real system drive.
+        for letter in ROOT_LETTERS:
+            root = letter + ":\\"
+            if os.path.exists(root):
+                continue
+            result = subprocess.run(["subst", letter + ":", str(target)], capture_output=True, text=True)
+            if result.returncode == 0:
+                return root
+        self.skipTest("No free drive letter for a root-installation test")
+        return None
+
+    def _kill(self, executable):
+        for process in psutil.process_iter(["exe"]):
+            try:
+                if process.info["exe"] and Path(process.info["exe"]).resolve() == Path(executable).resolve():
+                    children = process.children(recursive=True)
+                    for child in children:
+                        child.kill()
+                    process.kill()
+                    psutil.wait_procs([process, *children], timeout=5)
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+
     def test_legacy_payload_bridge_uses_standalone_exe_and_txt(self):
         runner = Path(os.environ.get("CAMBIDA_TEST_UPDATER_EXE", str(ROOT / "updater.exe")))
         self.assertTrue(runner.is_file(), "Build updater.exe before running bridge integration")
@@ -62,6 +104,61 @@ class UpdateBridgeTests(unittest.TestCase):
                             psutil.wait_procs([process, *children], timeout=5)
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
                         pass
+
+
+    def test_bridge_handles_an_installation_at_a_drive_root(self):
+        runner = self._bridge_exe()
+        with tempfile.TemporaryDirectory(dir=ROOT / "test_data") as td:
+            base = Path(td)
+            target = base / "shop"
+            target.mkdir()
+            (target / "config.json").write_bytes(b'{"shop":true}')
+            (target / "cctv_videos").mkdir()
+            (target / "cctv_videos" / "keep.mp4").write_bytes(b"video")
+            staging = base / "staging"
+            payload = staging / "payload"
+            files = {"server.exe": Path(os.environ["WINDIR"]) / "System32/cmd.exe",
+                     "updater.exe": runner,
+                     "update_exclude.txt": ROOT / "update_exclude.txt",
+                     "new.bin": b"new"}
+            write_release(payload, "2.4.0", files, args=["/d", "/c", "ping -n 20 127.0.0.1 >nul"])
+            drive = self._map_drive(target)
+            try:
+                result = self._run_bridge(payload, drive, cleanup=staging)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual((target / "config.json").read_bytes(), b'{"shop":true}')
+                self.assertEqual((target / "cctv_videos" / "keep.mp4").read_bytes(), b"video")
+                self.assertEqual((target / "new.bin").read_bytes(), b"new")
+                self.assertEqual(json.loads((target / "update.json").read_text())["version"], "2.4.0")
+                log = (target / "logs/updater.log").read_text(encoding="utf-8")
+                self.assertIn("Update 2.4.0 completed", log)
+                self.assertFalse(staging.exists(), "staging directory was not removed")
+            finally:
+                subprocess.run(["subst", drive.rstrip("\\"), "/D"], capture_output=True)
+                self._kill(target / "server.exe")
+
+    def test_bridge_restarts_the_application_when_the_payload_is_invalid(self):
+        with tempfile.TemporaryDirectory(dir=ROOT / "test_data") as td:
+            base = Path(td)
+            target = base / "shop"
+            target.mkdir()
+            shutil.copy2(Path(os.environ["WINDIR"]) / "System32/WindowsPowerShell/v1.0/powershell.exe",
+                         target / "Cambida.exe")
+            (target / "update.json").write_text(json.dumps({
+                "schema": 2, "kind": "full", "version": "2.3.4",
+                "start": {"path": "Cambida.exe", "args": ["-NoProfile", "-Command", "Start-Sleep -Seconds 30"]},
+            }), encoding="utf-8")
+            payload = base / "payload"
+            write_release(payload, "2.4.0", {"dummy.bin": b"x"})  # no updater.exe on purpose
+            try:
+                result = self._run_bridge(payload, target, timeout=90)
+                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                log = (target / "logs/updater.log").read_text(encoding="utf-8")
+                self.assertIn("Missing standalone updater.exe", log)
+                self.assertIn("Original application restarted by the bridge", log)
+                self.assertFalse((target / "dummy.bin").exists())
+            finally:
+                self._kill(target / "Cambida.exe")
 
 
 if __name__ == "__main__":

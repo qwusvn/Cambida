@@ -68,7 +68,13 @@ Files absent from the ZIP are left in place.
 
 updater.ps1 is only a compatibility bridge for older 2.3.x clients that
 already download and launch a payload updater. It delegates to the
-updater.exe shipped in that payload.
+updater.exe shipped in that payload. Since 2.3.7, that bridge also works for
+installations at a drive root (`D:\`): it falls back to the system temp
+directory when the installation has no parent directory, quotes arguments
+with the Windows `CommandLineToArgvW` rules so a trailing backslash cannot
+escape the closing quote, and restarts the application if the hand-off fails
+instead of leaving the recorder stopped. Its parameter signature
+(`-Payload -Target -OldPid -CleanupRoot`) is unchanged for 2.3.4 clients.
 
 ## Preserved local data
 
@@ -84,10 +90,10 @@ automatically. The tray menu remains the explicit way to open the local UI.
 
 ## Packaging
 
-Build 2.3.6 with:
+Build 2.3.7 with:
 
 ```powershell
-.\package_native.ps1 -Version 2.3.6
+.\package_native.ps1 -Version 2.3.7
 ```
 
 Every GitHub release from 2.3.0 onward must attach the complete
