@@ -2,12 +2,12 @@
   "cython": "3.1.6",
   "device_acceptance": "NOT RUN - not requested",
   "dirty": false,
-  "git_head": "329b870afd03e48cf0cb27d513d8a4584e3a1b0a",
+  "git_head": "ff7fa60d078cf2a0774fd222e59a40c2341ba0db",
   "python": "3.13.5 (tags/v3.13.5:6cb20a2, Jun 11 2025, 16:15:46) [MSC v.1943 64 bit (AMD64)]",
-  "runtime_id": "765bc0d2c97abcb8a46cbe116fdcab1a05d530a588fb027515b739641ab9f506",
+  "runtime_id": "165ab631bdf3023f6b44b2150ad7a3da9b0bb5384ef9646a776df01323ded356",
   "source": {
     "1.py": "700a996ab682d23872984d966cbee7c48e9c9962eae79cf2ea468ddd367ca4c4",
-    "NATIVE_RELEASE.md": "e77546490c12a40be80a0917fd963d31f0f8c1c4f6052d31ab1e5d6c78db65b5",
+    "NATIVE_RELEASE.md": "11e2f8e9ed491aa118250ba6805299691f4bc0c832cb76fdb9785a20179b4da8",
     "admin.html": "f88905d817e7e6a3f1a48f12bf22096c5b8ed5d7532918fd1d4253369face4fa",
     "admin_login.html": "891c7e385bf2eb78ab4b6650cb587fef32febe64a285e9b7bdd977fad04577d1",
     "camera_modules\\__init__.py": "a93b2a4a293340a7e4e133268f0591497e4f83e20f3a38f93d64d2939e635fca",
@@ -35,8 +35,8 @@
     "scripts\\native_launcher.py": "b949778f1c4406763d3c51d42a5a9e960b6b433875e2180d2ea88dff9d0149f2",
     "scripts\\native_runtime.spec": "2ad7fb922be812c4e61b784855c0acaf396cee154ceeb0e0e799e69b549b3980",
     "scripts\\release_launcher.cmd": "f657ed92b017b65368e5cdc32d3c64ca8b4c4cb3cbeaac59d7ca0bbf50efb940",
-    "scripts\\universal_updater.ps1": "8f3b9328937946e59ee6c06f52c0612301cb2d7b2a44e9d0c4448e6e9618fb49",
-    "scripts\\updater.py": "a2f6827bf19d7194d46bf14e8c5af7e70b7d10b5a10b433c1f49688242e6e309",
+    "scripts\\universal_updater.ps1": "5f06a1b17420fbd7d6969484010503e673e2af1004291db49ad9e64a84271175",
+    "scripts\\updater.py": "44ffbc1c1b44e3580f24eeddb265b6ccb4b16885c34044a40c1193e4abfd4c88",
     "services\\__init__.py": "071681c3b92198a7897de1d1a3868d4698cf615e8c828b401e8810fddad4257d",
     "services\\embedded_template.py": "81ce58324f06e93a7046bc13a778ed0d83061b304cbbcd2dbf65c7c9645fc8af",
     "services\\live_streamer.py": "207dd66d52c08c64004b5a802a29dc1bcc2f056726d07b1dfb2c0a647c066d82",
@@ -46,6 +46,6 @@
     "timeline.html": "b1994654cdc7d31858bc7d47aeccceefa53bf67d019ee5d388d96ada0ce61c3b",
     "update_exclude.txt": "1c1373fe5501e4fee07020f68166747c74e27040a837cc08873bb7b1c62601e6"
   },
-  "tests": "pytest: 271 passed; updater bridge integration: passed with packaged updater.exe",
-  "version": "2.3.6"
+  "tests": "pytest: 277 passed; updater bridge (drive-root install): 3 passed with the packaged updater.exe; FixTool dry-run: 231 files verified",
+  "version": "2.3.7"
 }

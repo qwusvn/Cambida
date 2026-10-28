@@ -1,12 +1,12 @@
 {
   "abi": "cpython-313-win-amd64",
   "files": {
-    "BUILD_INFO.json": "4eb7164c0e86a06488a1f8510fc377e257c25b5fdc4f71e97ea7075833761f7a",
-    "Cambida.exe": "112cc57894c94dcfe3466bc702b1b4b77a7c532fdbe9a81b0d67f8f08fa04a07",
+    "BUILD_INFO.json": "33738cedd881c16fc30108b61a5c918967c7d7704b8f084a116d351945a740b8",
+    "Cambida.exe": "461cd0ddb5ddfb5bab8d3e1ac2cf4fc97ef46c11ff9d2d9307dbc8b8ffb55a19",
     "Chay_CCTV.cmd": "f657ed92b017b65368e5cdc32d3c64ca8b4c4cb3cbeaac59d7ca0bbf50efb940",
-    "README_RELEASE.md": "e77546490c12a40be80a0917fd963d31f0f8c1c4f6052d31ab1e5d6c78db65b5",
-    "RELEASE_VERSION.txt": "2bc1b61e72dffc2de5063728dbb53f503a7302fd52a7f68e18793cc5053346a0",
-    "VERSION.txt": "2bc1b61e72dffc2de5063728dbb53f503a7302fd52a7f68e18793cc5053346a0",
+    "README_RELEASE.md": "11e2f8e9ed491aa118250ba6805299691f4bc0c832cb76fdb9785a20179b4da8",
+    "RELEASE_VERSION.txt": "cb605510a8573f7bc80f0dd2055a61c528e3104f18f7261df37144c65ac330b9",
+    "VERSION.txt": "cb605510a8573f7bc80f0dd2055a61c528e3104f18f7261df37144c65ac330b9",
     "_internal/AudioRender.dll": "2838779e6c443fda1e83b5639ad0724b8f11e7931b2fa61c9c7c98318a4cd4fe",
     "_internal/HCCore.dll": "fc7ec9b5d869b05252c09cfaf910d854f7e0fee5b6910a9d4ff26183bc7d5fb7",
     "_internal/HCCoreDevCfg.dll": "d82396632139257ad45cbc8ce3b5a412b631dec97fa18d2e95a1f6dd64b4d259",
@@ -46,7 +46,7 @@
     "_internal/_ssl.pyd": "11572f6eb63e43cdc2908812506ffcdab21be2be5931f1e38d856c15f5a79e6c",
     "_internal/_uuid.pyd": "6a3e6d89e71a803609e6e765a592011427a5b6e7a4766bbca7790b601bb66dbe",
     "_internal/_wmi.pyd": "a7cc096244a497219269a3ee1cf2526a2b613d73fa566749f8f2408f5f4117d4",
-    "_internal/base_library.zip": "263665535052f159ade752f57ecab2ef013e30803066a412f2eebc49f0082595",
+    "_internal/base_library.zip": "3d4edf8c2bc6a314e7178467f6ec84cc16ced8d994616f59176e0d374e3b033a",
     "_internal/certifi/cacert.pem": "9102e6a3644a071ba6cdbd4a53698f291c4a64b18450a08bc046548b6db5cc8b",
     "_internal/certifi/py.typed": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "_internal/chardet/pipeline/ascii.cp313-win_amd64.pyd": "6861c02d3f0d6f35e73e5b415f36e70c2770337c50a81d66fd540dbe1380546e",
@@ -230,10 +230,10 @@
     "stats.html": "65b8876e7abbc473d14c039e3735ee708b87b70c0b577d3904f445186711748e",
     "timeline.html": "b1994654cdc7d31858bc7d47aeccceefa53bf67d019ee5d388d96ada0ce61c3b",
     "update_exclude.txt": "1c1373fe5501e4fee07020f68166747c74e27040a837cc08873bb7b1c62601e6",
-    "updater.exe": "a079becdd5a1cac64e53f216832f08899678b1bb39674d90c78c8e91bf86bb80",
-    "updater.ps1": "8f3b9328937946e59ee6c06f52c0612301cb2d7b2a44e9d0c4448e6e9618fb49"
+    "updater.exe": "c35ad84e7aff868e41ad187034122ec5c1639ec7904ee68eb3306011026d5c83",
+    "updater.ps1": "5f06a1b17420fbd7d6969484010503e673e2af1004291db49ad9e64a84271175"
   },
-  "runtime_id": "765bc0d2c97abcb8a46cbe116fdcab1a05d530a588fb027515b739641ab9f506",
+  "runtime_id": "165ab631bdf3023f6b44b2150ad7a3da9b0bb5384ef9646a776df01323ded356",
   "schema": 2,
-  "version": "2.3.6"
+  "version": "2.3.7"
 }
