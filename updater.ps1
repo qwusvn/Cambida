@@ -141,6 +141,7 @@ function Restart-InstalledAppIfNeeded {
 }
 
 $runnerDir = $null
+$updaterProcess = $null
 try {
     $updater = Join-Path $Payload 'updater.exe'
     if (-not (Test-Path -LiteralPath $updater -PathType Leaf)) { throw 'Missing standalone updater.exe in payload' }
@@ -184,20 +185,24 @@ try {
     $startInfo.EnvironmentVariables['TMP'] = $runnerDir
     $startInfo.EnvironmentVariables['PYINSTALLER_RESET_ENVIRONMENT'] = '1'
     $process = [Diagnostics.Process]::Start($startInfo)
+    $updaterProcess = $process
     if (-not $process.WaitForExit(1800000)) { throw 'Updater did not finish within 30 minutes' }
     if ($process.ExitCode -ne 0) { throw ('Updater exited with code ' + $process.ExitCode) }
 
     Write-BridgeLog ("Update {0} completed" -f $version)
-    # Only remove the staging root that holds the payload; never a directory
-    # that contains the installation itself.
+    # The caller's staging root is mkdtemp("cambida-update-", dir=%TEMP%).
+    # Delete only a directory with exactly that shape; never a directory that
+    # could contain the installation or unrelated user data.
     if ($CleanupRoot) {
         $cleanup = ConvertTo-NormalizedDirectory $CleanupRoot
-        $stagingRoot = $cleanup.TrimEnd('\') + '\'
+        $leaf = Split-Path -Leaf $cleanup
+        $cleanupRoot = $cleanup.TrimEnd('\') + '\'
         $installRoot = $Target.TrimEnd('\') + '\'
-        $payloadRoot = $Payload.TrimEnd('\') + '\'
-        $installInside = $installRoot.StartsWith($stagingRoot, [StringComparison]::OrdinalIgnoreCase)
-        $payloadInside = $payloadRoot.StartsWith($stagingRoot, [StringComparison]::OrdinalIgnoreCase)
-        if (-not $installInside -and $payloadInside) {
+        $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+        $isStaging = $leaf -match '^cambida-update-[0-9A-Za-z_]{6,}$'
+        $insideTemp = $cleanupRoot.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)
+        $holdsInstall = $installRoot.StartsWith($cleanupRoot, [StringComparison]::OrdinalIgnoreCase)
+        if ($isStaging -and $insideTemp -and -not $holdsInstall) {
             try { Remove-Item -LiteralPath $cleanup -Recurse -Force -ErrorAction Stop } catch { }
         }
     }
@@ -207,6 +212,15 @@ try {
 catch {
     $failure = $_.Exception.Message
     Write-BridgeLog ('Update failed: ' + $failure)
+    $stillRunning = $false
+    if ($updaterProcess) {
+        try { $stillRunning = -not $updaterProcess.HasExited } catch { }
+    }
+    if ($stillRunning) {
+        Write-BridgeLog 'Updater is still running; the application is not restarted by the bridge'
+        Write-Error $failure
+        exit 1
+    }
     $restarted = $false
     try { $restarted = Restart-InstalledAppIfNeeded } catch { Write-BridgeLog ('Restart failed: ' + $_.Exception.Message) }
     if ($restarted) { Write-BridgeLog 'Original application restarted by the bridge' }

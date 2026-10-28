@@ -43,7 +43,8 @@ Các tuỳ chọn khác: `-Version 2.3.7` (ghim phiên bản), `-Repo owner/repo
 1. Xác định thư mục cài và đọc `RELEASE_VERSION.txt`.
 2. Tải `<version>.zip` (hoặc dùng ZIP có sẵn) vào `%TEMP%\cambida-fix-<guid>`.
 3. Giải nén an toàn (chặn path traversal) và kiểm tra **toàn bộ SHA-256** theo
-   `release_manifest.json`; bắt buộc `schema 2`, `kind: full`, version khớp.
+   `release_manifest.json`; bắt buộc `schema 2`, `kind: full`, version khớp,
+   manifest liệt kê `updater.exe` + entrypoint, và **không có file nào ngoài manifest**.
 4. Gọi trực tiếp:
 
    ```bat
@@ -79,9 +80,13 @@ Các tuỳ chọn khác: `-Version 2.3.7` (ghim phiên bản), `-Repo owner/repo
 
 ## 5. Mã thoát
 
-- `0` — thành công, hoặc đã đúng phiên bản và ping OK, hoặc `-DryRun` verify xong.
-- `1` — lỗi: không tải/verify được, updater lỗi, hoặc ping vẫn fail sau khi bật lại app.
+- `0` — thành công thật: `updater.exe` trả 0, file trên đĩa đúng phiên bản đích và
+  `/api/ping` trả 200; hoặc máy đã đúng phiên bản và ping OK; hoặc `-DryRun` verify xong.
+- `1` — lỗi: không tải/verify được, updater trả mã khác 0 (kể cả khi app vẫn trả ping),
+  file trên đĩa không đúng phiên bản đích, hoặc ping vẫn fail sau khi bật lại app.
   Xem `logs\fix-tool.log`, `logs\updater.log`, rồi chạy lại `-DryRun` để kiểm tra gói.
+- Tool chỉ xoá thư mục tạm do chính nó tạo trong `%TEMP%`; không xoá thư mục cài,
+  không xoá dữ liệu người dùng.
 
 ## 6. Bối cảnh lỗi (để agent không chẩn đoán sai)
 

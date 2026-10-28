@@ -341,6 +341,14 @@ try {
     }
 
     $entries = @($manifest.files.PSObject.Properties)
+    $manifestNames = @($entries | ForEach-Object { [string]$_.Name })
+    if ('updater.exe' -notin $manifestNames) {
+        Stop-WithError 'Manifest không liệt kê updater.exe; không thể tin cậy file thực thi này.'
+    }
+    $entryPoint = [string]$update.start.path
+    if (-not $entryPoint -or $entryPoint -notin $manifestNames) {
+        Stop-WithError 'update.json thiếu entrypoint hợp lệ trong manifest.'
+    }
     Write-Step ('Đang kiểm tra SHA-256 ' + $entries.Count + ' file...')
     $checked = 0
     foreach ($entry in $entries) {
@@ -350,6 +358,21 @@ try {
         if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { Stop-WithError ('Thiếu file trong ZIP: ' + $entry.Name) }
         if ((Get-Sha256 $file) -ne ([string]$entry.Value).ToLowerInvariant()) { Stop-WithError ('Sai SHA-256: ' + $entry.Name) }
         if ($checked % 25 -eq 0) { Write-Step ('  đã kiểm tra ' + $checked + '/' + $entries.Count) }
+    }
+
+    # Nothing except the manifest, update.json and the listed files may exist
+    # in the payload: updater.exe rejects unlisted files and so do we.
+    $payloadRoot = [IO.Path]::GetFullPath($payload).TrimEnd('\') + '\'
+    $allowedNames = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($name in $manifestNames) { [void]$allowedNames.Add($name) }
+    [void]$allowedNames.Add('release_manifest.json')
+    [void]$allowedNames.Add('update.json')
+    foreach ($file in @(Get-ChildItem -LiteralPath $payload -Recurse -File -Force)) {
+        if (-not $file.FullName.StartsWith($payloadRoot, [StringComparison]::OrdinalIgnoreCase)) {
+            Stop-WithError ('File nằm ngoài payload: ' + $file.FullName)
+        }
+        $relative = $file.FullName.Substring($payloadRoot.Length).Replace('\', '/')
+        if (-not $allowedNames.Contains($relative)) { Stop-WithError ('File không có trong manifest: ' + $relative) }
     }
     Write-Ok ('Toàn bộ ' + $entries.Count + ' file khớp manifest (phiên bản ' + $Version + ').')
     Write-Log ('Validated ' + $Version + ' (' + $entries.Count + ' files) from ' + $archive)
@@ -416,6 +439,9 @@ try {
     Write-Log ('Complete: installed=' + $installedNow + ' target=' + $Version + ' updater_exit=' + $updaterExit)
     if ($installedNow -ne $Version) {
         Stop-WithError ('Cập nhật chưa hoàn tất: trên đĩa là ' + ($(if ($installedNow) { $installedNow } else { 'không rõ' })) + ', đích là ' + $Version + '. Xem logs\updater.log.')
+    }
+    if ($updaterExit -ne 0) {
+        Stop-WithError ('updater.exe báo lỗi (mã ' + $updaterExit + ') dù file đã là ' + $installedNow + ' và ping OK. Đọc logs\updater.log trước khi kết luận.')
     }
     Write-Ok ('Hoàn tất. Cambida hiện chạy phiên bản ' + $installedNow + '.')
     Write-Ok ('Xem log: ' + (Join-Path $logDir 'updater.log'))

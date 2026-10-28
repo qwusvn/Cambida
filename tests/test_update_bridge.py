@@ -115,7 +115,7 @@ class UpdateBridgeTests(unittest.TestCase):
             (target / "config.json").write_bytes(b'{"shop":true}')
             (target / "cctv_videos").mkdir()
             (target / "cctv_videos" / "keep.mp4").write_bytes(b"video")
-            staging = base / "staging"
+            staging = Path(tempfile.mkdtemp(prefix="cambida-update-", dir=tempfile.gettempdir()))
             payload = staging / "payload"
             files = {"server.exe": Path(os.environ["WINDIR"]) / "System32/cmd.exe",
                      "updater.exe": runner,
@@ -136,6 +136,7 @@ class UpdateBridgeTests(unittest.TestCase):
             finally:
                 subprocess.run(["subst", drive.rstrip("\\"), "/D"], capture_output=True)
                 self._kill(target / "server.exe")
+                shutil.rmtree(staging, ignore_errors=True)
 
     def test_bridge_restarts_the_application_when_the_payload_is_invalid(self):
         with tempfile.TemporaryDirectory(dir=ROOT / "test_data") as td:

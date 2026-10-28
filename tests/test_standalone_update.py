@@ -342,5 +342,38 @@ class StandaloneUpdateTests(unittest.TestCase):
                 except psutil.NoSuchProcess: pass
 
 
+    @unittest.skipUnless(sys.platform == "win32", "Windows path semantics")
+    def test_filesystem_root_targets_are_recognised(self):
+        self.assertTrue(UPDATER.is_filesystem_root("D:\\"))
+        self.assertFalse(UPDATER.is_filesystem_root("D:\\Cambida"))
+        self.assertFalse(UPDATER.is_filesystem_root(self.target))
+
+    def test_drive_root_installation_accepts_staging_on_the_same_drive(self):
+        # D:\ contains every path on the volume; a staging directory outside
+        # the program files must not be rejected as "inside the installation".
+        with patch.object(UPDATER, "remove_watchdog"), \
+             patch.object(UPDATER, "stop_processes"), \
+             patch.object(UPDATER, "log"), \
+             patch.object(UPDATER, "read_exclusions", return_value=([], Path("policy"))), \
+             patch.object(UPDATER, "validate_payload"), \
+             patch.object(UPDATER, "overlay", return_value=0) as overlay, \
+             patch.object(UPDATER, "launch_application", return_value=321), \
+             patch.object(UPDATER.tempfile, "mkdtemp", return_value=str(self.base / "work")):
+            result = UPDATER.run_update("D:\\", "2.4.0", payload=r"D:\Temp\payload")
+        self.assertEqual(result, 0)
+        overlay.assert_called_once()
+
+    def test_payload_inside_a_subdirectory_installation_is_still_rejected(self):
+        inside = self.target / "payload"
+        inside.mkdir()
+        with patch.object(UPDATER, "remove_watchdog"), \
+             patch.object(UPDATER, "stop_processes"), \
+             patch.object(UPDATER, "log"), \
+             patch.object(UPDATER, "launch_application", return_value=321), \
+             patch.object(UPDATER.tempfile, "mkdtemp", return_value=str(self.base / "work")):
+            result = UPDATER.run_update(self.target, "2.4.0", payload=inside)
+        self.assertEqual(result, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

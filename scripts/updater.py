@@ -71,6 +71,17 @@ def excluded(relative, rules):
     return any(name == rule or name.startswith(rule + "/") for rule in rules)
 
 
+def is_filesystem_root(path):
+    """True for a drive root (D:\\) or a UNC share root.
+
+    Such a target has no parent directory and every path on the volume is
+    technically relative to it, so "payload inside the installation" cannot be
+    decided by path containment alone.
+    """
+    path = Path(path)
+    return str(path) == path.anchor
+
+
 def copy_with_retry(source, destination, attempts=20, delay=0.25):
     destination = Path(destination)
     for attempt in range(attempts):
@@ -254,7 +265,9 @@ def launch_application(target):
 
 
 def run_update(target, version, *, url=None, payload=None, old_pid=0):
-    target = Path(target).resolve()
+    target_argument = Path(target)
+    root_install = is_filesystem_root(target_argument)
+    target = target_argument.resolve()
     work = Path(tempfile.mkdtemp(prefix="cambida-update-", dir=target.parent))
     stopped = False
     copying = False
@@ -269,7 +282,7 @@ def run_update(target, version, *, url=None, payload=None, old_pid=0):
             payload = extract_archive(archive, work / "payload", version)
         else:
             payload = Path(payload).resolve()
-            if payload == target or payload.is_relative_to(target):
+            if payload == target or (payload.is_relative_to(target) and not root_install):
                 raise ValueError("Payload must be outside the installation")
             validate_payload(payload, version)
         read_exclusions(target, payload)
