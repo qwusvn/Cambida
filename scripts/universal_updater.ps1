@@ -127,6 +127,26 @@ function Start-InstalledApp {
     [void][Diagnostics.Process]::Start($startInfo)
 }
 
+function Test-InstalledAppHealth {
+    $port = 8000
+    $configFile = Join-Path $Target 'config.json'
+    if (Test-Path -LiteralPath $configFile -PathType Leaf) {
+        try {
+            $config = Get-Content -LiteralPath $configFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            $candidate = 0
+            if ([int]::TryParse([string]$config.server_port, [ref]$candidate) -and $candidate -gt 0 -and $candidate -le 65535) {
+                $port = $candidate
+            }
+        } catch { }
+    }
+    try {
+        $response = Invoke-WebRequest -Uri ('http://127.0.0.1:' + $port + '/api/ping') -UseBasicParsing -TimeoutSec 3 -MaximumRedirection 0
+        return ([int]$response.StatusCode -eq 200)
+    } catch {
+        return $false
+    }
+}
+
 function Restart-InstalledAppIfNeeded {
     # updater.exe may have restarted the application itself; give it a moment
     # before starting a second copy.
@@ -134,6 +154,7 @@ function Restart-InstalledAppIfNeeded {
         if (Test-InstalledAppRunning) { return $false }
         Start-Sleep -Milliseconds 500
     }
+    if (Test-InstalledAppHealth) { return $false }
     Start-InstalledApp
     Start-Sleep -Seconds 2
     if (Test-InstalledAppRunning) { return $true }
@@ -190,20 +211,22 @@ try {
     if ($process.ExitCode -ne 0) { throw ('Updater exited with code ' + $process.ExitCode) }
 
     Write-BridgeLog ("Update {0} completed" -f $version)
-    # The caller's staging root is mkdtemp("cambida-update-", dir=%TEMP%).
-    # Delete only a directory with exactly that shape; never a directory that
-    # could contain the installation or unrelated user data.
+    # Free the download/staging files without ever deleting an unknown tree:
+    # only the payload that was just installed from and the caller's
+    # release.zip are removed, and the staging directory itself only when it
+    # is empty afterwards.
     if ($CleanupRoot) {
         $cleanup = ConvertTo-NormalizedDirectory $CleanupRoot
-        $leaf = Split-Path -Leaf $cleanup
         $cleanupRoot = $cleanup.TrimEnd('\') + '\'
-        $installRoot = $Target.TrimEnd('\') + '\'
-        $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
-        $isStaging = $leaf -match '^cambida-update-[0-9A-Za-z_]{6,}$'
-        $insideTemp = $cleanupRoot.StartsWith($tempRoot, [StringComparison]::OrdinalIgnoreCase)
-        $holdsInstall = $installRoot.StartsWith($cleanupRoot, [StringComparison]::OrdinalIgnoreCase)
-        if ($isStaging -and $insideTemp -and -not $holdsInstall) {
-            try { Remove-Item -LiteralPath $cleanup -Recurse -Force -ErrorAction Stop } catch { }
+        $payloadRoot = $Payload.TrimEnd('\') + '\'
+        if ($payloadRoot.StartsWith($cleanupRoot, [StringComparison]::OrdinalIgnoreCase)) {
+            try { Remove-Item -LiteralPath $Payload -Recurse -Force -ErrorAction Stop } catch { }
+            try { Remove-Item -LiteralPath (Join-Path $cleanup 'release.zip') -Force -ErrorAction Stop } catch { }
+            try {
+                if (@(Get-ChildItem -LiteralPath $cleanup -Force).Count -eq 0) {
+                    Remove-Item -LiteralPath $cleanup -Force -ErrorAction Stop
+                }
+            } catch { }
         }
     }
     try { Remove-Item -LiteralPath $runnerDir -Recurse -Force -ErrorAction Stop } catch { }
