@@ -17,6 +17,15 @@ COMBINED = WINDOWS.ES_CONTINUOUS | WINDOWS.ES_SYSTEM_REQUIRED
 
 
 class KeepAwakeTests(unittest.TestCase):
+    @staticmethod
+    def _wait_for(predicate, timeout=3.0):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if predicate():
+                return True
+            time.sleep(0.01)
+        return False
+
     def test_asserts_and_releases_system_required_state(self):
         calls = []
 
@@ -27,9 +36,9 @@ class KeepAwakeTests(unittest.TestCase):
         keeper = WINDOWS.KeepAwake(interval=0.05, state_setter=setter)
         with patch.object(WINDOWS, "is_windows", return_value=True):
             self.assertTrue(keeper.start())
-            time.sleep(0.3)
+            self.assertTrue(self._wait_for(lambda: calls.count(COMBINED) >= 2),
+                            "the periodic re-assert did not run")
             keeper.stop()
-        self.assertGreaterEqual(len(calls), 2)
         self.assertEqual(calls[0], COMBINED)
         self.assertEqual(calls[-1], WINDOWS.ES_CONTINUOUS)
         self.assertTrue(all(value == COMBINED for value in calls[:-1]))
@@ -45,12 +54,14 @@ class KeepAwakeTests(unittest.TestCase):
         keeper = WINDOWS.KeepAwake(interval=0.05, state_setter=setter, log=log)
         with patch.object(WINDOWS, "is_windows", return_value=True):
             self.assertTrue(keeper.start())
-            time.sleep(0.3)
+            self.assertTrue(self._wait_for(lambda: calls.count(COMBINED) >= 2),
+                            "failed assertions were not retried")
             keeper.stop()
         warnings = [call for call in log.log.call_args_list if call.args[0] == logging.WARNING]
         self.assertTrue(warnings)
-        self.assertFalse(any(call.args[1].startswith("Đã yêu cầu Windows không ngủ")
+        self.assertFalse(any(str(call.args[1]).startswith("Đã yêu cầu Windows không ngủ")
                              for call in log.log.call_args_list))
+        self.assertEqual(len(warnings), 1, "repeated warnings should be logged once")
 
     def test_noop_without_windows(self):
         calls = []
@@ -227,6 +238,18 @@ class FirewallRuleTests(unittest.TestCase):
             self.assertFalse(WINDOWS.ensure_firewall_exception(
                 self.exe, base_dir=self.base, check_interval=0.01, elevation_wait=0.05))
         self.assertEqual(launch.call_count, 2)
+
+    def test_shell_execute_errors_are_not_recorded_as_a_refusal(self):
+        def launch(return_value):
+            shell32 = Mock()
+            shell32.ShellExecuteW.return_value = return_value
+            with patch.object(WINDOWS, "is_windows", return_value=True), \
+                    patch.object(WINDOWS, "ctypes", Mock(windll=Mock(shell32=shell32))):
+                return WINDOWS.launch_elevated_firewall_rule(self.exe)
+
+        self.assertEqual(launch(5), "declined")   # SE_ERR_ACCESSDENIED: UAC cancelled
+        self.assertEqual(launch(2), "error")      # helper could not start at all
+        self.assertEqual(launch(42), "started")
 
     def test_missing_executable_is_skipped(self):
         with patch.object(WINDOWS, "is_windows", return_value=True):

@@ -279,8 +279,15 @@ def launch_elevated_firewall_rule(executable, name=FIREWALL_RULE_NAME, log=None)
         _log(log, logging.WARNING, "Không yêu cầu được quyền Administrator: %s", exc)
         return "error"
     if not value or int(value) <= 32:
-        _log(log, logging.WARNING, "Người dùng không cấp quyền Administrator cho ngoại lệ tường lửa.")
-        return "declined"
+        code = int(value or 0)
+        # ShellExecute returns SE_ERR_ACCESSDENIED when the UAC prompt is
+        # cancelled; every other small error means the helper could not run
+        # (for example a missing PowerShell) and must not disable retries.
+        if code == 5:
+            _log(log, logging.WARNING, "Người dùng không cấp quyền Administrator cho ngoại lệ tường lửa.")
+            return "declined"
+        _log(log, logging.WARNING, "Không chạy được trình thêm ngoại lệ tường lửa (mã %s).", code)
+        return "error"
     _log(log, logging.INFO, "Đã yêu cầu Windows nâng quyền để thêm ngoại lệ tường lửa.")
     return "started"
 
