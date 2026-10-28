@@ -2,12 +2,12 @@
   "cython": "3.1.6",
   "device_acceptance": "NOT RUN - not requested",
   "dirty": false,
-  "git_head": "ff7fa60d078cf2a0774fd222e59a40c2341ba0db",
+  "git_head": "fb0a30c1f0d7a3a8827a1c68e3cde966b4e10726",
   "python": "3.13.5 (tags/v3.13.5:6cb20a2, Jun 11 2025, 16:15:46) [MSC v.1943 64 bit (AMD64)]",
-  "runtime_id": "165ab631bdf3023f6b44b2150ad7a3da9b0bb5384ef9646a776df01323ded356",
+  "runtime_id": "9842c22d19debfc7c426c1f2a8e5c6aafaa2633c14b03d98eb88549ee560eb0d",
   "source": {
-    "1.py": "700a996ab682d23872984d966cbee7c48e9c9962eae79cf2ea468ddd367ca4c4",
-    "NATIVE_RELEASE.md": "11e2f8e9ed491aa118250ba6805299691f4bc0c832cb76fdb9785a20179b4da8",
+    "1.py": "5d3366baaddbdee93879855eb465f210a6643977d8585167c636eec84c19bd07",
+    "NATIVE_RELEASE.md": "bf88181b8ba8811720edb9d021a5d2441394ef533e0808e6a9941c45d2de9482",
     "admin.html": "f88905d817e7e6a3f1a48f12bf22096c5b8ed5d7532918fd1d4253369face4fa",
     "admin_login.html": "891c7e385bf2eb78ab4b6650cb587fef32febe64a285e9b7bdd977fad04577d1",
     "camera_modules\\__init__.py": "a93b2a4a293340a7e4e133268f0591497e4f83e20f3a38f93d64d2939e635fca",
@@ -44,8 +44,9 @@
     "services\\video_cutter.py": "91e59e4661ed128123aa8ac301c014624ffe309054053372ac09bd5c2f44a0a6",
     "stats.html": "65b8876e7abbc473d14c039e3735ee708b87b70c0b577d3904f445186711748e",
     "timeline.html": "b1994654cdc7d31858bc7d47aeccceefa53bf67d019ee5d388d96ada0ce61c3b",
-    "update_exclude.txt": "1c1373fe5501e4fee07020f68166747c74e27040a837cc08873bb7b1c62601e6"
+    "update_exclude.txt": "1c1373fe5501e4fee07020f68166747c74e27040a837cc08873bb7b1c62601e6",
+    "windows_integration.py": "adb82ef363a09c592785a0e7c4506c8b3246551e47cb547804bd9228c04f0a38"
   },
-  "tests": "pytest: 277 passed; updater bridge (drive-root install): 3 passed with the packaged updater.exe; FixTool dry-run: 231 files verified",
-  "version": "2.3.7"
+  "tests": "pytest: 301 passed (includes Windows sleep-blocker and firewall provisioning regressions)",
+  "version": "2.3.8"
 }

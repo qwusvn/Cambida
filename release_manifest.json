@@ -1,12 +1,12 @@
 {
   "abi": "cpython-313-win-amd64",
   "files": {
-    "BUILD_INFO.json": "33738cedd881c16fc30108b61a5c918967c7d7704b8f084a116d351945a740b8",
-    "Cambida.exe": "461cd0ddb5ddfb5bab8d3e1ac2cf4fc97ef46c11ff9d2d9307dbc8b8ffb55a19",
+    "BUILD_INFO.json": "7f5ec490f522aee8d2ee656a58acc9a6e8798fdb6744af2226074a31ad4f38d5",
+    "Cambida.exe": "46b25a0ba9c52e6fafe9b9b5627eeb093641a71fd4a30fffd41bd69f270141e8",
     "Chay_CCTV.cmd": "f657ed92b017b65368e5cdc32d3c64ca8b4c4cb3cbeaac59d7ca0bbf50efb940",
-    "README_RELEASE.md": "11e2f8e9ed491aa118250ba6805299691f4bc0c832cb76fdb9785a20179b4da8",
-    "RELEASE_VERSION.txt": "cb605510a8573f7bc80f0dd2055a61c528e3104f18f7261df37144c65ac330b9",
-    "VERSION.txt": "cb605510a8573f7bc80f0dd2055a61c528e3104f18f7261df37144c65ac330b9",
+    "README_RELEASE.md": "bf88181b8ba8811720edb9d021a5d2441394ef533e0808e6a9941c45d2de9482",
+    "RELEASE_VERSION.txt": "0ca121f954650df92a2745bc439cfd152f131f1d7b2063f9dcce6939b55479fa",
+    "VERSION.txt": "0ca121f954650df92a2745bc439cfd152f131f1d7b2063f9dcce6939b55479fa",
     "_internal/AudioRender.dll": "2838779e6c443fda1e83b5639ad0724b8f11e7931b2fa61c9c7c98318a4cd4fe",
     "_internal/HCCore.dll": "fc7ec9b5d869b05252c09cfaf910d854f7e0fee5b6910a9d4ff26183bc7d5fb7",
     "_internal/HCCoreDevCfg.dll": "d82396632139257ad45cbc8ce3b5a412b631dec97fa18d2e95a1f6dd64b4d259",
@@ -46,7 +46,7 @@
     "_internal/_ssl.pyd": "11572f6eb63e43cdc2908812506ffcdab21be2be5931f1e38d856c15f5a79e6c",
     "_internal/_uuid.pyd": "6a3e6d89e71a803609e6e765a592011427a5b6e7a4766bbca7790b601bb66dbe",
     "_internal/_wmi.pyd": "a7cc096244a497219269a3ee1cf2526a2b613d73fa566749f8f2408f5f4117d4",
-    "_internal/base_library.zip": "3d4edf8c2bc6a314e7178467f6ec84cc16ced8d994616f59176e0d374e3b033a",
+    "_internal/base_library.zip": "e145c61d4228f6f5961aa6b0dbb6a03598edbaf30e6a89f98ee370b15cb85adf",
     "_internal/certifi/cacert.pem": "9102e6a3644a071ba6cdbd4a53698f291c4a64b18450a08bc046548b6db5cc8b",
     "_internal/certifi/py.typed": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "_internal/chardet/pipeline/ascii.cp313-win_amd64.pyd": "6861c02d3f0d6f35e73e5b415f36e70c2770337c50a81d66fd540dbe1380546e",
@@ -204,7 +204,7 @@
     "home.html": "922a5ceced4feecc04029d1424fd5e19d162051cd88cfe12ab67c0cac7e9abc0",
     "index.html": "8eb5905b368d08a2971374a9a27d3e8b91ce970cb1bb0f130b2d69c44cb848d8",
     "live_all.html": "5f2ddb5bb84b7d089bedc609189af08d6564a1d60814bb98f95d04671d2b916a",
-    "modules/cambida_app.cp313-win_amd64.pyd": "13f4c1b770f6754fdcb8cd4181125d2e57e70a4f27af4a31c7c8509d8b9c150b",
+    "modules/cambida_app.cp313-win_amd64.pyd": "e612d8a209a8edeb2336dad20ebae6d03320d9066b74ce0201397744b528aa04",
     "modules/camera_modules.cp313-win_amd64.pyd": "349abf510e3fd71cdeb1accc256ca3e9d90ffb8555c2d0dc97c7cffe0ede549c",
     "modules/camera_modules/config.cp313-win_amd64.pyd": "e37932dcf7c34241016e4cb748042769f503674bb301a28beb706a485c2afe37",
     "modules/camera_modules/core.cp313-win_amd64.pyd": "397fa84d54af383a4a6d9d4a5de3341e7ff40ac2f33a4968bba7c435766e53ec",
@@ -217,7 +217,7 @@
     "modules/camera_modules/table_access.cp313-win_amd64.pyd": "d38a21068fb2befdfbfa9191411c5500a63513e90c5a0e80a2f9e15b7db23bbc",
     "modules/controlhub_claim.cp313-win_amd64.pyd": "b087fe6154df7b888cfe2973e705d68dcb4480f7ccc056f1539e8d11e521cb93",
     "modules/dahua_37777.cp313-win_amd64.pyd": "d8e5d49fe8bb188e173cddd92cd9d1337c09458943003eecc84975dbdd3acb0b",
-    "modules/modules.json": "e27d3d906cc107457c1bc52965bab1714745166e3a2a5bebff923571f13bb8cd",
+    "modules/modules.json": "9321d2e17c0772f240ecce3cc663d142c8ad1467821152208d398deba5f0d5a7",
     "modules/routes.cp313-win_amd64.pyd": "9e900cb22eb44404d6efaf1e8692ff77f086e158d979e4504a6c844ee1703aa9",
     "modules/routes/qr.cp313-win_amd64.pyd": "9b7aad6d80d834848790188055469d0254a569f04b903215a5ebe4fb61e1bb68",
     "modules/runtime_state.cp313-win_amd64.pyd": "1fbf6835fcb327ca1ca4ba5ab27f5916064a41c3a4339aa34f493e9c4d3e0e94",
@@ -226,6 +226,7 @@
     "modules/services/live_streamer.cp313-win_amd64.pyd": "2b59dd6a8b9317d08aae034740fcb6f6d63cc8f7fb6ab7840196afdd74f76d83",
     "modules/services/network.cp313-win_amd64.pyd": "8d6e900753e2d1c07a05bea56307e0f9d17b85c4bec2940775048098413042fc",
     "modules/services/video_cutter.cp313-win_amd64.pyd": "8abc2b2e6d47dd7d48eaeeef908063202fe309049f963e66f756c401fdfcd406",
+    "modules/windows_integration.cp313-win_amd64.pyd": "f4914d775dd25bc19a018cf85cffc8ec3a4ba02bb22305aa9ffa35112f674947",
     "remote_login.html": "a830fd288276bb7e8e10b63a54632a6745b461b287e0aefeb06f9dc9e5f528ec",
     "stats.html": "65b8876e7abbc473d14c039e3735ee708b87b70c0b577d3904f445186711748e",
     "timeline.html": "b1994654cdc7d31858bc7d47aeccceefa53bf67d019ee5d388d96ada0ce61c3b",
@@ -233,7 +234,7 @@
     "updater.exe": "c35ad84e7aff868e41ad187034122ec5c1639ec7904ee68eb3306011026d5c83",
     "updater.ps1": "5f06a1b17420fbd7d6969484010503e673e2af1004291db49ad9e64a84271175"
   },
-  "runtime_id": "165ab631bdf3023f6b44b2150ad7a3da9b0bb5384ef9646a776df01323ded356",
+  "runtime_id": "9842c22d19debfc7c426c1f2a8e5c6aafaa2633c14b03d98eb88549ee560eb0d",
   "schema": 2,
-  "version": "2.3.7"
+  "version": "2.3.8"
 }
