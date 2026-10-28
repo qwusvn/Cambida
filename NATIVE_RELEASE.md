@@ -53,10 +53,12 @@ supplies the domain and token. Existing local tokens remain supported.
 - The frozen executable is added to the Windows Firewall inbound allow list as
   a program rule named `Cambida CCTV`. The rule is created silently when the
   process already has administrator rights. For an administrator account with
-  UAC enabled, the first start asks for elevation once; a declined request is
-  remembered in `.firewall-elevation-skipped` inside the install directory so
-  the prompt is not repeated. Accounts outside the Administrators group are
-  never prompted and the previous firewall behaviour is kept.
+  UAC enabled, the first start asks for elevation once; a refused request is
+  remembered in `%LOCALAPPDATA%\Cambida\firewall-elevation.json` so the prompt
+  is not repeated (delete that file to allow the request again). Accounts
+  outside the Administrators group are never prompted and the previous
+  firewall behaviour is kept. A confirmed elevation that has not produced the
+  rule yet is retried on the next start.
 - Both features are best effort and never block recording; results are logged
   in `logs/system.log`.
 

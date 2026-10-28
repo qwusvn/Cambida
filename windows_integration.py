@@ -10,6 +10,7 @@ directory stops repeated elevation prompts after the user declines.
 """
 import base64
 import ctypes
+import json
 import logging
 import os
 from pathlib import Path
@@ -22,7 +23,7 @@ ES_CONTINUOUS = 0x80000000
 ES_SYSTEM_REQUIRED = 0x00000001
 
 FIREWALL_RULE_NAME = "Cambida CCTV"
-FIREWALL_MARKER_NAME = ".firewall-elevation-skipped"
+FIREWALL_MARKER_NAME = "firewall-elevation.json"
 FIREWALL_DESCRIPTION = "Cambida CCTV web UI"
 
 CREATE_NO_WINDOW = 0x08000000
@@ -62,7 +63,8 @@ class KeepAwake:
     """Assert ES_SYSTEM_REQUIRED from a live thread and re-assert periodically."""
 
     def __init__(self, interval=60.0, state_setter=None, log=None):
-        self.interval = max(1.0, float(interval))
+        value = float(interval)
+        self.interval = value if value > 0 else 60.0
         self._setter = state_setter or set_execution_state
         self._log = log
         self._stop = threading.Event()
@@ -79,13 +81,27 @@ class KeepAwake:
         return True
 
     def _run(self):
+        confirmed = False
+        warned = False
         try:
-            self._setter(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
-            _log(self._log, logging.INFO, "Đã yêu cầu Windows không ngủ khi ứng dụng đang chạy.")
-            while not self._stop.wait(self.interval):
-                self._setter(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
-        except Exception as exc:
-            _log(self._log, logging.WARNING, "Không duy trì được chế độ chống ngủ: %s", exc)
+            while not self._stop.is_set():
+                try:
+                    value = self._setter(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+                except Exception as exc:
+                    value = 0
+                    if not warned:
+                        _log(self._log, logging.WARNING, "Lỗi khi yêu cầu Windows không ngủ: %s", exc)
+                        warned = True
+                if value:
+                    if not confirmed:
+                        _log(self._log, logging.INFO, "Đã yêu cầu Windows không ngủ khi ứng dụng đang chạy.")
+                        confirmed = True
+                elif not warned:
+                    _log(self._log, logging.WARNING,
+                         "Windows chưa xác nhận yêu cầu chống ngủ; sẽ thử lại.")
+                    warned = True
+                if self._stop.wait(self.interval):
+                    break
         finally:
             try:
                 self._setter(ES_CONTINUOUS)
@@ -167,7 +183,8 @@ def firewall_rule_exists(executable=None, name=FIREWALL_RULE_NAME):
     if not is_windows():
         return False
     try:
-        result = _run_netsh(["show", "rule", "name=" + name])
+        # Only the verbose listing includes the program path of a rule.
+        result = _run_netsh(["show", "rule", "name=" + name, "verbose"])
     except (OSError, subprocess.SubprocessError):
         return False
     if result.returncode != 0:
@@ -244,9 +261,13 @@ def _elevated_script(executable, name):
 
 
 def launch_elevated_firewall_rule(executable, name=FIREWALL_RULE_NAME, log=None):
-    """Ask UAC to run one netsh command; False when the user declines."""
+    """Ask UAC to run one netsh command.
+
+    Returns "started" when the elevated helper was launched, "declined" when
+    the user refused the prompt and "error" for any other failure.
+    """
     if not is_windows():
-        return False
+        return "error"
     try:
         encoded = base64.b64encode(_elevated_script(executable, name).encode("utf-16-le")).decode("ascii")
         parameters = ("-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden "
@@ -256,23 +277,45 @@ def launch_elevated_firewall_rule(executable, name=FIREWALL_RULE_NAME, log=None)
         value = shell32.ShellExecuteW(None, "runas", "powershell.exe", parameters, None, 0)
     except Exception as exc:
         _log(log, logging.WARNING, "Không yêu cầu được quyền Administrator: %s", exc)
-        return False
+        return "error"
     if not value or int(value) <= 32:
         _log(log, logging.WARNING, "Người dùng không cấp quyền Administrator cho ngoại lệ tường lửa.")
-        return False
+        return "declined"
     _log(log, logging.INFO, "Đã yêu cầu Windows nâng quyền để thêm ngoại lệ tường lửa.")
-    return True
+    return "started"
 
 
 def _marker_path(base_dir):
-    return Path(base_dir) / FIREWALL_MARKER_NAME if base_dir else None
+    local = os.environ.get("LOCALAPPDATA")
+    root = Path(local) / "Cambida" if local else (Path(base_dir) if base_dir else None)
+    return root / FIREWALL_MARKER_NAME if root is not None else None
 
 
-def _write_marker(marker, log=None):
+def _read_marker(marker):
+    try:
+        data = json.loads(marker.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _declined_for(marker, program):
+    data = _read_marker(marker)
+    if not data or data.get("state") != "declined":
+        return False
+    return str(data.get("program", "")).casefold() == str(Path(program).resolve()).casefold()
+
+
+def _write_marker(marker, program, state, log=None):
     if marker is None:
         return
     try:
-        marker.write_text(time.strftime("%Y-%m-%d %H:%M:%S") + "\n", encoding="utf-8")
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(json.dumps({
+            "program": str(Path(program).resolve()),
+            "state": state,
+            "at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }, ensure_ascii=False), encoding="utf-8")
     except OSError as exc:
         _log(log, logging.WARNING, "Không ghi được đánh dấu bỏ qua tường lửa: %s", exc)
 
@@ -298,15 +341,18 @@ def ensure_firewall_exception(executable, *, name=FIREWALL_RULE_NAME, base_dir=N
         _log(log, logging.WARNING, "Chưa có ngoại lệ tường lửa; cần quyền Administrator.")
         return False
     marker = _marker_path(base_dir)
-    if marker is not None and marker.exists():
-        _log(log, logging.INFO, "Bỏ qua nâng quyền tường lửa (đã đánh dấu trước đó): %s", marker)
+    if marker is not None and _declined_for(marker, program):
+        _log(log, logging.INFO, "Bỏ qua nâng quyền tường lửa (người dùng đã từ chối): %s", marker)
         return False
     if not is_admin_member():
         _log(log, logging.WARNING,
              "Tài khoản hiện tại không thuộc nhóm Administrators; không thể tự thêm ngoại lệ tường lửa.")
         return False
-    if not launch_elevated_firewall_rule(program, name, log=log):
-        _write_marker(marker, log=log)
+    status = launch_elevated_firewall_rule(program, name, log=log)
+    if status == "declined":
+        _write_marker(marker, program, "declined", log=log)
+        return False
+    if status != "started":
         return False
     deadline = time.monotonic() + max(0.0, elevation_wait)
     while time.monotonic() < deadline:
@@ -314,7 +360,6 @@ def ensure_firewall_exception(executable, *, name=FIREWALL_RULE_NAME, base_dir=N
             _log(log, logging.INFO, "Đã thêm ngoại lệ tường lửa sau khi nâng quyền.")
             return True
         time.sleep(check_interval)
-    _write_marker(marker, log=log)
     _log(log, logging.WARNING,
-         "Đã yêu cầu nâng quyền nhưng chưa thấy ngoại lệ tường lửa; lần sau sẽ không hỏi lại.")
+         "Đã yêu cầu nâng quyền nhưng chưa thấy ngoại lệ tường lửa; lần khởi động sau sẽ kiểm tra lại.")
     return False

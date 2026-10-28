@@ -1,5 +1,6 @@
 """Windows sleep-blocker and firewall provisioning regressions."""
 import importlib.util
+import logging
 from pathlib import Path
 import subprocess
 import tempfile
@@ -18,7 +19,12 @@ COMBINED = WINDOWS.ES_CONTINUOUS | WINDOWS.ES_SYSTEM_REQUIRED
 class KeepAwakeTests(unittest.TestCase):
     def test_asserts_and_releases_system_required_state(self):
         calls = []
-        keeper = WINDOWS.KeepAwake(interval=0.05, state_setter=calls.append)
+
+        def setter(flags):
+            calls.append(flags)
+            return 1
+
+        keeper = WINDOWS.KeepAwake(interval=0.05, state_setter=setter)
         with patch.object(WINDOWS, "is_windows", return_value=True):
             self.assertTrue(keeper.start())
             time.sleep(0.3)
@@ -27,6 +33,24 @@ class KeepAwakeTests(unittest.TestCase):
         self.assertEqual(calls[0], COMBINED)
         self.assertEqual(calls[-1], WINDOWS.ES_CONTINUOUS)
         self.assertTrue(all(value == COMBINED for value in calls[:-1]))
+
+    def test_failed_assertion_is_retried_and_never_reported_as_success(self):
+        calls = []
+        log = Mock()
+
+        def setter(flags):
+            calls.append(flags)
+            return 0
+
+        keeper = WINDOWS.KeepAwake(interval=0.05, state_setter=setter, log=log)
+        with patch.object(WINDOWS, "is_windows", return_value=True):
+            self.assertTrue(keeper.start())
+            time.sleep(0.3)
+            keeper.stop()
+        warnings = [call for call in log.log.call_args_list if call.args[0] == logging.WARNING]
+        self.assertTrue(warnings)
+        self.assertFalse(any(call.args[1].startswith("Đã yêu cầu Windows không ngủ")
+                             for call in log.log.call_args_list))
 
     def test_noop_without_windows(self):
         calls = []
@@ -131,46 +155,78 @@ class FirewallRuleTests(unittest.TestCase):
         launch.assert_not_called()
 
     def test_non_admin_account_does_not_prompt(self):
-        with patch.object(WINDOWS, "is_windows", return_value=True), \
+        with patch.dict("os.environ", {"LOCALAPPDATA": str(self.base)}), \
+                patch.object(WINDOWS, "is_windows", return_value=True), \
                 patch.object(WINDOWS, "firewall_rule_exists", return_value=False), \
                 patch.object(WINDOWS, "is_user_admin", return_value=False), \
                 patch.object(WINDOWS, "is_admin_member", return_value=False), \
                 patch.object(WINDOWS, "launch_elevated_firewall_rule") as launch:
             self.assertFalse(WINDOWS.ensure_firewall_exception(self.exe, base_dir=self.base))
         launch.assert_not_called()
-        self.assertFalse((self.base / WINDOWS.FIREWALL_MARKER_NAME).exists())
+        self.assertFalse(WINDOWS._marker_path(self.base).exists())
+
+    def test_rule_query_uses_verbose_listing(self):
+        calls = []
+
+        def fake_netsh(arguments, timeout=20):
+            calls.append(list(arguments))
+            return self._result(1, b"No rules match.")
+
+        with patch.object(WINDOWS, "is_windows", return_value=True), \
+                patch.object(WINDOWS, "_run_netsh", side_effect=fake_netsh):
+            WINDOWS.firewall_rule_exists(self.exe)
+        self.assertEqual(calls[0], ["show", "rule", "name=" + WINDOWS.FIREWALL_RULE_NAME, "verbose"])
 
     def test_declined_elevation_is_remembered_and_not_repeated(self):
-        with patch.object(WINDOWS, "is_windows", return_value=True), \
+        with patch.dict("os.environ", {"LOCALAPPDATA": str(self.base)}), \
+                patch.object(WINDOWS, "is_windows", return_value=True), \
                 patch.object(WINDOWS, "firewall_rule_exists", return_value=False), \
                 patch.object(WINDOWS, "is_user_admin", return_value=False), \
                 patch.object(WINDOWS, "is_admin_member", return_value=True), \
-                patch.object(WINDOWS, "launch_elevated_firewall_rule", return_value=False) as launch:
+                patch.object(WINDOWS, "launch_elevated_firewall_rule", return_value="declined") as launch:
             self.assertFalse(WINDOWS.ensure_firewall_exception(self.exe, base_dir=self.base))
-            self.assertTrue((self.base / WINDOWS.FIREWALL_MARKER_NAME).exists())
+            marker = WINDOWS._marker_path(self.base)
+            self.assertTrue(marker.exists())
+            self.assertFalse(WINDOWS.ensure_firewall_exception(self.exe, base_dir=self.base))
+        launch.assert_called_once()
+
+    def test_decline_marker_for_another_program_does_not_block(self):
+        marker = self.base / "Cambida" / WINDOWS.FIREWALL_MARKER_NAME
+        WINDOWS._write_marker(marker, self.base / "Other.exe", "declined")
+        with patch.dict("os.environ", {"LOCALAPPDATA": str(self.base)}), \
+                patch.object(WINDOWS, "is_windows", return_value=True), \
+                patch.object(WINDOWS, "firewall_rule_exists", return_value=False), \
+                patch.object(WINDOWS, "is_user_admin", return_value=False), \
+                patch.object(WINDOWS, "is_admin_member", return_value=True), \
+                patch.object(WINDOWS, "launch_elevated_firewall_rule", return_value="declined") as launch:
             self.assertFalse(WINDOWS.ensure_firewall_exception(self.exe, base_dir=self.base))
         launch.assert_called_once()
 
     def test_elevation_success_is_confirmed_by_polling(self):
-        with patch.object(WINDOWS, "is_windows", return_value=True), \
+        with patch.dict("os.environ", {"LOCALAPPDATA": str(self.base)}), \
+                patch.object(WINDOWS, "is_windows", return_value=True), \
                 patch.object(WINDOWS, "firewall_rule_exists", side_effect=[False, True]), \
                 patch.object(WINDOWS, "is_user_admin", return_value=False), \
                 patch.object(WINDOWS, "is_admin_member", return_value=True), \
-                patch.object(WINDOWS, "launch_elevated_firewall_rule", return_value=True) as launch:
+                patch.object(WINDOWS, "launch_elevated_firewall_rule", return_value="started") as launch:
             self.assertTrue(WINDOWS.ensure_firewall_exception(
                 self.exe, base_dir=self.base, check_interval=0.01, elevation_wait=1.0))
         launch.assert_called_once()
-        self.assertFalse((self.base / WINDOWS.FIREWALL_MARKER_NAME).exists())
+        self.assertFalse(WINDOWS._marker_path(self.base).exists())
 
-    def test_elevation_that_never_creates_the_rule_marks_the_install(self):
-        with patch.object(WINDOWS, "is_windows", return_value=True), \
+    def test_unconfirmed_elevation_is_transient_and_retried_next_time(self):
+        with patch.dict("os.environ", {"LOCALAPPDATA": str(self.base)}), \
+                patch.object(WINDOWS, "is_windows", return_value=True), \
                 patch.object(WINDOWS, "firewall_rule_exists", return_value=False), \
                 patch.object(WINDOWS, "is_user_admin", return_value=False), \
                 patch.object(WINDOWS, "is_admin_member", return_value=True), \
-                patch.object(WINDOWS, "launch_elevated_firewall_rule", return_value=True):
+                patch.object(WINDOWS, "launch_elevated_firewall_rule", return_value="started") as launch:
             self.assertFalse(WINDOWS.ensure_firewall_exception(
                 self.exe, base_dir=self.base, check_interval=0.01, elevation_wait=0.05))
-        self.assertTrue((self.base / WINDOWS.FIREWALL_MARKER_NAME).exists())
+            self.assertFalse(WINDOWS._marker_path(self.base).exists())
+            self.assertFalse(WINDOWS.ensure_firewall_exception(
+                self.exe, base_dir=self.base, check_interval=0.01, elevation_wait=0.05))
+        self.assertEqual(launch.call_count, 2)
 
     def test_missing_executable_is_skipped(self):
         with patch.object(WINDOWS, "is_windows", return_value=True):
