@@ -1,7 +1,8 @@
 import importlib.util
 import os
+import threading
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -63,6 +64,38 @@ class LauncherTests(unittest.TestCase):
         open_page.assert_called_once_with()
         restart_prompt.assert_not_called()
 
+
+    def test_start_windows_integration_starts_sleep_blocker_and_firewall_worker(self):
+        called = threading.Event()
+        with patch.object(APP, "start_keep_awake") as keep, \
+                patch.object(APP, "ensure_firewall_exception", side_effect=lambda *a, **k: called.set()):
+            APP._start_windows_integration()
+        keep.assert_called_once()
+        self.assertTrue(called.wait(2), "firewall worker did not run")
+
+    def test_firewall_worker_targets_the_frozen_executable(self):
+        with patch.object(APP.sys, "frozen", True, create=True), \
+                patch.object(APP, "ensure_firewall_exception") as ensure:
+            APP._ensure_firewall_exception()
+        self.assertEqual(ensure.call_args.args[0], APP.sys.executable)
+        self.assertEqual(ensure.call_args.kwargs["base_dir"], APP.BASE_DIR)
+
+    def test_firewall_worker_skips_source_mode(self):
+        with patch.object(APP.sys, "frozen", False, create=True), \
+                patch.object(APP, "ensure_firewall_exception") as ensure:
+            APP._ensure_firewall_exception()
+        self.assertIsNone(ensure.call_args.args[0])
+
+    def test_quit_releases_the_sleep_blocker_before_exit(self):
+        icon = Mock()
+        with patch.object(APP, "_stop_all_recordings"), \
+                patch.object(APP, "stop_cloudflared_tunnel"), \
+                patch.object(APP, "stop_keep_awake") as stop_awake, \
+                patch.object(APP, "_release_single_instance"), \
+                patch.object(APP.os, "_exit") as exit_app:
+            APP.on_quit(icon, None)
+        stop_awake.assert_called_once()
+        exit_app.assert_called_once_with(0)
 
     def test_current_server_startup_is_headless_and_does_not_open_browser(self):
         for launcher_file in ("Chay_CCTV.cmd", "run.cmd"):

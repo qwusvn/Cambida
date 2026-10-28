@@ -50,6 +50,7 @@ def run(argv, **kwargs):
 def source_modules():
     result = {'cambida_app': (ROOT / '1.py', False),
               'runtime_state': (ROOT / 'runtime_state.py', False),
+              'windows_integration': (ROOT / 'windows_integration.py', False),
               'controlhub_claim': (ROOT / 'controlhub_claim.py', False),
               'dahua_37777': (ROOT / 'dahua_37777.py', False)}
     for package in PACKAGES:

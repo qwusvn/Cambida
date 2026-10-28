@@ -70,6 +70,7 @@ from PIL import Image, ImageDraw
 
 from dahua_37777 import Dahua37777Adapter, Dahua37777Error, netsdk_available
 from runtime_state import restore_runtime_state, snapshot_runtime_state
+from windows_integration import ensure_firewall_exception, start_keep_awake, stop_keep_awake
 
 try:
     from camera_modules.policy import (
@@ -7637,6 +7638,10 @@ def on_quit(icon, item):
     except Exception:
         pass
     try:
+        stop_keep_awake()
+    except Exception:
+        pass
+    try:
         _release_single_instance()
     except Exception:
         pass
@@ -7667,6 +7672,26 @@ def _should_run_tray():
     if getattr(sys, "frozen", False):
         return True
     return CONFIG.get("run_in_tray", "no").lower() == "yes"
+
+
+def _ensure_firewall_exception():
+    """Background task: allow the local web UI through Windows Firewall once."""
+    executable = sys.executable if getattr(sys, "frozen", False) else None
+    try:
+        ensure_firewall_exception(executable, base_dir=BASE_DIR, log=logger)
+    except Exception as exc:
+        logger.warning(f"Không cấu hình được ngoại lệ tường lửa: {exc}")
+
+
+def _start_windows_integration():
+    """Keep the recorder awake and provision the firewall exception without blocking startup."""
+    try:
+        start_keep_awake(log=logger)
+    except Exception as exc:
+        logger.warning(f"Không bật được chế độ chống ngủ: {exc}")
+    threading.Thread(
+        target=_ensure_firewall_exception, daemon=True, name="FirewallSetup"
+    ).start()
 
 
 # Install server-side table privacy guards after all legacy media routes exist.
@@ -7747,6 +7772,7 @@ def main():
     """Start source mode or the separately compiled release application."""
     if not acquire_single_instance():
         sys.exit()
+    _start_windows_integration()
     init_db()
     license_active = initialize_license_enforcement()
     threading.Thread(

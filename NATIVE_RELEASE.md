@@ -44,6 +44,22 @@ supplies the domain and token. Existing local tokens remain supported.
 - `config.release.json` is only a clean first-install seed. It is never merged
   over an existing runtime config. Its web-server default is 8000.
 
+## Power and firewall (2.3.8+)
+
+- While the application runs it holds `ES_CONTINUOUS | ES_SYSTEM_REQUIRED`, so
+  Windows does not enter sleep and recording continues unattended. The
+  assertion lives on a dedicated thread and is released when the application
+  quits; the display may still turn off.
+- The frozen executable is added to the Windows Firewall inbound allow list as
+  a program rule named `Cambida CCTV`. The rule is created silently when the
+  process already has administrator rights. For an administrator account with
+  UAC enabled, the first start asks for elevation once; a declined request is
+  remembered in `.firewall-elevation-skipped` inside the install directory so
+  the prompt is not repeated. Accounts outside the Administrators group are
+  never prompted and the previous firewall behaviour is kept.
+- Both features are best effort and never block recording; results are logged
+  in `logs/system.log`.
+
 ## Update flow
 
 1. Cambida checks the latest GitHub Release and selects <version>.zip.
@@ -90,10 +106,10 @@ automatically. The tray menu remains the explicit way to open the local UI.
 
 ## Packaging
 
-Build 2.3.7 with:
+Build 2.3.8 with:
 
 ```powershell
-.\package_native.ps1 -Version 2.3.7
+.\package_native.ps1 -Version 2.3.8
 ```
 
 Every GitHub release from 2.3.0 onward must attach the complete
