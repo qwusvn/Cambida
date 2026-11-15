@@ -1649,6 +1649,7 @@
   <section id="replayScreen" class="screen screen-replay">
     <div class="player" id="playerFrame" {% if camera_aspect_ratio == '4:3' %}style="aspect-ratio: 4/3;"{% elif camera_aspect_ratio == '16:9' %}style="aspect-ratio: 16/9;"{% endif %}>
       <video id="videoPlayer" playsinline preload="metadata" controlsList="nodownload noplaybackrate nofullscreen" disablePictureInPicture disableRemotePlayback></video>
+      <button id="replayAudioButton" class="video-overlay-button" style="left:12px;right:auto;min-width:44px;min-height:44px" type="button" aria-label="Bật âm thanh" aria-pressed="false" hidden>🔇</button>
       <img id="liveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
       <div id="liveLoading" class="live-loading" hidden><div class="live-spinner"></div><span class="live-loading-text">Đang tải...</span></div>
 
@@ -1749,6 +1750,7 @@
 
     <div class="player" id="cutPlayerFrame" {% if camera_aspect_ratio == '4:3' %}style="aspect-ratio: 4/3;"{% elif camera_aspect_ratio == '16:9' %}style="aspect-ratio: 16/9;"{% endif %}>
       <video id="cutPlayer" playsinline preload="metadata" controlsList="nodownload noplaybackrate nofullscreen" disablePictureInPicture disableRemotePlayback></video>
+      <button id="cutAudioButton" class="video-overlay-button" style="left:12px;right:auto;min-width:44px;min-height:44px" type="button" aria-label="Bật âm thanh" aria-pressed="false" hidden>🔇</button>
       <img id="cutLiveStream" class="live-stream" src="" alt="Hình ảnh trực tiếp camera {{ cam_id }}" hidden>
       <div id="cutLiveLoading" class="live-loading" hidden><div class="live-spinner"></div><span class="live-loading-text">Đang tải...</span></div>
 
@@ -2447,9 +2449,17 @@
     player.pause();
     const errorBox=$(getTimelineContext(player)==="cut"?"cutError":"watchError");
     const showError=error=>{if(isCurrentPlayerRequest(player,serial)&&errorBox){errorBox.textContent="Không phát được video: "+error.message;errorBox.hidden=false;}};
-    import('/static/hevc-inline.mjs?v=2').then(({attachHevc})=>{
+    import('/static/hevc-inline.mjs?v=3').then(({attachHevc})=>{
       if(!isCurrentPlayerRequest(player,serial)||player._hevc||isScreenLive(getTimelineContext(player)))return;
-      const controller=attachHevc(player,{url,time,autoplay,onError:showError});
+      const audioButton=$(getTimelineContext(player)==="cut"?"cutAudioButton":"replayAudioButton");
+      const controller=attachHevc(player,{url,time,autoplay,onError:showError,onAudioState:state=>{
+        if(!audioButton)return;
+        audioButton.hidden=state==="none"||state==="unavailable";
+        audioButton.dataset.enabled=String(state==="on");
+        audioButton.textContent=state==="on"?"🔊":"🔇";
+        audioButton.setAttribute("aria-pressed",String(state==="on"));
+        audioButton.setAttribute("aria-label",state==="on"?"Tắt âm thanh":"Bật âm thanh");
+      }});
       player._hevcPending=false;
       controller.ready.then(()=>{
         if(player._hevc!==controller||controller.failed)return;
@@ -3534,6 +3544,9 @@
     $("themeToggleBtn")?.addEventListener("click",cycleTheme);
 
     // Replay & Cut Live toggles
+    [["replayAudioButton","videoPlayer"],["cutAudioButton","cutPlayer"]].forEach(([buttonId,playerId])=>{
+      $(buttonId)?.addEventListener("click",()=>$(playerId)._hevc?.setAudio($(buttonId).dataset.enabled!=="true"));
+    });
     window.addEventListener("pagehide",()=>{disposeHevc($("videoPlayer"));disposeHevc($("cutPlayer"));});
     $("liveButton")?.addEventListener("click",()=>toggleLive("replay"));
     $("cutLiveButton")?.addEventListener("click",()=>toggleLive("cut"));

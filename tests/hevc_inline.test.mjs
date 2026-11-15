@@ -19,7 +19,8 @@ test('inline adapter seeks, pauses, changes speed and restores native properties
   const source=fs.readFileSync('static/hevc-inline.mjs','utf8')
     .replace(/^import .*demuxHevc.*$/m,'const demuxHevc=()=>globalThis.__hevcTest.clip;')
     .replace(/^import .*createHevcPlayer.*$/m,'const createHevcPlayer=globalThis.__hevcTest.create,createRenderer=()=>({render(){},close(){}});');
-  const {attachHevc}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+  const isolatedSource=source.replace(/^import .*createReplayAudio.*$/m,'const createReplayAudio=()=>null;');
+  const {attachHevc}=await import('data:text/javascript;base64,'+Buffer.from(isolatedSource).toString('base64'));
   const saved={document:globalThis.document,location:globalThis.location,fetch:globalThis.fetch};
   globalThis.location={origin:'http://test'};
   globalThis.document={hidden:false,createElement:()=>({style:{},dataset:{},setAttribute(){},remove(){canvases.pop();}}),addEventListener(){},removeEventListener(){}};
