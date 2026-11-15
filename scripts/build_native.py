@@ -248,9 +248,11 @@ def main():
     release = BUILD / ('package-' + args.version + '-' + uuid.uuid4().hex[:8])
     modules = source_modules()
     sidecars = ('index.html', 'admin.html', 'admin_login.html', 'remote_login.html', 'home.html', 'live_all.html',
-                'stats.html', 'timeline.html', 'ffmpeg.exe', 'cloudflared.exe', 'update_exclude.txt')
-    inputs = [p for p, _ in modules.values()] + [ROOT / name for name in sidecars]
+                'stats.html', 'timeline.html', 'ffmpeg.exe', 'cloudflared.exe', 'go2rtc.exe', 'update_exclude.txt')
+    static_files = sorted(p for p in (ROOT / 'static').rglob('*') if p.is_file())
+    inputs = [p for p, _ in modules.values()] + [ROOT / name for name in sidecars] + static_files
     inputs += [ROOT / name for name in ('scripts/native_launcher.py', 'scripts/native_runtime.spec',
+               'scripts/build_native.py',
                'scripts/universal_updater.ps1', 'scripts/updater.py',
                'scripts/release_launcher.cmd', 'config.release.json', 'NATIVE_RELEASE.md')]
     snapshot = {str(p.relative_to(ROOT)): digest(p) for p in inputs}
@@ -266,6 +268,10 @@ def main():
     write_json(release / 'modules/modules.json', entries)
     for filename in sidecars:
         shutil.copy2(ROOT / filename, release / filename)
+    for source in static_files:
+        target = release / source.relative_to(ROOT)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
     # Explicit allowlist: no credentials, runtime configuration, media or source.
     for filename in ('RELEASE_VERSION.txt', 'VERSION.txt'):
         (release / filename).write_text(args.version + '\n', encoding='utf-8')
@@ -285,14 +291,18 @@ def main():
         if digest(ROOT / path) != checksum:
             raise RuntimeError(f'Source changed during build: {path}; package not released')
     forbidden = {
-        'config.json', 'analytics.db', 'device_id.key', 'tunnel_token.txt',
+            'config.json', 'go2rtc.yaml', 'analytics.db', 'device_id.key', 'tunnel_token.txt',
         'controlhub_machine_id.txt', 'controlhub_client_secret.txt', 'controlhub_bootstrap.json',
         'logs', 'cctv_videos', 'nvr_cache', '.updates', '.update-backups', '.watchdog-update.json',
     }
     for path in release.rglob('*'):
         # Third-party runtime packages such as OpenCV need their bootstrap .py
         # files. Our own application code must exist only as native modules.
-        private_source = path.relative_to(release).parts[0] != '_internal'
+        relative = path.relative_to(release)
+        # The approved LGPL decoder must ship its corresponding source and
+        # rebuild materials. Never broaden this exception to application code.
+        decoder_source = relative.parts[:3] == ('static', 'vendor', 'libde265-web-0.1.4')
+        private_source = relative.parts[0] != '_internal' and not decoder_source
         if path.name in forbidden or (private_source and path.is_file() and path.suffix.lower() in {'.py', '.pyc', '.pyx', '.c'}):
             raise RuntimeError(f'Forbidden release content: {path.relative_to(release)}')
     manifest = {'schema': 2, 'version': args.version, 'runtime_id': runtime_id,

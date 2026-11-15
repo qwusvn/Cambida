@@ -45,6 +45,7 @@ from functools import wraps
 from io import BytesIO
 from logging.handlers import RotatingFileHandler
 from urllib.parse import quote, unquote, urlparse, urlencode
+import urllib.request
 from xml.etree import ElementTree as ET
 
 import cv2
@@ -841,7 +842,7 @@ TEMPLATE_DIR = (
     if os.path.isfile(os.path.join(BASE_DIR, "index.html"))
     else BUNDLE_DIR
 )
-app = Flask(__name__, template_folder=TEMPLATE_DIR)
+app = Flask(__name__, template_folder=TEMPLATE_DIR, static_folder=os.path.join(TEMPLATE_DIR, "static"))
 app.secret_key = CONFIG.get("admin_session_secret") or hashlib.sha256(
     (BASE_DIR + str(CONFIG.get("admin_auth", {}).get("password", ""))).encode()
 ).hexdigest()
@@ -2339,6 +2340,18 @@ def save_config(candidate):
         f.write("\n")
     os.replace(tmp_file, config_file)
     _snapshot_runtime_state_best_effort()
+    try:
+        from services import go2rtc_manager
+        if go2rtc_manager.get_go2rtc_status().get("running"):
+            go2rtc_manager.stop_go2rtc()
+            go2rtc_manager.start_go2rtc(
+                candidate.get("cameras", []),
+                rtsp_url_builder=build_rtsp_url,
+                base_dir=BASE_DIR,
+                bundle_dir=BUNDLE_DIR,
+            )
+    except Exception as exc:
+        logger.debug("[go2rtc] Lỗi cập nhật luồng sau khi lưu cấu hình: %s", exc)
 
 
 def admin_required(view):
@@ -5122,6 +5135,58 @@ def stream_cam(cam_id):
     )
 
 
+@app.route("/api/go2rtc/status")
+def go2rtc_status():
+    from services.go2rtc_manager import get_go2rtc_status
+    return jsonify(get_go2rtc_status())
+
+
+@app.route("/api/go2rtc/webrtc", methods=["POST"])
+def go2rtc_webrtc():
+    src = request.args.get("src")
+    if not src:
+        return "Thiếu tham số src", 400
+    m = re.fullmatch(r"cam([1-9]\d*)(?:_sub|_main)?", src)
+    if not m:
+        return "Luồng không hợp lệ", 400
+    cam_id = int(m.group(1))
+    if not 1 <= cam_id <= len(CAMERA_LIST):
+        return "Camera không tồn tại", 404
+    if not is_admin() and is_camera_private(cam_id):
+        return "Bàn này đang bật chế độ riêng tư hoặc tạm ngưng.", 403
+    offer_sdp = request.get_data()
+    if not offer_sdp:
+        return "Thiếu SDP offer", 400
+    target_url = f"http://127.0.0.1:1984/api/webrtc?src={quote(src)}"
+    try:
+        req = urllib.request.Request(
+            target_url,
+            data=offer_sdp,
+            headers={"Content-Type": request.content_type or "text/plain"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=5.0) as resp:
+            answer_sdp = resp.read()
+            return Response(answer_sdp, status=resp.status, content_type="text/plain; charset=utf-8")
+    except Exception as exc:
+        logger.debug("[go2rtc proxy error] %s", exc)
+        return f"Không thể kết nối go2rtc: {exc}", 502
+
+
+@app.route("/api/go2rtc/restart", methods=["POST"])
+@admin_required
+def go2rtc_restart():
+    from services.go2rtc_manager import stop_go2rtc, start_go2rtc, get_go2rtc_status
+    stop_go2rtc()
+    started = start_go2rtc(
+        CAMERA_LIST,
+        rtsp_url_builder=build_rtsp_url,
+        base_dir=BASE_DIR,
+        bundle_dir=BUNDLE_DIR,
+    )
+    return jsonify({"ok": started, "status": get_go2rtc_status()})
+
+
 @app.route("/snapshot/cam<int:cam_id>")
 def camera_snapshot(cam_id):
     """Return one JPEG frame so the all-camera page does not consume 12
@@ -6384,6 +6449,11 @@ def restart_server():
             stop_cloudflared_tunnel()
         except Exception:
             pass
+        try:
+            from services.go2rtc_manager import stop_go2rtc
+            stop_go2rtc()
+        except Exception:
+            pass
         _release_single_instance()
         if getattr(sys, "frozen", False):
             exe_path = sys.executable
@@ -7638,6 +7708,11 @@ def on_quit(icon, item):
     except Exception:
         pass
     try:
+        from services.go2rtc_manager import stop_go2rtc
+        stop_go2rtc()
+    except Exception:
+        pass
+    try:
         stop_keep_awake()
     except Exception:
         pass
@@ -7795,6 +7870,16 @@ def main():
     ).start()
     check_and_notify_pending_update()
     start_github_update_worker()
+    try:
+        from services.go2rtc_manager import start_go2rtc
+        start_go2rtc(
+            CAMERA_LIST,
+            rtsp_url_builder=build_rtsp_url,
+            base_dir=BASE_DIR,
+            bundle_dir=BUNDLE_DIR,
+        )
+    except Exception as exc:
+        logger.warning("[go2rtc] Khởi động thất bại, dùng MJPEG fallback: %s", exc)
     if license_active:
         send_telegram_alert(
             f"🚀 Hệ thống CCTV (v{APP_VERSION}) đã khởi động thành công!\n"

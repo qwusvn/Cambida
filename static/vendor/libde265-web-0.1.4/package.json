@@ -1,0 +1,72 @@
+{
+  "name": "@kongliu/libde265-web",
+  "version": "0.1.4",
+  "description": "Browser HEVC player with transparent WebCodecs/libde265 WASM fallback",
+  "type": "module",
+  "main": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js"
+    },
+    "./parser": {
+      "types": "./dist/types/annexb.d.ts",
+      "import": "./dist/esm/annexb.js"
+    }
+  },
+  "files": [
+    "dist/esm",
+    "dist/types",
+    "dist/wasm",
+    "LICENSE",
+    "NOTICE.md",
+    "README.md",
+    "README.zh-CN.md",
+    "docs/licensing.md",
+    "docs/zh-CN/licensing.md",
+    "scripts/build-wasm.mjs",
+    "wasm",
+    "third_party/libde265/AUTHORS",
+    "third_party/libde265/COPYING",
+    "third_party/libde265/README.md",
+    "third_party/libde265/libde265"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tools.json --noEmit",
+    "release:prepare": "npm run check && npm test && npm run build && npm run build:wasm",
+    "prepack": "npm run release:prepare",
+    "pack": "node -e \"require('fs').mkdirSync('build/packages',{recursive:true})\" && npm pack --pack-destination build/packages",
+    "test": "tsx --test test/*.test.ts",
+    "test:wasm": "tsx scripts/wasm-smoke.ts",
+    "benchmark:wasm": "tsx scripts/benchmark-wasm.ts",
+    "serve": "tsx scripts/serve.ts"
+  },
+  "keywords": [
+    "hevc",
+    "h265",
+    "webcodecs",
+    "wasm",
+    "libde265",
+    "websocket"
+  ],
+  "license": "MIT AND LGPL-3.0-or-later",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lengyuekongliu/libde265-web.git"
+  },
+  "homepage": "https://github.com/lengyuekongliu/libde265-web#readme",
+  "bugs": {
+    "url": "https://github.com/lengyuekongliu/libde265-web/issues"
+  }
+}

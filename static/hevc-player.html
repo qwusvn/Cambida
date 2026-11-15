@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Xem lại H.265 tương thích</title>
+<style>body{margin:0;padding:16px;background:#101720;color:#eee;font:16px system-ui}canvas{width:100%;max-height:70vh;object-fit:contain;background:#000}button,input{font:inherit;margin:8px 4px;padding:10px}input{width:min(70vw,650px)}a{color:#8bcaff}</style>
+<h1>Xem lại H.265 tương thích</h1>
+<p>Bộ giải mã phần mềm trên điện thoại · bản thử nghiệm không âm thanh.</p>
+<canvas id="screen" aria-label="Video xem lại"></canvas>
+<div><button id="play" disabled>Phát</button><input id="seek" aria-label="Vị trí video" type="range" min="0" max="1" step="0.1" value="0" disabled><span id="time"></span></div>
+<p id="status" role="status">Đang tải bộ giải mã…</p>
+<a href="/static/vendor/libde265-web-0.1.4/NOTICE.md">Giấy phép và nguồn bộ giải mã</a>
+<script type="module" src="/static/hevc-replay.js"></script>
+</html>

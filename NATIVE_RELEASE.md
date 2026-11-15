@@ -106,12 +106,28 @@ Removing a line permits a matching release file to overwrite the local file.
 Starting the server is headless. The application no longer opens a browser
 automatically. The tray menu remains the explicit way to open the local UI.
 
+## HEVC browser replay (2.3.9+)
+
+Local HEVC MP4 replay uses the self-hosted libde265 WASM Worker by default,
+including on LAN HTTP. It supports timeline seek, playback speed and sequential
+clips without server transcoding. This implementation is silent and caps each
+completed local clip at 32 MiB; NVR playback and live preview keep their existing
+paths. HEVC replay was accepted on iPhone by the user; this is not a universal
+device performance guarantee.
+
+The full `static/` directory is required, including MIT/LGPL notices, decoder
+source and rebuild materials. `static/vendor/README.md` records the pinned npm
+version/integrity. Do not remove LGPL corresponding source when redistributing.
+HEVC patent obligations are separate. go2rtc.exe is included; generated
+go2rtc.yaml is private runtime data and is never packaged. Its API and RTSP
+listeners are loopback-only; WebRTC is proxied through existing viewer guards.
+
 ## Packaging
 
-Build 2.3.8 with:
+Build 2.3.9 with:
 
 ```powershell
-.\package_native.ps1 -Version 2.3.8
+.\package_native.ps1 -Version 2.3.9
 ```
 
 Every GitHub release from 2.3.0 onward must attach the complete

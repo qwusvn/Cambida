@@ -480,7 +480,8 @@
       overflow: hidden;
     }
 
-    .frame img.feed {
+    .frame img.feed,
+    .frame video.feed-video {
       display: block;
       width: 100%;
       height: 100%;
@@ -549,7 +550,8 @@
       aspect-ratio: auto;
     }
 
-    .camera.fullscreen img.feed {
+    .camera.fullscreen img.feed,
+    .camera.fullscreen video.feed-video {
       max-height: none;
       height: 100%;
       object-fit: contain;
@@ -671,6 +673,7 @@
         </div>
       </div>
       <div class="frame">
+        <video autoplay playsinline muted class="feed-video hidden"></video>
         <img alt="{{ camera.name }}" class="feed">
         <div class="off hidden">
           <div class="off-icon">
@@ -750,24 +753,123 @@
       } catch (e) {}
     }, 60000);
 
-    // Logic Phát Live (Bảo toàn 100%)
+    // Logic Phát Live (Ưu tiên WebRTC go2rtc, tự động fallback về MJPEG)
     const feedUrl = (card) => `/cam${card.dataset.cameraId}?stream=sub&view=live_preview&_=${Date.now()}`;
+
+    function fallbackToMjpeg(card) {
+      if (card._pc) {
+        try { card._pc.close(); } catch (e) {}
+        card._pc = null;
+      }
+      const video = card.querySelector('.feed-video'),
+            image = card.querySelector('.feed'),
+            badge = card.querySelector('.badge-live');
+      if (video) {
+        video.srcObject = null;
+        video.classList.add('hidden');
+      }
+      if (image) {
+        image.src = feedUrl(card);
+        image.classList.remove('hidden');
+      }
+      if (badge) {
+        badge.innerHTML = '<span class="live-dot" style="background:#f59e0b"></span>LIVE MJPEG';
+        badge.title = 'Luồng phụ MJPEG (Fallback)';
+      }
+    }
+
+    async function startWebRTC(card) {
+      const camId = card.dataset.cameraId;
+      const video = card.querySelector('.feed-video');
+      const image = card.querySelector('.feed');
+      const badge = card.querySelector('.badge-live');
+
+      if (!window.RTCPeerConnection) {
+        throw new Error('Trình duyệt không hỗ trợ WebRTC');
+      }
+
+      if (card._pc) {
+        try { card._pc.close(); } catch (e) {}
+        card._pc = null;
+      }
+
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
+      card._pc = pc;
+
+      pc.ontrack = (event) => {
+        if (card.dataset.open !== 'yes') return;
+        if (video) {
+          video.srcObject = event.streams[0];
+          video.play().catch(() => {});
+          video.classList.remove('hidden');
+        }
+        if (image) {
+          image.removeAttribute('src');
+          image.classList.add('hidden');
+        }
+        if (badge) {
+          badge.innerHTML = '<span class="live-dot" style="background:#22c55e"></span>LIVE WEBRTC';
+          badge.title = 'Luồng trực tiếp WebRTC go2rtc siêu mượt';
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+          if (card.dataset.open === 'yes') {
+            fallbackToMjpeg(card);
+          }
+        }
+      };
+
+      pc.addTransceiver('video', { direction: 'recvonly' });
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      const res = await fetch(`/api/go2rtc/webrtc?src=cam${encodeURIComponent(camId)}_sub`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: pc.localDescription.sdp
+      });
+
+      if (!res.ok) {
+        throw new Error(`go2rtc error ${res.status}`);
+      }
+
+      const answer = await res.text();
+      await pc.setRemoteDescription({ type: 'answer', sdp: answer });
+    }
+
     function openCamera(card) {
-      const image = card.querySelector('.feed'),
-            off = card.querySelector('.off'),
+      const off = card.querySelector('.off'),
             toggle = card.querySelector('.toggle');
-      image.src = feedUrl(card);
-      image.classList.remove('hidden');
       off.classList.add('hidden');
       if (toggle) toggle.textContent = 'Đóng';
       card.dataset.open = 'yes';
+
+      startWebRTC(card).catch(() => {
+        fallbackToMjpeg(card);
+      });
     }
+
     function closeCamera(card) {
-      const image = card.querySelector('.feed'),
+      if (card._pc) {
+        try { card._pc.close(); } catch (e) {}
+        card._pc = null;
+      }
+      const video = card.querySelector('.feed-video'),
+            image = card.querySelector('.feed'),
             off = card.querySelector('.off'),
             toggle = card.querySelector('.toggle');
-      image.removeAttribute('src');
-      image.classList.add('hidden');
+      if (video) {
+        video.srcObject = null;
+        video.classList.add('hidden');
+      }
+      if (image) {
+        image.removeAttribute('src');
+        image.classList.add('hidden');
+      }
       off.classList.remove('hidden');
       if (toggle) toggle.textContent = 'Mở';
       card.dataset.open = 'no';

@@ -1,0 +1,46 @@
+import { AnnexBAccessUnitParser } from "./annexb.js";
+import { type FrameRenderer } from "./renderer.js";
+import { EventHub } from "./events.js";
+import type { AccessUnitMetadata, ActiveBackend, ActiveRenderer, BinaryData, FrameMetadata, HevcPlayerOptions, NormalizedPlayerOptions, PlayerEventMap, PlayerStats, PlayerState, WasmExecution } from "./types.js";
+export declare class HevcPlayer {
+    #private;
+    readonly options: NormalizedPlayerOptions;
+    readonly events: EventHub<PlayerEventMap>;
+    readonly parser: AnnexBAccessUnitParser;
+    renderer: FrameRenderer | null;
+    rendererKind: ActiveRenderer | null;
+    wasmExecution: WasmExecution | null;
+    backend: ActiveBackend | null;
+    state: PlayerState;
+    private decoder;
+    private socket;
+    private socketMessageChain;
+    private nextTimestamp;
+    private inputQueue;
+    private inputQueueBytes;
+    private drainScheduled;
+    private drainTimer;
+    private inputIdleWaiters;
+    private waitingForKeyframe;
+    private pressureLevel;
+    private pendingFrames;
+    private rendering;
+    private renderPromise;
+    private decodedFrames;
+    private renderedFrames;
+    private droppedInputFrames;
+    private droppedRenderFrames;
+    constructor(options: HevcPlayerOptions);
+    on<K extends keyof PlayerEventMap>(type: K, listener: (event: PlayerEventMap[K]) => void): () => void;
+    init(): Promise<this>;
+    connect(url?: string | undefined, protocols?: string | string[] | undefined): Promise<this>;
+    attach(socket: WebSocket): this;
+    push(data: BinaryData, metadata?: FrameMetadata): number;
+    pushAccessUnit(data: BinaryData, metadata?: AccessUnitMetadata): void;
+    flush(): Promise<void>;
+    reset(): void;
+    disconnect(code?: number, reason?: string): void;
+    close(): void;
+    getStats(): PlayerStats;
+}
+//# sourceMappingURL=player.d.ts.map

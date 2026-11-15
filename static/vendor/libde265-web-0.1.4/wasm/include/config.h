@@ -1,0 +1,7 @@
+#ifndef LIBDE265_WASM_CONFIG_H
+#define LIBDE265_WASM_CONFIG_H
+
+#define HAVE_MALLOC_H 1
+#define HAVE_POSIX_MEMALIGN 1
+
+#endif

@@ -27,6 +27,7 @@ staging/
 # Local secrets / machine-specific config
 config.json
 config.yml
+go2rtc.yaml
 /config (1).json
 controlhub_machine_id.txt
 controlhub_client_secret.txt
