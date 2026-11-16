@@ -16,6 +16,71 @@ SPEC.loader.exec_module(WINDOWS)
 COMBINED = WINDOWS.ES_CONTINUOUS | WINDOWS.ES_SYSTEM_REQUIRED
 
 
+class ExitPasswordTests(unittest.TestCase):
+    def test_fixed_verifier_accepts_exact_password_only(self):
+        # Synthetic credential; never put the real exit password in test fixtures.
+        password = "unit-test-password"
+        digest = WINDOWS.hashlib.pbkdf2_hmac(
+            "sha256", password.encode(), b"Cambida tray exit v1", 210000,
+        )
+        with patch.object(WINDOWS, "_EXIT_PASSWORD_DIGEST", digest):
+            self.assertTrue(WINDOWS.verify_exit_password(password))
+            for value in (None, "", "wrong", password.upper(), password + " ", "x" * 129):
+                self.assertFalse(WINDOWS.verify_exit_password(value))
+
+    def test_dialog_fails_closed_without_windows(self):
+        with patch.object(WINDOWS, "is_windows", return_value=False):
+            self.assertFalse(WINDOWS.prompt_exit_password())
+
+    def test_dialog_fails_closed_when_native_api_unavailable(self):
+        with patch.object(WINDOWS, "is_windows", return_value=True), \
+                patch.object(WINDOWS.ctypes, "WinDLL", side_effect=OSError, create=True):
+            self.assertFalse(WINDOWS.prompt_exit_password())
+
+    def test_native_dialog_handles_wrong_correct_cancel_and_close(self):
+        for action in ("correct", "wrong", "cancel", "close"):
+            with self.subTest(action=action):
+                user32, kernel32 = Mock(), Mock()
+                user32.GetDlgItem.return_value = 123
+                result = []
+                result_after_submit = []
+                user32.EndDialog.side_effect = lambda hwnd, code: result.append(code)
+
+                def get_text(hwnd, identifier, buffer, size):
+                    buffer.value = "synthetic-password"
+                    return len(buffer.value)
+
+                def dialog(instance, template, parent, callback, param):
+                    callback(123, 0x0110, 0, 0)
+                    if action == "close":
+                        callback(123, 0x0010, 0, 0)
+                    elif action == "cancel":
+                        callback(123, 0x0111, 2, 0)
+                    else:
+                        callback(123, 0x0111, 1, 0)
+                        result_after_submit.extend(result)
+                        if action == "wrong":
+                            callback(123, 0x0111, 2, 0)
+                    return result[-1]
+
+                user32.GetDlgItemTextW.side_effect = get_text
+                user32.DialogBoxIndirectParamW.side_effect = dialog
+                with patch.object(WINDOWS, "is_windows", return_value=True), \
+                        patch.object(WINDOWS.ctypes, "WinDLL", side_effect=[user32, kernel32]), \
+                        patch.object(WINDOWS, "verify_exit_password", return_value=action == "correct") as verify:
+                    self.assertEqual(WINDOWS.prompt_exit_password(), action == "correct")
+                self.assertEqual(result, [1 if action == "correct" else 0])
+                if action in ("correct", "wrong"):
+                    verify.assert_called_once_with("synthetic-password")
+                else:
+                    verify.assert_not_called()
+                if action == "wrong":
+                    self.assertEqual(result_after_submit, [], "wrong password ended dialog")
+                    user32.SetDlgItemTextW.assert_any_call(
+                        123, 102, "Mật khẩu không đúng. Ứng dụng vẫn chạy.",
+                    )
+
+
 class KeepAwakeTests(unittest.TestCase):
     @staticmethod
     def _wait_for(predicate, timeout=3.0):

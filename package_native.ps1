@@ -1,4 +1,4 @@
-param([string]$Version = '2.4.0')
+param([string]$Version = '2.4.1')
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $BuildRoot = Join-Path $Root 'staging\native-build'

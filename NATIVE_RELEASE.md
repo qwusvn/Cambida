@@ -123,12 +123,28 @@ silent without a speaker button. Native audio codec support (AAC) is handled
 by the browser; no server transcode or extra dependency is introduced. Each new
 clip starts muted so browser autoplay restrictions cannot block video.
 
+## Windows login startup and protected tray exit (2.4.1+)
+
+- The native application registers its own executable in the current user's
+  Windows Run key. It starts in the background on login, without opening a
+  browser, and no longer depends on an old `run.cmd` launcher. Run the new
+  version once to register its installed path. This is login startup, not a
+  Windows service running before login.
+- Selecting **Thoát** in the tray requires the fixed source-controlled master
+  password. It is separate from all config/admin passwords, stored only as a
+  PBKDF2 digest, and cannot be viewed or changed through the app.
+- Wrong passwords, Cancel, closing the dialog or a dialog error never authorize
+  shutdown. Recording continues while the password dialog is open. Automatic
+  updates and application restarts retain their existing independent paths.
+- This protects the application's own Exit command, not Task Manager, Windows
+  shutdown or a Windows administrator. It is not an OS security boundary.
+
 ## Packaging
 
-Build 2.4.0 with:
+Build 2.4.1 with:
 
 ```powershell
-.\package_native.ps1 -Version 2.4.0
+.\package_native.ps1 -Version 2.4.1
 ```
 
 Every GitHub release from 2.3.0 onward must attach the complete

@@ -71,7 +71,9 @@ from PIL import Image, ImageDraw
 
 from dahua_37777 import Dahua37777Adapter, Dahua37777Error, netsdk_available
 from runtime_state import restore_runtime_state, snapshot_runtime_state
-from windows_integration import ensure_firewall_exception, start_keep_awake, stop_keep_awake
+from windows_integration import (
+    ensure_firewall_exception, start_keep_awake, stop_keep_awake, prompt_exit_password,
+)
 
 try:
     from camera_modules.policy import (
@@ -668,7 +670,8 @@ def acquire_single_instance():
         return True
     # A second double-click reuses the running server and opens its existing
     # web entry point.  Never start a second recorder or kill the live one.
-    _open_server_page()
+    if "--no-browser" not in sys.argv:
+        _open_server_page()
     return False
 
 
@@ -7655,38 +7658,38 @@ def set_autostart(enable=True):
     if not winreg:
         return
     try:
-        key = winreg.OpenKey(
+        key = winreg.CreateKeyEx(
             winreg.HKEY_CURRENT_USER,
             r"Software\Microsoft\Windows\CurrentVersion\Run",
             0,
             winreg.KEY_SET_VALUE,
         )
-        if enable:
-            run_cmd = os.path.join(BASE_DIR, "run.cmd")
-            if os.path.isfile(run_cmd):
-                cmd_target = f'"{run_cmd}" --hidden --no-browser'
+        try:
+            if enable:
+                # Always launch the installed native EXE, never an obsolete run.cmd.
+                if getattr(sys, "frozen", False):
+                    arguments = [sys.executable, "--no-browser"]
+                else:
+                    pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+                    interpreter = pythonw if os.path.isfile(pythonw) else sys.executable
+                    arguments = [interpreter, os.path.abspath(__file__), "--no-browser"]
+                winreg.SetValueEx(
+                    key, "CameraHighlight", 0, winreg.REG_SZ,
+                    subprocess.list2cmdline(arguments),
+                )
             else:
-                target_exe = sys.executable if getattr(sys, "frozen", False) else os.path.abspath(sys.argv[0])
-                cmd_target = f'"{target_exe}"'
-            winreg.SetValueEx(
-                key,
-                "CameraHighlight",
-                0,
-                winreg.REG_SZ,
-                cmd_target,
-            )
-        else:
-            try:
-                winreg.DeleteValue(key, "CameraHighlight")
-            except Exception:
-                pass
-        # Dọn dẹp các khóa cũ
-        for legacy_key in ("CCTV_System", "CambidaCCTV"):
-            try:
-                winreg.DeleteValue(key, legacy_key)
-            except Exception:
-                pass
-        winreg.CloseKey(key)
+                try:
+                    winreg.DeleteValue(key, "CameraHighlight")
+                except FileNotFoundError:
+                    pass
+            # Dọn dẹp các khóa cũ
+            for legacy_key in ("CCTV_System", "CambidaCCTV"):
+                try:
+                    winreg.DeleteValue(key, legacy_key)
+                except FileNotFoundError:
+                    pass
+        finally:
+            winreg.CloseKey(key)
     except Exception as e:
         logger.error(f"Lỗi setup autostart: {e}")
 
@@ -7697,7 +7700,23 @@ def create_tray_icon():
     return image
 
 
+_QUIT_LOCK = threading.Lock()
+
+
 def on_quit(icon, item):
+    if not _QUIT_LOCK.acquire(blocking=False):
+        return
+    try:
+        if prompt_exit_password() is not True:
+            return
+        _quit_application(icon)
+    except Exception:
+        logger.exception("Không thể hoàn tất yêu cầu thoát ứng dụng.")
+    finally:
+        _QUIT_LOCK.release()
+
+
+def _quit_application(icon):
     icon.stop()
     try:
         _stop_all_recordings()
@@ -7847,6 +7866,11 @@ def main():
     """Start source mode or the separately compiled release application."""
     if not acquire_single_instance():
         sys.exit()
+    run_startup = (
+        getattr(sys, "frozen", False)
+        or str(CONFIG.get("run_on_startup", "no")).lower() == "yes"
+    )
+    set_autostart(run_startup)
     _start_windows_integration()
     init_db()
     license_active = initialize_license_enforcement()
@@ -7894,11 +7918,7 @@ def main():
             "Hãy thêm key này vào tin nhắn ghim Telegram."
         )
 
-    run_startup = CONFIG.get("run_on_startup", "no").lower() == "yes"
     run_tray = _should_run_tray()
-    if getattr(sys, "frozen", False):
-        run_startup = True
-    set_autostart(run_startup)
     server_port = int(CONFIG.get("server_port", 8000))
     logger.info(f"🌐 Máy chủ web đang chạy tại http://0.0.0.0:{server_port}")
 

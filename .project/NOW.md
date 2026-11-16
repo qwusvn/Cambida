@@ -1,23 +1,15 @@
 # NOW - Quick resume
 
-## Current release checkpoint
-- Project/path: cambida / `D:\1\cambida`; task: RELEASE-2.3.8-20261028.
-- Revision: 11; updated_by: OpenCode; updated_at: 2026-10-28T18:40:00+07:00.
-- Objective: ship 2.3.8 with a Windows sleep blocker and an automatic firewall exception, without touching runtime data.
-- Status: DONE; verification: VERIFIED for package, manifest/ZIP, compiled module loading, regression suite and netsh rule detection against a real rule; not for real devices.
-- Completed: added the compiled `windows_integration` module; a dedicated thread holds `ES_CONTINUOUS | ES_SYSTEM_REQUIRED` while the app runs, retries failed assertions and releases the state on quit; the frozen executable is added to the inbound firewall list as a program rule (`Cambida CCTV`), silently when elevated or through one UAC request for administrator accounts, with a declined-request marker in `%LOCALAPPDATA%\Cambida\firewall-elevation.json`; wired both into startup and the tray quit path; bumped to 2.3.8.
-- Evidence: pytest **301 passed**; `windows_integration.pyd` loads from the package and exposes the API; `netsh ... show rule ... verbose` detection matched a real program rule and rejected a wrong path; manifest 232 files 0 mismatch; ZIP 234 entries CRC clean, 22 native modules, no config/database/key, no private `.py`; `Cambida.exe` FileVersion 2.3.8; BUILD_INFO clean (`fb0a30c`).
-- Release: https://github.com/qwusvn/Cambida/releases/tag/v2.3.8 (Latest), asset `2.3.8.zip` sha256 `e36e712266e13e841fca7a3acff46eaf97ee0eb4cc55d51e3e01852ce05805b9` (228705692 bytes), schema 2 / kind full, not prerelease.
-- Next: real-device acceptance still not run; verify on a shop PC that the screen may turn off while recording continues, and that the first start on an unelevated administrator asks for UAC once and then shows the `Cambida CCTV` inbound rule.
-- Blockers/pending: none for this release; `tools/ai_client.py` still carries a committed API key that should be rotated.
-
-## Earlier checkpoints (condensed)
-- RELEASE-2.3.7-20261028: drive-root bridge fix, root-target staging in updater.exe, `Cambida-FixTool` for dead machines; 277 tests, tag `v2.3.7`.
-- RELEASE-2.3.6-20261028: retired guest streaming, cleaned tree, native 2.3.6 package, tag `v2.3.6`; 271 tests.
-- AUDIT-HARDEN-20261025: endpoint origin/session/LAN/privacy/canonical guards, camera lifecycle fixes, duplicate cleanup and isolated regressions; 63 Python passed, SOL high scoped ACCEPT. See [AUDIT_20261025.md](AUDIT_20261025.md).
-- AGENTS-NORMALIZE-20261025: project instructions delegate to the global contract; device and test safeguards retained.
-- Bootstrap snapshot 2026-10-22 remains historical and unverified.
-
-## Immediate resume
-- Verify Git status, actual files, tests and running processes before any work.
-- Read HANDOFF.md and TASKS.md only as required for the active task.
+- Project/root: cambida / `D:\1\cambida`; revision 25; actor OpenCode Build; updated 2026-11-17.
+- Release authorization: user requested “release đi”; preparing 2.4.1 on existing main/origin qwusvn/Cambida. Explicit release includes tests, package, commit/tag/push and GitHub asset, not deployment to shop devices. Added 2.4.1 version metadata, package default and release notes; existing icon.svg remains unrelated/untracked.
+- Release checks: focused 42 pytest + 7 subtests PASS; full final run 323 pytest + 13 subtests PASS and 40 Node PASS with CAMBIDA_TEST_UPDATER_EXE pointing to existing pipeline updater in staging/native-build/updater-dist. Initial 2 fixture-path failures resolved without source changes. Native standalone source password dialog visually checked (staging/exit-dialog-before.png and exit-dialog-wrong.png): masked field, wrong-password message visible, accepted run returned True and reject/cancel run returned False. No recorder/main launched. Packaging 2.4.1 currently running; native artifact validation pending. Distinct self-review and plaintext credential scan PASS. No independent reviewer used (Build).
+- Current task: user approved Windows login autostart + password-protected tray exit, then specified a fixed source-controlled credential independent of config and not viewable/editable in app. Source implementation complete; STATIC-VERIFIED only, native GUI/runtime UNVERIFIED. Do not record the plaintext credential in memory.
+- Changed: `1.py`, `windows_integration.py`, `tests/test_launcher.py`, `tests/test_windows_integration.py`. Fixed PBKDF2 digest + constant-time comparison; native masked Win32 dialog, wrong/cancel/close/error keep app running; single-dialog lock. Only accepted local exit reaches existing shutdown cleanup; updater/restart paths unchanged.
+- Autostart: native EXE registered directly in HKCU Run early after single-instance acquisition; ignores stale run.cmd. Source mode retains existing run_on_startup opt-in with interpreter + absolute script; duplicate `--no-browser` launch does not open browser. Registry handles close on errors. No real registry changes performed.
+- Verification: syntax compilation of all four files PASS; AST/source assertions PASS for authorization ordering, startup ordering/quoting, single quit call, config isolation, digest matching user credential and no plaintext in changed files; scoped `git diff --check` PASS. Self-review completed; no worker/reviewer dispatched (shared-root changes serialized directly). Added regression tests but DID NOT execute tests/build/native UI: approved scope was static-only per project restrictions.
+- Next if authorized: run isolated mocked regression tests, native dialog visual/keyboard checks and packaged login autostart/update checks; build/publish only with explicit authorization. No camera, media, config, running service, release artifact, commit/push/deploy changes. Task Manager/admin termination remains outside protection.
+- Prior published release: Cambida v2.4.0 with native in-browser audio for HEVC replay to GitHub. DONE within prior scope.
+- Published: commit `364802e` on branch main and annotated tag `v2.4.0`; pushed to origin. GitHub release: https://github.com/qwusvn/Cambida/releases/tag/v2.4.0 ; asset `2.4.0.zip` uploaded and verified.
+- Artifact: `release/2.4.0.zip`; SHA256 `f4b3619a977600312c8e86135c618265efc7c885cd5185d6126f411dedc8e231`. `release/2.4.0.validation.json` reports 461 files/459 manifest hashes PASS.
+- Verification: 312 pytest + 6 subtests PASS, 40 Node tests PASS. Offline release validation PASS. Live audio sync verified in browser: ~48ms at 1X, ~89ms at 2X, pause/seek functional.
+- Preserved untracked `icon.svg`.
