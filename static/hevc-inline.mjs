@@ -84,10 +84,16 @@ export function attachHevc(video, {url, time=0, autoplay=false, onError=()=>{},o
     if(source.origin!==location.origin||!source.pathname.startsWith('/video/')||source.search||source.hash)throw Error('Chỉ hỗ trợ bản ghi MP4 nội bộ.');
     const response=await fetch(source,{credentials:'same-origin',signal:abort.signal});
     if(!response.ok)throw Error('Không tải được video ('+response.status+').');
-    const reader=response.body.getReader(),chunks=[];let size=0;
-    try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>32*1024*1024)throw Error('Clip vượt giới hạn 32 MB.');chunks.push(value);}}
+    const LIMIT=1024*1024*1024,expected=Number(response.headers?.get('content-length'))||0;
+    if(expected>LIMIT)throw Error('Clip vượt giới hạn 1 GB.');
+    const reader=response.body.getReader(),chunks=[];
+    let size=0,bytes=expected>0?new Uint8Array(expected):null;
+    try{while(true){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>LIMIT)throw Error('Clip vượt giới hạn 1 GB.');
+      if(bytes&&size<=bytes.length)bytes.set(value,size-value.length);
+      else{if(bytes){chunks.push(bytes.subarray(0,size-value.length));bytes=null;}chunks.push(value);}}}
     catch(error){await reader.cancel().catch(()=>{});throw error;}
-    const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+    if(!bytes){bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}}
+    else if(bytes.length!==size)bytes=bytes.slice(0,size);
     clip=demuxHevc(bytes.buffer);
     sound=createReplayAudio(bytes.buffer,{onBlocked:()=>{audioPlaying=false;audioEnabled=false;onAudioState('blocked');},
       onUnavailable:()=>{audioEnabled=false;pauseAudio();onAudioState('unavailable');}});

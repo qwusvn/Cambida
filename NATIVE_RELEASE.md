@@ -111,7 +111,9 @@ automatically. The tray menu remains the explicit way to open the local UI.
 Local HEVC MP4 replay uses the self-hosted libde265 WASM Worker by default,
 including on LAN HTTP. It supports timeline seek, playback speed and sequential
 clips without server transcoding. This implementation caps each completed local
-clip at 32 MiB; NVR playback and live preview keep their existing paths.
+clip at 1 GiB (1 GB); NVR playback and live preview keep their existing paths.
+The clip is buffered in browser memory, so very long clips need roughly the
+file size in free RAM on the viewing device; the server never transcodes.
 HEVC replay was accepted on iPhone by the user; this is not a universal
 device performance guarantee.
 

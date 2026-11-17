@@ -11,7 +11,7 @@ when distributing the runtime. HEVC patent rights are separate from copyright.
 
 The compatibility page uses the single-threaded WASM backend in a dedicated
 Worker; no HTTPS, SharedArrayBuffer, CDN or server transcoding is required.
-This first version supports completed local HEVC MP4 clips up to 32 MiB,
+This first version supports completed local HEVC MP4 clips up to 1 GiB,
 play/pause and keyframe-aligned seeking. Audio, automatic playlist transitions,
 cut preview and NVR container streaming are not implemented in this player.
 

@@ -23,9 +23,17 @@ export function audioOnlyMp4(buffer) {
     return {track,kind:h&&h.start+12<=h.end?text(h.start+8):''};
   });
   if(!kinds.some(t=>t.kind==='soun'))return null;
-  const output=bytes.slice();
-  for(const {track,kind} of kinds)if(kind!=='soun')output.set([102,114,101,101],track.offset+4); // free
-  return new Blob([output],{type:'audio/mp4'});
+  // Rename each non-audio trak to `free` without copying the whole clip: large
+  // clips (up to 1 GiB) would otherwise need several extra gigabytes of RAM.
+  const edits=kinds.filter(t=>t.kind!=='soun').map(t=>t.track.offset+4).sort((a,b)=>a-b);
+  const parts=[];let start=0;
+  for(const offset of edits){
+    if(offset>start)parts.push(bytes.subarray(start,offset));
+    parts.push(new Uint8Array([102,114,101,101]));
+    start=offset+4;
+  }
+  if(start<bytes.length)parts.push(bytes.subarray(start));
+  return new Blob(parts,{type:'audio/mp4'});
 }
 
 export function createReplayAudio(buffer,{onBlocked=()=>{},onUnavailable=()=>{}}={}) {

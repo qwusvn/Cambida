@@ -40,3 +40,44 @@ test('inline adapter seeks, pauses, changes speed and restores native properties
     assert.equal(video.play,nativePlay);assert.equal(video.currentTime,5);assert.equal(video._hevc,undefined);
   }finally{Object.assign(globalThis,saved);delete globalThis.__hevcTest;}
 });
+
+test('replay buffers accept clips up to 1 GiB and reject larger ones',()=>{
+  const inline=fs.readFileSync('static/hevc-inline.mjs','utf8');
+  const replay=fs.readFileSync('static/hevc-replay.js','utf8');
+  for(const source of [inline,replay]){
+    assert.match(source,/1024\*1024\*1024/,'a 1 GiB ceiling is enforced before decoding');
+    assert.ok(!/\b32\*1024\*1024\b/.test(source),'the old 32 MiB ceiling is gone');
+  }
+  assert.match(inline,/vượt giới hạn 1 GB/);
+  assert.match(replay,/vượt 1 GB/);
+});
+
+test('declared size preallocates the buffer and oversized clips are refused early',async()=>{
+  const captured=[];
+  const clip={duration:10,samples:[{time:0,duration:1,key:true}],packet:()=>new Uint8Array([0,0,0,1])};
+  globalThis.__hevcTest={clip,captured,create:async()=>({reset(){},close(){},getStats:()=>({decodeQueueSize:0}),pushAccessUnit(){},flush:async()=>{}})};
+  const source=fs.readFileSync('static/hevc-inline.mjs','utf8')
+    .replace(/^import .*demuxHevc.*$/m,'const demuxHevc=buffer=>{globalThis.__hevcTest.captured.push(Array.from(new Uint8Array(buffer)));return globalThis.__hevcTest.clip;};')
+    .replace(/^import .*createHevcPlayer.*$/m,'const createHevcPlayer=globalThis.__hevcTest.create,createRenderer=()=>({render(){},close(){}});')
+    .replace(/^import .*createReplayAudio.*$/m,'const createReplayAudio=()=>null;');
+  const {attachHevc}=await import('data:text/javascript;base64,'+Buffer.from(source+'\n').toString('base64'));
+  const saved={document:globalThis.document,location:globalThis.location,fetch:globalThis.fetch};
+  globalThis.location={origin:'http://test'};
+  globalThis.document={hidden:false,createElement:()=>({style:{},dataset:{},setAttribute(){},remove(){}}),addEventListener(){},removeEventListener(){}};
+  class Video extends EventTarget {constructor(){super();this.dataset={};this.hidden=false;this.playbackRate=1;this.currentTime=0;this.paused=true;}pause(){this.paused=true;}play(){this.paused=false;return Promise.resolve();}after(){}}
+  const stream=()=>new ReadableStream({start(c){c.enqueue(new Uint8Array([1,2,3,4]));c.enqueue(new Uint8Array([5,6,7,8]));c.close();}});
+  try{
+    globalThis.fetch=async()=>({ok:true,headers:{get:name=>name==='content-length'?'8':null},body:stream()});
+    const video=new Video(),adapter=attachHevc(video,{url:'/video/a.mp4'});
+    await adapter.ready;
+    assert.deepEqual(captured[0],[1,2,3,4,5,6,7,8],'declared length keeps every media byte intact');
+    adapter.dispose();
+    globalThis.fetch=async()=>({ok:true,headers:{get:name=>name==='content-length'?String(1024*1024*1024+1):null},body:stream()});
+    let reported=null;
+    const oversized=attachHevc(new Video(),{url:'/video/b.mp4',onError:error=>{reported=error;}});
+    await oversized.ready;
+    assert.equal(oversized.failed,true,'an oversized clip never reaches the decoder');
+    assert.match(reported.message,/1 GB/);
+    oversized.dispose();
+  }finally{Object.assign(globalThis,saved);delete globalThis.__hevcTest;}
+});

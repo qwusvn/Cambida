@@ -2449,7 +2449,7 @@
     player.pause();
     const errorBox=$(getTimelineContext(player)==="cut"?"cutError":"watchError");
     const showError=error=>{if(isCurrentPlayerRequest(player,serial)&&errorBox){errorBox.textContent="Không phát được video: "+error.message;errorBox.hidden=false;}};
-    import('/static/hevc-inline.mjs?v=3').then(({attachHevc})=>{
+    import('/static/hevc-inline.mjs?v=4').then(({attachHevc})=>{
       if(!isCurrentPlayerRequest(player,serial)||player._hevc||isScreenLive(getTimelineContext(player)))return;
       const audioButton=$(getTimelineContext(player)==="cut"?"cutAudioButton":"replayAudioButton");
       const controller=attachHevc(player,{url,time,autoplay,onError:showError,onAudioState:state=>{
