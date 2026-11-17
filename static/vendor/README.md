@@ -11,9 +11,10 @@ when distributing the runtime. HEVC patent rights are separate from copyright.
 
 The compatibility page uses the single-threaded WASM backend in a dedicated
 Worker; no HTTPS, SharedArrayBuffer, CDN or server transcoding is required.
-This first version supports completed local HEVC MP4 clips up to 1 GiB,
-play/pause and keyframe-aligned seeking. Audio, automatic playlist transitions,
-cut preview and NVR container streaming are not implemented in this player.
+It supports completed local clips up to 1 GiB, play/pause and keyframe-aligned
+seeking; H.264 clips are handed to the browser's native player instead.
+Audio, automatic playlist transitions, cut preview and NVR container streaming
+are not implemented in this player.
 
 ## go2rtc sidecar
 

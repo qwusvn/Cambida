@@ -117,6 +117,14 @@ file size in free RAM on the viewing device; the server never transcodes.
 HEVC replay was accepted on iPhone by the user; this is not a universal
 device performance guarantee.
 
+Codec routing (2.4.2+): a small ranged MP4 header probe decides the player.
+H.264 clips use the browser's native <video> element (hardware decoding and
+native audio); H.265 clips use the WASM decoder above. A clip that the HEVC
+demuxer rejects falls back to native playback, so mixed H.264/H.265
+recordings both work. Live preview likewise plays both codecs: WebRTC is used
+when the negotiated codec can actually be decoded, otherwise the page falls
+back to the server MJPEG stream (OpenCV decodes H.264 and H.265 alike).
+
 Audio extension (2.4.0): local MP4 audio is repackaged in-browser as an
 audio-only MP4 Blob, preserving timing/edit lists and original media bytes.
 A speaker button enables sound after a user gesture; seek, pause and rate stay

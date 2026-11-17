@@ -11,6 +11,22 @@ test('main replay defaults to WASM without compatibility UI or native preloading
   assert.ok(!html.includes('replayInlinePlay'),'removed overlay has no markup or dangling handlers');
 });
 
+test('replay routes H.264 to the native player and H.265 to the WASM decoder',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  assert.match(html,/import\('\/static\/mp4-codec\.mjs\?v=1'\)/);
+  assert.ok(html.includes("if(info?.codec==='h264'){playReplayNative(player,autoplay,Boolean(info.audio),resumeAt);return;}"));
+  assert.match(html,/enableHevc\(player,autoplay,resumeAt\)/);
+  assert.match(html,/disposeHevc\(player\);[\s\S]{0,220}?playReplayNative\(player,autoplay,Boolean\(info\?\.audio\)\)/,'a non-HEVC clip still falls back to native playback');
+});
+
+test('live preview falls back to codec-agnostic MJPEG when WebRTC cannot render HEVC',()=>{
+  const html=fs.readFileSync('index.html','utf8');
+  assert.ok(html.includes('H265\\/90000'),'HEVC SDP payload is detected');
+  assert.match(html,/watchFrames\(\)/);
+  assert.match(html,/video\.videoWidth>0/);
+  assert.match(html,/fallbackLiveMjpeg\(\)/);
+});
+
 test('inline adapter seeks, pauses, changes speed and restores native properties',async()=>{
   const frames=[],canvases=[];
   const clip={duration:60,samples:[{time:0,duration:1,key:true},{time:30,duration:1,key:true}],packet:()=>new Uint8Array([0,0,0,1])};
